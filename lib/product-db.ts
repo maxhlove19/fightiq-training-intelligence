@@ -193,10 +193,11 @@ export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { missi
   const instructor = memory.instructorDetails[0];
   const latestNote = memory.recentTraining[0]?.note.toLowerCase() ?? "";
   const armDrag = latestNote.includes("arm drag") || memory.currentFocus.toLowerCase().includes("arm drag");
+  const kickIssue = /kick|hip|pivot|bag/.test(`${latestNote} ${memory.currentFocus.toLowerCase()}`);
   const candidates = [
-    experiment ? `What should I notice while I test “${compactTopic(experiment.mission, "this experiment")}”?` : instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
-    armDrag ? "How do I stop them squaring after the arm drag?" : confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
-    strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
+    kickIssue ? "What should I watch for in my support-foot pivot?" : experiment ? `What should I notice while I test “${compactTopic(experiment.mission, "this experiment")}”?` : instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
+    kickIssue ? "How can I tell timing from a balance problem?" : armDrag ? "How do I stop them squaring after the arm drag?" : confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
+    kickIssue ? "Who should I study for clean round-kick mechanics?" : strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
   ];
   const unique: string[] = [];
   for (const candidate of candidates) if (isDistinct(candidate, unique)) unique.push(candidate);

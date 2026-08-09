@@ -1,4 +1,4 @@
-const MAX_QUESTIONS = 3;
+const MAX_QUESTIONS = 1;
 
 export type DebriefMemory = {
   techniques: string[]; positions: string[]; successes: string[]; problems: string[];
@@ -53,7 +53,7 @@ Rules:
 - Keep reported coach details separate from FightIQ explanations. coach_detail contains only the athlete's report of what their coach said. fightiq_explanation must use uncertainty language when causal reasoning is not certain.
 - Ask one short question at a time. Prefer concrete answer choices that fit the exact session. Do not repeat facts already stated.
 - Prioritize the first technical breakdown, live-training context, attempted correction, coach detail, or next-session intent.
-- Prefer two answered questions total. Ask a third only when its answer could materially change the takeaway or next-session focus. Never exceed three.
+- Ask exactly one high-value follow-up question, then complete the debrief using that answer. Never ask a second question.
 - Questions are optional. Do not diagnose injuries or give dangerous weight-cut advice.
 - If status is complete, return an empty question prompt, choices, target_field, and why_asked.
 - Keep the takeaway and next-session focus concise and directly useful.`;
@@ -154,8 +154,7 @@ async function hashIdentifier(value: string) {
 
 function mockDebrief(entry: Entry, history: History): DebriefResult {
   const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [] };
-  const answer = history.at(-1)?.answer ?? "";
-  if (history.length >= 3 || (history.length >= 2 && answer.toLowerCase() !== "not sure")) return {
+  if (history.length >= 1) return {
     status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail, and the next step is making it reliable against live resistance.",
     coach_detail: "", fightiq_explanation: "One likely reason is that the sequence is breaking down before you can apply the detail consistently.",
     next_session_focus: "Identify the first breakdown and test one correction during live rounds.", confidence: .82, memory,
@@ -169,11 +168,7 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
     "Muay Thai": ["When was the opening showing up?", ["On entry", "In the pocket", "On exit", "In the clinch"], "striking_phase"],
     Kickboxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I kicked"], "striking_phase"],
   };
-  const prompt = history.length === 0
-    ? (first[entry.discipline] ?? first.MMA)
-    : history.length === 1
-      ? ["What did you try once you noticed it?", ["Changed my position", "Used the coach’s cue", "Slowed it down", "Couldn’t adjust live"], "attempted_correction"]
-      : ["What cue would help you catch it earlier next round?", ["Watch their first movement", "Reset my position sooner", "Use the coach’s cue", "Ask my partner to repeat it"], "next_session_intent"];
+  const prompt = first[entry.discipline] ?? first.MMA;
   return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "There’s a useful gap between understanding the detail and applying it under live pressure.", coach_detail: "", fightiq_explanation: "This may help because finding the first breakdown makes the next correction more specific.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer can identify the most useful next-session focus." } };
 }
 

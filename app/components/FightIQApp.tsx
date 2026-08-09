@@ -1,12 +1,14 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- FightIQ displays source-owned video thumbnails, not decorative assets. */
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, BookOpen, Bot, BrainCircuit, Check, ChevronRight, CircleUserRound,
-  Dumbbell, Home, MessageCircle, Mic, Plus, RefreshCw, Send, Sparkles, Utensils, X,
+  ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleUserRound,
+  Dumbbell, Home, Mic, Plus, RefreshCw, Send, Sparkles, Utensils, X,
 } from "lucide-react";
+import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
 
-type Screen = "home" | "learn" | "coach" | "game" | "log";
+type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food";
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
@@ -24,7 +26,9 @@ const sessionTypes = ["Class", "Drilling", "Sparring", "Open mat", "Private"];
 type DebriefState = {
   entryId: string;
   status: "not_started" | "preparing" | "question" | "complete" | "error";
+  summary?: string | null;
   takeaway?: string;
+  fightiqExplanation?: string | null;
   nextSessionFocus?: string | null;
   answeredCount?: number;
   questionCount?: number;
@@ -32,8 +36,9 @@ type DebriefState = {
   question?: { id: string; sequence: number; prompt: string; choices: string[]; targetField: string };
 };
 
-function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
+function HomeScreen({ name, onLog, onLearn, onGame }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
+  const [product, setProduct] = useState<ProductData | null>(null);
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -44,6 +49,9 @@ function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
       greeting: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
     });
   }, []);
+  useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
+  const insight = product?.insight ?? { title: "FightIQ is learning your game.", body: "Log today’s training and FightIQ will turn it into a useful pattern, one insight, and a clear next focus.", currentFocus: "Build your fighter memory" };
+  const firstVideo = product?.videos[0];
   return (
     <main className="page">
       <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
@@ -53,19 +61,16 @@ function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
 
       <section className="insight-card">
         <p className="eyebrow">FIGHTIQ INSIGHT</p>
-        <h2>Your game is showing a pattern.</h2>
-        <p>You’ve mentioned being taken down during scrambles in several recent sessions. Improving your first layer of defense can help you stay in control and create more chances to attack.</p>
-        <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>Wrestling Defense</strong></div><button className="text-link">See why <ChevronRight size={14} /></button></div>
+        <h2>{insight.title}</h2>
+        <p>{insight.body}</p>
+        <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
 
       <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>
 
       <h2 className="section-heading">FOR YOUR GAME</h2>
-      <article className="video-card">
-        <div className="video-thumb" aria-label="Video thumbnail placeholder"><div className="play"><ChevronRight size={22} fill="currentColor" /></div><span className="duration">6:42</span></div>
-        <div className="video-copy"><span className="video-type">VIDEO</span><h3>Defend the Double Leg</h3><p>Keep your stance, stop the shot, and return to offense.</p><button className="text-link">Why FightIQ picked this <ChevronRight size={14} /></button></div>
-      </article>
+      {firstVideo ? <article className="video-card"><a className="video-thumb real-video-thumb" href={firstVideo.url} target="_blank" rel="noreferrer"><img src={firstVideo.thumbnail} alt={`Video thumbnail for ${firstVideo.title}`} /><div className="play"><ChevronRight size={22} fill="currentColor" /></div><span className="duration">{firstVideo.duration}</span></a><div className="video-copy"><span className="video-type">{firstVideo.discipline}</span><h3>{firstVideo.title}</h3><p>{firstVideo.description}</p><button className="text-link" onClick={onLearn}>Why FightIQ picked this <ChevronRight size={14} /></button></div></article> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
     </main>
   );
 }
@@ -207,7 +212,7 @@ function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEn
 
   if (debriefPhase === "question" && debrief?.question) return (
     <main className="page">
-      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">QUESTION {debrief.question.sequence} OF UP TO {debrief.maxQuestions ?? 3}</p><h1 className="page-title">Training debrief</h1></div></header>
+      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">QUESTION {debrief.question.sequence} OF {debrief.maxQuestions ?? 1}</p><h1 className="page-title">Training debrief</h1></div></header>
       <section className="takeaway-card"><p className="eyebrow">KEY TAKEAWAY</p><p>{debrief.takeaway}</p></section>
       <section className="question-card">
         <p className="eyebrow">QUICK QUESTION</p>
@@ -225,7 +230,7 @@ function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEn
   if (debriefPhase === "complete") return (
     <main className="page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Debrief complete</h1></header>
-      <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">MEMORY UPDATED</p><h2>Got it.</h2><p>{debrief?.takeaway ?? "Your training note has been saved."}</p>{debrief?.nextSessionFocus && <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
+      <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">MEMORY UPDATED</p><h2>Got it.</h2>{debrief?.summary && <div className="result-block"><span>SUMMARY</span><p>{debrief.summary}</p></div>}<div className="result-block"><span>KEY INSIGHT</span><p>{debrief?.takeaway ?? "Your training note has been saved."}</p></div>{debrief?.nextSessionFocus && <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
     </main>
   );
 
@@ -244,16 +249,6 @@ function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEn
       <div className="save-row"><button className="primary-button" disabled={!transcript.trim() || saving} onClick={saveEntry}>{saving ? "SAVING…" : <><Send size={18} /> SAVE TRAINING</>}</button></div>
     </main>
   );
-}
-
-function ComingSoon({ screen }: { screen: Exclude<Screen, "home" | "log"> }) {
-  const copy = {
-    learn: { icon: BookOpen, title: "Learn", phase: "STEP 7", text: "Personalized videos and technical study will connect directly to your training patterns." },
-    coach: { icon: MessageCircle, title: "Ask FightIQ", phase: "STEP 6", text: "Your personal MMA coach conversation will use your training memory to answer what matters now." },
-    game: { icon: BrainCircuit, title: "My Game", phase: "STEP 8", text: "Your evolving identity, current focus, improvements, patterns, and style influences will live here." },
-  }[screen];
-  const Icon = copy.icon;
-  return <main className="page coming-page"><div className="coming-icon"><Icon size={27} /></div><p className="phase-tag">PLANNED · {copy.phase}</p><h1>{copy.title}</h1><p>{copy.text}</p></main>;
 }
 
 function ActionSheet({ onClose, onAction }: { onClose: () => void; onAction: (action: string) => void }) {
@@ -277,13 +272,18 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     setSheetOpen(false);
     if (name === "Log Training") setScreen("log");
     else if (name === "Ask FightIQ") setScreen("coach");
-    else setToast(`${name} arrives in a later build phase.`);
+    else if (name === "Workout") setScreen("workout");
+    else if (name === "Food") setScreen("food");
   }
   return <div className="app-frame">
-    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} />}
-    {(screen === "learn" || screen === "coach" || screen === "game") && <ComingSoon screen={screen} />}
-    {screen !== "log" && <nav className="bottom-nav" aria-label="Primary navigation">
+    {screen === "learn" && <LearnScreen />}
+    {screen === "coach" && <CoachScreen />}
+    {screen === "game" && <GameScreen />}
+    {screen === "workout" && <WorkoutScreen onBack={goHome} />}
+    {screen === "food" && <FoodScreen onBack={goHome} />}
+    {screen !== "log" && screen !== "workout" && screen !== "food" && <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={`nav-button ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}><Home size={21} /><span>HOME</span></button>
       <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => setScreen("learn")}><BookOpen size={21} /><span>LEARN</span></button>
       <button className="nav-button center" onClick={() => setSheetOpen(true)} aria-label="Open quick actions"><span className="nav-center-icon"><Plus size={27} /></span><span>FIGHTIQ</span></button>

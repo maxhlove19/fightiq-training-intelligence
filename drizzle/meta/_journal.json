@@ -8,6 +8,20 @@
       "when": 1786310498012,
       "tag": "0000_sharp_rhodey",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786311938317,
+      "tag": "0001_clumsy_big_bertha",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786312134528,
+      "tag": "0002_last_anita_blake",
+      "breakpoints": true
     }
   ]
 }

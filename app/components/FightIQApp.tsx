@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, BookOpen, Bot, BrainCircuit, Check, ChevronRight, CircleUserRound,
-  Dumbbell, Home, MessageCircle, Mic, Plus, Send, Sparkles, Utensils, X,
+  Dumbbell, Home, MessageCircle, Mic, Plus, RefreshCw, Send, Sparkles, Utensils, X,
 } from "lucide-react";
 
 type Screen = "home" | "learn" | "coach" | "game" | "log";
@@ -21,11 +21,24 @@ type SpeechRecognitionLike = {
 const disciplines = ["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai", "Kickboxing", "Judo", "Other"];
 const sessionTypes = ["Class", "Drilling", "Sparring", "Open mat", "Private"];
 
+type DebriefState = {
+  entryId: string;
+  status: "not_started" | "preparing" | "question" | "complete" | "error";
+  takeaway?: string;
+  nextSessionFocus?: string | null;
+  answeredCount?: number;
+  questionCount?: number;
+  maxQuestions?: number;
+  question?: { id: string; sequence: number; prompt: string; choices: string[]; targetField: string };
+};
+
 function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
+    // This intentionally runs after hydration so the date reflects the athlete's device timezone.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalTime({
       date: new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(now),
       greeting: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
@@ -57,18 +70,35 @@ function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
   );
 }
 
-function TrainingLog({ onBack }: { onBack: () => void }) {
+function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEntryId: string | null }) {
   const [discipline, setDiscipline] = useState("MMA");
   const [sessionType, setSessionType] = useState("Class");
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
+  const [answerListening, setAnswerListening] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [entryId, setEntryId] = useState<string | null>(initialEntryId);
+  const [debrief, setDebrief] = useState<DebriefState | null>(null);
+  const [debriefPhase, setDebriefPhase] = useState<"log" | "loading" | "question" | "complete" | "error">(initialEntryId ? "loading" : "log");
+  const [answer, setAnswer] = useState("");
+  const [answerMethod, setAnswerMethod] = useState<"text" | "voice">("text");
   const [error, setError] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const questionHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const restoredRef = useRef(false);
 
   useEffect(() => () => recognitionRef.current?.stop(), []);
+  useEffect(() => {
+    if (!initialEntryId || restoredRef.current) return;
+    restoredRef.current = true;
+    void restoreDebrief(initialEntryId);
+    // Restore is deliberately keyed only to the entry in the URL; its request helpers do not
+    // represent reactive inputs and including them would restart an in-flight debrief.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEntryId]);
+  useEffect(() => { if (debriefPhase === "question") questionHeadingRef.current?.focus(); }, [debriefPhase, debrief?.question?.id]);
 
   function toggleListening() {
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
@@ -87,22 +117,115 @@ function TrainingLog({ onBack }: { onBack: () => void }) {
     recognitionRef.current = recognition; recognition.start(); setListening(true); setError("");
   }
 
+  function toggleAnswerListening() {
+    if (answerListening) { recognitionRef.current?.stop(); setAnswerListening(false); return; }
+    const SpeechRecognition = (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setSpeechAvailable(false); setError("Voice isn’t available here. You can type your answer instead."); return; }
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true; recognition.interimResults = true; recognition.lang = "en-US";
+    recognition.onresult = (event) => {
+      let combined = "";
+      for (let i = 0; i < event.results.length; i += 1) combined += `${event.results[i][0].transcript} `;
+      setAnswer(combined.trim()); setAnswerMethod("voice");
+    };
+    recognition.onend = () => setAnswerListening(false);
+    recognition.onerror = () => { setAnswerListening(false); setError("I couldn’t access the microphone. Your typed answer is still here."); };
+    recognitionRef.current = recognition; recognition.start(); setAnswerListening(true); setError("");
+  }
+
   async function saveEntry() {
     if (!transcript.trim()) return;
     setSaving(true); setError("");
     try {
       const response = await fetch("/api/training-entries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, sessionType, rawEntry: transcript.trim() }) });
       if (!response.ok) throw new Error("save failed");
-      setSaved(true);
+      const data = await response.json() as { id: string };
+      setEntryId(data.id);
+      window.history.replaceState({}, "", `/?debrief=${encodeURIComponent(data.id)}`);
+      await startDebrief(data.id);
     } catch {
       setError("Your note couldn’t be saved yet. Your text is still here—please try again.");
     } finally { setSaving(false); }
   }
 
-  if (saved) return (
+  async function parseResponse(response: Response) {
+    const data = await response.json() as DebriefState & { error?: { message?: string } };
+    if (!response.ok) throw new Error(data.error?.message ?? "FightIQ couldn’t continue the debrief.");
+    setDebrief(data);
+    setError("");
+    if (data.status === "question") setDebriefPhase("question");
+    else if (data.status === "complete") setDebriefPhase("complete");
+    else if (data.status === "error") setDebriefPhase("error");
+    else setDebriefPhase("loading");
+    return data;
+  }
+
+  async function startDebrief(id: string) {
+    setDebriefPhase("loading"); setError("");
+    try { await parseResponse(await fetch(`/api/training-entries/${encodeURIComponent(id)}/debrief`, { method: "POST" })); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t prepare your debrief."); setDebriefPhase("error"); }
+  }
+
+  async function restoreDebrief(id: string) {
+    setDebriefPhase("loading");
+    try {
+      const data = await parseResponse(await fetch(`/api/training-entries/${encodeURIComponent(id)}/debrief`));
+      if (data.status === "not_started" || data.status === "preparing") await startDebrief(id);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t restore your debrief."); setDebriefPhase("error"); }
+  }
+
+  async function respond(action: "answer" | "skip" | "finish", value = answer, method: "chip" | "text" | "voice" = answerMethod) {
+    if (!entryId || submitting) return;
+    if (action === "answer" && !value.trim()) return;
+    setSubmitting(true); setError(""); recognitionRef.current?.stop();
+    try {
+      const response = await fetch(`/api/training-entries/${encodeURIComponent(entryId)}/debrief/respond`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, questionId: debrief?.question?.id, answer: value.trim(), inputMethod: method }),
+      });
+      setDebriefPhase("loading");
+      await parseResponse(response);
+      setAnswer(""); setAnswerMethod("text");
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Your answer was saved, but FightIQ couldn’t continue."); setDebriefPhase("error"); }
+    finally { setSubmitting(false); setAnswerListening(false); }
+  }
+
+  if (debriefPhase === "loading") return (
+    <main className="page">
+      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training debrief</h1></header>
+      <section className="debrief-loading" aria-live="polite"><span className="thinking-mark"><Sparkles size={25} /></span><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ is finding the useful detail.</h2><p>You can leave at any time. Your training entry is already saved.</p></section>
+    </main>
+  );
+
+  if (debriefPhase === "error") return (
     <main className="page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training saved</h1></header>
-      <div className="success-card"><div className="success-icon"><Check size={20} /></div><h2>Got it.</h2><p>Your raw training note has been safely added to your training memory. The intelligent debrief and follow-up question arrive in the next build phase.</p><button className="secondary-button" onClick={onBack}>Back to Home</button></div>
+      <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ needs another try.</h2><p>{error || "The debrief couldn’t be prepared right now."}</p><button className="primary-button" onClick={() => entryId && startDebrief(entryId)}><RefreshCw size={18} /> RETRY DEBRIEF</button><button className="quiet-button" onClick={() => respond("finish")}>Finish for now</button></div>
+    </main>
+  );
+
+  if (debriefPhase === "question" && debrief?.question) return (
+    <main className="page">
+      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">QUESTION {debrief.question.sequence} OF UP TO {debrief.maxQuestions ?? 3}</p><h1 className="page-title">Training debrief</h1></div></header>
+      <section className="takeaway-card"><p className="eyebrow">KEY TAKEAWAY</p><p>{debrief.takeaway}</p></section>
+      <section className="question-card">
+        <p className="eyebrow">QUICK QUESTION</p>
+        <h2 ref={questionHeadingRef} tabIndex={-1}>{debrief.question.prompt}</h2>
+        <div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div>
+        <div className="answer-compose"><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setAnswerMethod("text"); }} placeholder="Talk or type a different answer…" aria-label="Your answer" /><button className={`answer-mic ${answerListening ? "listening" : ""}`} onClick={toggleAnswerListening} aria-label={answerListening ? "Stop listening" : "Answer by voice"}>{answerListening ? <X size={20} /> : <Mic size={20} />}</button></div>
+        {error && <p className="error-message" role="alert">{error}</p>}
+        <button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> SEND ANSWER</>}</button>
+        <div className="debrief-secondary-actions"><button onClick={() => respond("skip")} disabled={submitting}>Skip this question</button><span aria-hidden="true">·</span><button onClick={() => respond("finish")} disabled={submitting}>Finish for now</button></div>
+      </section>
+      <p className="sr-status" aria-live="polite">{submitting ? "Saving your answer and preparing the next step." : ""}</p>
+    </main>
+  );
+
+  if (debriefPhase === "complete") return (
+    <main className="page">
+      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Debrief complete</h1></header>
+      <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">MEMORY UPDATED</p><h2>Got it.</h2><p>{debrief?.takeaway ?? "Your training note has been saved."}</p>{debrief?.nextSessionFocus && <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
     </main>
   );
 
@@ -140,14 +263,16 @@ function ActionSheet({ onClose, onAction }: { onClose: () => void; onAction: (ac
     { name: "Workout", note: "Train for your martial art", icon: Dumbbell },
     { name: "Food", note: "Support your performance", icon: Utensils },
   ];
-  return <div className="sheet-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}><section className="action-sheet" role="dialog" aria-modal="true" aria-label="Quick actions"><div className="sheet-handle" /><h2>What do you want to do?</h2><div className="sheet-grid">{actions.map(({ name, note, icon: Icon }) => <button className="sheet-action" key={name} onClick={() => onAction(name)}><Icon size={21} /><strong>{name}</strong><span>{note}</span></button>)}</div></section></div>;
+  return <div className="sheet-backdrop"><section className="action-sheet" role="dialog" aria-modal="true" aria-label="Quick actions"><div className="sheet-handle" /><button className="sheet-close" onClick={onClose} aria-label="Close quick actions"><X size={18} /></button><h2>What do you want to do?</h2><div className="sheet-grid">{actions.map(({ name, note, icon: Icon }) => <button className="sheet-action" key={name} onClick={() => onAction(name)}><Icon size={21} /><strong>{name}</strong><span>{note}</span></button>)}</div></section></div>;
 }
 
-export function FightIQApp({ displayName }: { displayName: string }) {
-  const [screen, setScreen] = useState<Screen>("home");
+export function FightIQApp({ displayName, initialEntryId = null }: { displayName: string; initialEntryId?: string | null }) {
+  const [screen, setScreen] = useState<Screen>(initialEntryId ? "log" : "home");
+  const [activeEntryId, setActiveEntryId] = useState<string | null>(initialEntryId);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
+  function goHome() { window.history.replaceState({}, "", "/"); setActiveEntryId(null); setScreen("home"); }
   function act(name: string) {
     setSheetOpen(false);
     if (name === "Log Training") setScreen("log");
@@ -156,7 +281,7 @@ export function FightIQApp({ displayName }: { displayName: string }) {
   }
   return <div className="app-frame">
     {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} />}
-    {screen === "log" && <TrainingLog onBack={() => setScreen("home")} />}
+    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} />}
     {(screen === "learn" || screen === "coach" || screen === "game") && <ComingSoon screen={screen} />}
     {screen !== "log" && <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={`nav-button ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}><Home size={21} /><span>HOME</span></button>

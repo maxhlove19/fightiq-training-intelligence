@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   description: "FightIQ learns your game and tells you what to work on next.",
 };
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ debrief?: string | string[] }> }) {
   const user = await getChatGPTUser();
   const isPreview = process.env.NODE_ENV !== "production";
 
@@ -28,5 +28,7 @@ export default async function Home() {
   }
 
   const displayName = user?.fullName?.split(" ")[0] ?? "Max";
-  return <FightIQApp displayName={displayName} />;
+  const requestedEntry = (await searchParams).debrief;
+  const initialEntryId = typeof requestedEntry === "string" && requestedEntry.length <= 100 ? requestedEntry : null;
+  return <FightIQApp displayName={displayName} initialEntryId={initialEntryId} />;
 }

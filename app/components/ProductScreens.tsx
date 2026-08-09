@@ -26,6 +26,10 @@ export type ProductData = {
 type MacroValues = { calories: number; protein: number; carbs: number; fat: number };
 type NutritionEntry = MacroValues & { id: string; description: string; photoUrl: string | null; created_at?: string; createdAt?: string };
 
+function cleanAiDisplay(value: string) {
+  return value.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s*[-*]\s+/gm, "").replace(/^\s{0,3}#{1,6}\s*/gm, "").trim();
+}
+
 function useProductData() {
   const [data, setData] = useState<ProductData | null>(null);
   const [error, setError] = useState("");
@@ -142,7 +146,7 @@ export function CoachScreen() {
     <section className="coach-thread" aria-live="polite">
       {loading && <LoadingState label="Loading your conversation…" />}
       {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p></div>}
-      {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><p>{message.content}</p></div>)}
+      {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><p>{message.role === "assistant" ? cleanAiDisplay(message.content) : message.content}</p></div>)}
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div>}
       <div ref={endRef} />
     </section>

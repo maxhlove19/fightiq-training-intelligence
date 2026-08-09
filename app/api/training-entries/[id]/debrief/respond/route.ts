@@ -4,6 +4,8 @@ import {
   getOwnedEntry, markDebriefError, markDebriefPreparing,
 } from "../../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../../lib/debrief-server";
+import { getLatestPreTrainingBrief } from "../../../../../../lib/product-db";
+import { ensureProductSchema } from "../../../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
@@ -16,6 +18,7 @@ export async function POST(request: Request, context: Context) {
   const { db, apiKey, allowMockAi } = getRuntime();
   if (!db) return apiError("STORAGE_UNAVAILABLE", "Training storage is unavailable.", 503, { entrySaved: true });
   await ensureDebriefSchema(db);
+  await ensureProductSchema(db);
   const entry = await getOwnedEntry(db, id, ownerId);
   if (!entry) return apiError("NOT_FOUND", "Training entry not found.", 404);
 
@@ -45,7 +48,8 @@ export async function POST(request: Request, context: Context) {
   const current = await getDebriefRecord(db, id, ownerId);
   await markDebriefPreparing(db, id, ownerId);
   try {
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current });
+    const brief = await getLatestPreTrainingBrief(db, ownerId);
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: brief ? { mission: brief.mission, reason: brief.reason, cue: brief.cue } : null });
     await persistDebriefResult(db, id, ownerId, result, history.length + 1);
     return Response.json(await getDebriefState(db, id, ownerId));
   } catch (error) {

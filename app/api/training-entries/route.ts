@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../../chatgpt-auth";
+import { consumePreTrainingBrief, ensureProductSchema } from "../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -38,5 +39,7 @@ export async function POST(request: Request) {
   await env.DB.prepare(
     "INSERT INTO training_entries (id, owner_id, discipline, session_type, raw_entry, input_method, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).bind(id, ownerId, discipline, sessionType, rawEntry, "voice_or_text", new Date().toISOString()).run();
+  await ensureProductSchema(env.DB);
+  await consumePreTrainingBrief(env.DB, ownerId);
   return Response.json({ id }, { status: 201 });
 }

@@ -32,6 +32,8 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
     db.prepare(`UPDATE training_followups SET confidence_after = ?
       WHERE entry_id = ? AND owner_id = ? AND sequence = ? AND status IN ('answered', 'skipped')`)
       .bind(result.confidence, entryId, ownerId, sequence - 1),
+    db.prepare(`UPDATE fighter_profiles SET current_focus = ?, focus_reason = ?, updated_at = ? WHERE owner_id = ?`)
+      .bind(result.next_session_focus || result.takeaway, result.fightiq_explanation || result.takeaway, now, ownerId),
   ];
   if (result.status === "question") statements.push(
     db.prepare(`INSERT INTO training_followups (

@@ -1,4 +1,4 @@
-import { ensureProductSchema, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { ensureProductSchema, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,24 +9,27 @@ const videoCatalog = [
   { id: "8kq7qd7QpwE", title: "Advanced Boxing Footwork Drill", creator: "Tony Jeffries", discipline: "Boxing / MMA", duration: "Quick drill", topics: ["boxing", "footwork", "exit", "balance", "striking"], description: "Keep your feet available to punch, defend, and exit after exchanges." },
   { id: "WZnT87UqcDA", title: "A Technical Mount Escape", creator: "Chewjitsu", discipline: "BJJ / MMA", duration: "Technique", topics: ["mount", "escape", "bridge", "grappling"], description: "Combine sound position with deliberate effort instead of wasting energy." },
   { id: "dLUhx1f8H6o", title: "Masters of the Teep", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Study", topics: ["teep", "distance", "timing", "striking"], description: "Study how elite strikers use the teep to control pace and center line." },
+  { id: "yXj9IPvxftw", title: "How to Arm Drag and Take the Back in Jiu-Jitsu", creator: "YouTube technique study", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back take", "angle", "shoulder", "grappling"], description: "Turn a clean arm drag into control before they can square back up." },
+  { id: "iPB3axhgSis", title: "Arm Drag to Back Take", creator: "Realize BJJ Life", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back", "control", "grappling"], description: "Study the moment after the drag: angle, shoulder control, and back exposure." },
 ];
 
 function personalizedVideos(memory: Awaited<ReturnType<typeof getMemorySnapshot>>) {
-  const focusContext = [memory.currentFocus, memory.nextEvolution, ...memory.recurringProblems].join(" ").toLowerCase();
-  const recentContext = memory.recentTraining.map((item) => `${item.discipline} ${item.note} ${item.takeaway ?? ""}`).join(" ").toLowerCase();
+  const focusContext = [memory.currentFocus, memory.nextEvolution, ...memory.recurringProblems, ...memory.instructorDetails].join(" ").toLowerCase();
+  const recentContext = memory.recentTraining.slice(0, 3).map((item) => `${item.discipline} ${item.note} ${item.takeaway ?? ""}`).join(" ").toLowerCase();
   return videoCatalog.map((video) => ({
     ...video,
     focusMatches: video.topics.filter((topic) => focusContext.includes(topic)),
     recentMatches: video.topics.filter((topic) => recentContext.includes(topic)),
-  })).map((video) => ({ ...video, score: video.focusMatches.length * 4 + video.recentMatches.length * 2 + (video.discipline.includes("MMA") ? 1 : 0) }))
+  })).map((video) => ({ ...video, score: video.recentMatches.length * 8 + video.focusMatches.length * 4 + (video.discipline.includes("MMA") ? 1 : 0) }))
     .sort((a, b) => b.score - a.score).slice(0, 4).map(({ score, focusMatches, recentMatches, ...video }, index) => ({
     ...video,
     thumbnail: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
     url: `https://www.youtube.com/watch?v=${video.id}`,
-    why: focusMatches.length
-      ? `It connects directly to your current focus: ${memory.currentFocus.replace(/[.!?]+$/g, "")}.`
-      : recentMatches.length
-        ? `Your recent training surfaced ${recentMatches.slice(0, 2).join(" and ")}.`
+    watchFor: recentMatches[0] ? `Watch the ${recentMatches[0]} detail right after the first contact.` : `Watch for the first detail that makes the technique hold under resistance.`,
+    why: recentMatches.length
+      ? `Your last session pointed straight to ${recentMatches.slice(0, 2).join(" and ")}.`
+      : focusMatches.length
+        ? `It connects directly to your current focus: ${memory.currentFocus.replace(/[.!?]+$/g, "")}.`
         : index === 0 && score > 0 ? "It supports the next layer of your MMA game." : "It develops a transferable skill without pulling you away from your current focus.",
   }));
 }
@@ -43,6 +46,7 @@ export async function GET() {
     getTodayNutrition(db, ownerId),
     db.prepare("SELECT id, discipline, goal, fatigue, duration_minutes, plan_json, status, created_at FROM workout_plans WHERE owner_id = ? ORDER BY created_at DESC LIMIT 3").bind(ownerId).all(),
   ]);
+  const preTrainingBrief = await getOrCreatePreTrainingBrief(db, ownerId, memory);
   return Response.json({
     profile: {
       currentFocus: profile.current_focus,
@@ -58,6 +62,7 @@ export async function GET() {
       currentFocus: memory.currentFocus,
     },
     videos: personalizedVideos(memory),
+    preTrainingBrief,
     nutrition,
     recentWorkouts: recentWorkouts.results ?? [],
   });

@@ -52,6 +52,7 @@ function HomeScreen({ name, onLog, onLearn, onGame }: { name: string; onLog: () 
   useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
   const insight = product?.insight ?? { title: "FightIQ is learning your game.", body: "Log today’s training and FightIQ will turn it into a useful pattern, one insight, and a clear next focus.", currentFocus: "Build your fighter memory" };
   const firstVideo = product?.videos[0];
+  const brief = product?.preTrainingBrief;
   return (
     <main className="page">
       <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
@@ -65,6 +66,8 @@ function HomeScreen({ name, onLog, onLearn, onGame }: { name: string; onLog: () 
         <p>{insight.body}</p>
         <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
+
+      {brief && <section className="pre-training-brief" aria-label="Pre-training brief"><p className="eyebrow">YOUR MISSION TODAY</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={onLog}>Got it <ChevronRight size={14} /></button></div></section>}
 
       <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>

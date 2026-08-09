@@ -15,9 +15,10 @@ type SpeechRecognitionLike = {
 
 export type ProductData = {
   profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues };
-  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string };
+  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[] };
   insight: { title: string; body: string; currentFocus: string };
-  videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string }>;
+  videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string }>;
+  preTrainingBrief: { mission: string; reason: string; cue: string };
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
 };
@@ -91,7 +92,7 @@ export function LearnScreen() {
       <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2></div></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
-        <div className="video-copy"><span className="video-type">{video.discipline}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
+        <div className="video-copy"><span className="video-type">{video.discipline}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
       </article>)}</div>
       <p className="content-note">FightIQ prioritizes study topics from your training—not generic popularity. Technique videos support, but never replace, your coach.</p>
     </>}

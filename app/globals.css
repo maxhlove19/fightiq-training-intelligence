@@ -65,6 +65,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 .insight-card h2 { position: relative; margin: 0 0 12px; width: 85%; font-size: 22px; letter-spacing: -.025em; font-weight: 620; line-height: 1.2; }
 .insight-card > p { position: relative; color: var(--muted); margin: 0 0 23px; max-width: 540px; line-height: 1.55; font-size: 14px; }
+.pre-training-brief { border: 1px solid #2d557c; background: linear-gradient(135deg, #0e1d30, #0b131d); border-radius: 18px; padding: 19px; margin: 15px 0 18px; }
+.pre-training-brief h2 { margin: 5px 0 8px; font-size: 20px; letter-spacing: -.03em; line-height: 1.2; }
+.pre-training-brief > p:not(.eyebrow) { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 15px; }
+.pre-training-brief > div { border-top: 1px solid var(--line-soft); padding-top: 12px; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: center; }
+.pre-training-brief span { color: var(--blue-bright); font-size: 8px; letter-spacing: .14em; font-weight: 800; }
+.pre-training-brief strong { font-size: 13px; color: #d8e5f4; }
+.pre-training-brief .text-link { grid-column: 2; grid-row: 1 / 3; }
 .focus-row { position: relative; border-top: 1px solid var(--line-soft); padding-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .focus-label { color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: .14em; display: block; margin-bottom: 6px; }
 .focus-row strong { font-size: 16px; font-weight: 640; }

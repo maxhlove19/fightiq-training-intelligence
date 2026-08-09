@@ -2,7 +2,7 @@ const MAX_QUESTIONS = 1;
 
 export type DebriefMemory = {
   techniques: string[]; positions: string[]; successes: string[]; problems: string[];
-  concepts: string[]; sparring_observations: string[]; related_topics: string[];
+  concepts: string[]; sparring_observations: string[]; related_topics: string[]; instructor_details: string[];
 };
 
 export type DebriefResult = {
@@ -31,8 +31,8 @@ const resultSchema = {
     confidence: { type: "number", minimum: 0, maximum: 1 },
     memory: {
       type: "object", additionalProperties: false,
-      required: ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics"],
-      properties: Object.fromEntries(["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics"].map((key) => [key, { type: "array", items: { type: "string" } }])),
+      required: ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"],
+      properties: Object.fromEntries(["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"].map((key) => [key, { type: "array", items: { type: "string" } }])),
     },
     question: {
       type: "object", additionalProperties: false,
@@ -46,12 +46,13 @@ const resultSchema = {
   },
 };
 
-const systemPrompt = `You are FightIQ, a warm, observant MMA training intelligence coach. Analyze one athlete's training note and ask only high-value follow-up questions.
+const systemPrompt = `You are FightIQ, a warm, observant MMA training intelligence coach. Analyze one athlete's training note and ask only one high-value follow-up question.
 
 Rules:
-- Preserve the athlete's raw account. Never invent facts.
+- Preserve the athlete's raw account. Never invent facts. Treat anything the athlete says a coach/instructor taught as high-value instructor_detail memory, quoted or closely paraphrased, never as your own instruction.
 - Keep reported coach details separate from FightIQ explanations. coach_detail contains only the athlete's report of what their coach said. fightiq_explanation must use uncertainty language when causal reasoning is not certain.
-- Ask one short question at a time. Prefer concrete answer choices that fit the exact session. Do not repeat facts already stated.
+- Speak like a concise human coach: natural sentences, no Markdown, no headings, no bullets, no report language. Keep each field short.
+- Ask one short question at a time. Prefer concrete answer choices that fit the exact session. Do not repeat facts already stated. When a pre-training brief exists, ask how its mission went rather than asking a generic question.
 - Prioritize the first technical breakdown, live-training context, attempted correction, coach detail, or next-session intent.
 - Ask exactly one high-value follow-up question, then complete the debrief using that answer. Never ask a second question.
 - Questions are optional. Do not diagnose injuries or give dangerous weight-cut advice.
@@ -59,7 +60,7 @@ Rules:
 - Keep the takeaway and next-session focus concise and directly useful.`;
 
 export async function generateDebrief(args: {
-  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null;
 }): Promise<DebriefResult> {
   const nextSequence = args.history.length + 1;
   const allowQuestion = nextSequence <= MAX_QUESTIONS;
@@ -99,6 +100,7 @@ export async function generateDebrief(args: {
             raw_training_note: args.entry.raw_entry,
             previous_questions_and_answers: args.history,
             current_debrief: args.current ?? null,
+            pre_training_brief_for_this_session: args.preTrainingBrief ?? null,
           }) },
         ],
       }),
@@ -149,11 +151,17 @@ export function validateDebriefResult(value: unknown): DebriefResult {
   if (strings.some((key) => typeof value[key] !== "string")) throw invalid();
   if (typeof value.confidence !== "number" || value.confidence < 0 || value.confidence > 1) throw invalid();
   if (!isRecord(value.memory) || !isRecord(value.question)) throw invalid();
-  const memoryKeys = ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics"] as const;
+  const memoryKeys = ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"] as const;
   for (const key of memoryKeys) if (!stringArray(value.memory[key])) throw invalid();
   if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 4 || typeof value.question.target_field !== "string" || typeof value.question.why_asked !== "string") throw invalid();
   if (value.status === "question" && (!value.question.prompt.trim() || value.question.choices.length < 2)) throw invalid();
-  return value as DebriefResult;
+  const result = value as DebriefResult;
+  const clean = (text: string) => text.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s{0,3}#{1,6}\s*/gm, "").replace(/^\s*[-*]\s+/gm, "").trim();
+  result.summary = clean(result.summary); result.takeaway = clean(result.takeaway); result.coach_detail = clean(result.coach_detail);
+  result.fightiq_explanation = clean(result.fightiq_explanation); result.next_session_focus = clean(result.next_session_focus);
+  result.question.prompt = clean(result.question.prompt); result.question.choices = result.question.choices.map(clean);
+  result.memory.instructor_details = result.memory.instructor_details.map(clean);
+  return result;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
@@ -167,7 +175,7 @@ async function hashIdentifier(value: string) {
 }
 
 function mockDebrief(entry: Entry, history: History): DebriefResult {
-  const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [] };
+  const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [] };
   if (history.length >= 1) return {
     status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail, and the next step is making it reliable against live resistance.",
     coach_detail: "", fightiq_explanation: "One likely reason is that the sequence is breaking down before you can apply the detail consistently.",

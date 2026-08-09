@@ -26,6 +26,18 @@ function extractOutputText(payload: Record<string, unknown>) {
   return null;
 }
 
+// Models sometimes reach for Markdown even when the product language is conversational.
+// Keep the stored and rendered coach voice clean rather than relying on each surface to strip it.
+export function cleanCoachText(value: string) {
+  return value
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s*/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function responseRequest(apiKey: string, ownerId: string, body: Record<string, unknown>) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20000);
@@ -93,7 +105,7 @@ export async function answerCoach(args: {
   });
   const text = extractOutputText(payload)?.trim();
   if (!text) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
-  return text.slice(0, 5000);
+  return cleanCoachText(text).slice(0, 5000);
 }
 
 export type MealEstimate = {

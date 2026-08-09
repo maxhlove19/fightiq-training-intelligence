@@ -264,7 +264,11 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
   const since = new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString();
   const existing = await db.prepare(`SELECT mission, reason, cue, source_focus, created_at FROM pre_training_briefs
     WHERE owner_id = ? AND consumed_at IS NULL AND created_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, since).first<{ mission: string; reason: string; cue: string; source_focus: string; created_at: string }>();
-  if (existing) return { mission: existing.mission, reason: existing.reason, cue: existing.cue, sourceFocus: existing.source_focus, createdAt: existing.created_at };
+  if (existing) {
+    const refreshedCue = briefCue(existing.mission);
+    if (refreshedCue !== existing.cue) await db.prepare("UPDATE pre_training_briefs SET cue = ? WHERE owner_id = ? AND created_at = ?").bind(refreshedCue, ownerId, existing.created_at).run();
+    return { mission: existing.mission, reason: existing.reason, cue: refreshedCue, sourceFocus: existing.source_focus, createdAt: existing.created_at };
+  }
   const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
   const latest = fighterMemory.recentTraining[0];
   const focus = fighterMemory.currentFocus;

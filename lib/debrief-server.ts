@@ -27,13 +27,13 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
       structured_memory_json = excluded.structured_memory_json, status = excluded.status,
       question_count = excluded.question_count, confidence = excluded.confidence, updated_at = excluded.updated_at`)
       .bind(entryId, ownerId, result.summary, result.takeaway, result.coach_detail, result.fightiq_explanation,
-        result.next_session_focus, JSON.stringify(result.memory), status, result.status === "question" ? sequence : sequence - 1,
+        result.next_session_focus, JSON.stringify({ ...result.memory, intelligence: result.intelligence }), status, result.status === "question" ? sequence : sequence - 1,
         result.confidence, now, now),
     db.prepare(`UPDATE training_followups SET confidence_after = ?
       WHERE entry_id = ? AND owner_id = ? AND sequence = ? AND status IN ('answered', 'skipped')`)
       .bind(result.confidence, entryId, ownerId, sequence - 1),
-    db.prepare(`UPDATE fighter_profiles SET current_focus = ?, focus_reason = ?, updated_at = ? WHERE owner_id = ?`)
-      .bind(result.next_session_focus || result.takeaway, result.fightiq_explanation || result.takeaway, now, ownerId),
+    ...(result.status === "complete" ? [db.prepare(`UPDATE fighter_profiles SET current_focus = ?, focus_reason = ?, updated_at = ? WHERE owner_id = ?`)
+      .bind(result.next_session_focus || result.takeaway, result.fightiq_explanation || result.takeaway, now, ownerId)] : []),
   ];
   if (result.status === "question") statements.push(
     db.prepare(`INSERT INTO training_followups (

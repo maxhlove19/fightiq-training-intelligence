@@ -36,7 +36,7 @@ type DebriefState = {
   question?: { id: string; sequence: number; prompt: string; choices: string[]; targetField: string };
 };
 
-function HomeScreen({ name, onLog, onLearn, onGame }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void }) {
+function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void; onStartTraining: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   useEffect(() => {
@@ -67,7 +67,7 @@ function HomeScreen({ name, onLog, onLearn, onGame }: { name: string; onLog: () 
         <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
 
-      {brief && <section className="pre-training-brief" aria-label="Pre-training brief"><p className="eyebrow">YOUR MISSION TODAY</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={onLog}>Got it <ChevronRight size={14} /></button></div></section>}
+      {brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={onStartTraining}>I&apos;M TRAINING NOW <ChevronRight size={14} /></button></div></section>}
 
       <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>
@@ -215,15 +215,15 @@ function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEn
 
   if (debriefPhase === "question" && debrief?.question) return (
     <main className="page">
-      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">QUESTION {debrief.question.sequence} OF {debrief.maxQuestions ?? 1}</p><h1 className="page-title">Training debrief</h1></div></header>
+      <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">A QUICK FOLLOW-UP</p><h1 className="page-title">Training debrief</h1></div></header>
       <section className="takeaway-card"><p className="eyebrow">KEY TAKEAWAY</p><p>{debrief.takeaway}</p></section>
       <section className="question-card">
         <p className="eyebrow">QUICK QUESTION</p>
         <h2 ref={questionHeadingRef} tabIndex={-1}>{debrief.question.prompt}</h2>
-        <div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div>
         <div className="answer-compose"><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setAnswerMethod("text"); }} placeholder="Talk or type a different answer…" aria-label="Your answer" /><button className={`answer-mic ${answerListening ? "listening" : ""}`} onClick={toggleAnswerListening} aria-label={answerListening ? "Stop listening" : "Answer by voice"}>{answerListening ? <X size={20} /> : <Mic size={20} />}</button></div>
         {error && <p className="error-message" role="alert">{error}</p>}
         <button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> SEND ANSWER</>}</button>
+        {debrief.question.choices.length > 0 && <><p className="tap-answer-label">OR USE A QUICK ANSWER</p><div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div></>}
         <div className="debrief-secondary-actions"><button onClick={() => respond("skip")} disabled={submitting}>Skip this question</button><span aria-hidden="true">·</span><button onClick={() => respond("finish")} disabled={submitting}>Finish for now</button></div>
       </section>
       <p className="sr-status" aria-live="polite">{submitting ? "Saving your answer and preparing the next step." : ""}</p>
@@ -278,8 +278,11 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     else if (name === "Workout") setScreen("workout");
     else if (name === "Food") setScreen("food");
   }
+  async function startTraining() {
+    try { await fetch("/api/pre-training/start", { method: "POST" }); } finally { setScreen("log"); }
+  }
   return <div className="app-frame">
-    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={() => void startTraining()} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} />}
     {screen === "learn" && <LearnScreen />}
     {screen === "coach" && <CoachScreen />}

@@ -103,3 +103,29 @@ export const nutritionEntries = sqliteTable("nutrition_entries", {
   photoKey: text("photo_key"),
   createdAt: text("created_at").notNull(),
 }, (table) => [index("idx_nutrition_entries_owner_created").on(table.ownerId, table.createdAt)]);
+
+export const preTrainingBriefs = sqliteTable("pre_training_briefs", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  mission: text("mission").notNull(),
+  reason: text("reason").notNull(),
+  cue: text("cue").notNull(),
+  sourceFocus: text("source_focus").notNull(),
+  createdAt: text("created_at").notNull(),
+  consumedAt: text("consumed_at"),
+}, (table) => [index("idx_pre_training_briefs_owner_created").on(table.ownerId, table.createdAt)]);
+
+export const trainingExperiments = sqliteTable("training_experiments", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  briefId: text("brief_id"),
+  mission: text("mission").notNull(),
+  cue: text("cue").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("planned"),
+  startedAt: text("started_at"),
+  outcome: text("outcome"),
+  evidence: text("evidence"),
+  createdAt: text("created_at").notNull(),
+  completedAt: text("completed_at"),
+}, (table) => [index("idx_training_experiments_owner_status").on(table.ownerId, table.status, table.createdAt)]);

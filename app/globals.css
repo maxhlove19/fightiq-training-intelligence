@@ -72,6 +72,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .pre-training-brief span { color: var(--blue-bright); font-size: 8px; letter-spacing: .14em; font-weight: 800; }
 .pre-training-brief strong { font-size: 13px; color: #d8e5f4; }
 .pre-training-brief .text-link { grid-column: 2; grid-row: 1 / 3; }
+.tap-answer-label { color: var(--muted-2); font-size: 8px; letter-spacing: .12em; font-weight: 800; margin: 18px 0 7px; }
 .focus-row { position: relative; border-top: 1px solid var(--line-soft); padding-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .focus-label { color: var(--muted-2); font-size: 10px; font-weight: 800; letter-spacing: .14em; display: block; margin-bottom: 6px; }
 .focus-row strong { font-size: 16px; font-weight: 640; }

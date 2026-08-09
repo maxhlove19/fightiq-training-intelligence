@@ -80,7 +80,7 @@ async function responseRequest(apiKey: string, ownerId: string, body: Record<str
 
 export async function answerCoach(args: {
   apiKey?: string; allowMockAi?: boolean; ownerId: string; question: string; memory: MemorySnapshot; profile: FighterProfile;
-  workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string }>;
+  workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string }>; activeExperiment?: unknown;
 }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
@@ -99,6 +99,7 @@ export async function answerCoach(args: {
         profile: args.profile,
         recent_workouts: args.workouts,
         nutrition_today: args.nutrition,
+        active_pre_training_experiment: args.activeExperiment ?? null,
         recent_conversation: args.history.slice(-8),
       }) },
     ],

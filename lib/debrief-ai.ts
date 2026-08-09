@@ -1,8 +1,18 @@
-const MAX_QUESTIONS = 1;
+// This is a safety ceiling, not a prescribed interview length. The model ends the
+// conversation as soon as another answer would not materially change the next test.
+const MAX_CLARIFYING_QUESTIONS = 4;
 
 export type DebriefMemory = {
   techniques: string[]; positions: string[]; successes: string[]; problems: string[];
   concepts: string[]; sparring_observations: string[]; related_topics: string[]; instructor_details: string[];
+  reported_facts: string[]; fightiq_hypotheses: string[]; what_worked: string[]; what_failed: string[]; experiments: string[];
+};
+
+export type TrainingIntelligence = {
+  discipline: string; technique: string; goal: string; problem: string; suspected_cause: string;
+  coach_instructor_cue: string; what_worked: string; what_failed: string; context: string;
+  confidence: number; follow_up_needed: boolean; reported_facts: string[]; fightiq_hypotheses: string[];
+  experiment_result: "unknown" | "helped" | "not_helped" | "mixed";
 };
 
 export type DebriefResult = {
@@ -14,6 +24,7 @@ export type DebriefResult = {
   next_session_focus: string;
   confidence: number;
   memory: DebriefMemory;
+  intelligence: TrainingIntelligence;
   question: { prompt: string; choices: string[]; target_field: string; why_asked: string };
 };
 
@@ -23,7 +34,7 @@ type History = Array<{ sequence: number; question: string; answer: string | null
 const resultSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["status", "summary", "takeaway", "coach_detail", "fightiq_explanation", "next_session_focus", "confidence", "memory", "question"],
+  required: ["status", "summary", "takeaway", "coach_detail", "fightiq_explanation", "next_session_focus", "confidence", "memory", "intelligence", "question"],
   properties: {
     status: { type: "string", enum: ["question", "complete"] },
     summary: { type: "string" }, takeaway: { type: "string" }, coach_detail: { type: "string" },
@@ -31,8 +42,15 @@ const resultSchema = {
     confidence: { type: "number", minimum: 0, maximum: 1 },
     memory: {
       type: "object", additionalProperties: false,
-      required: ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"],
-      properties: Object.fromEntries(["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"].map((key) => [key, { type: "array", items: { type: "string" } }])),
+      required: ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details", "reported_facts", "fightiq_hypotheses", "what_worked", "what_failed", "experiments"],
+      properties: Object.fromEntries(["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details", "reported_facts", "fightiq_hypotheses", "what_worked", "what_failed", "experiments"].map((key) => [key, { type: "array", items: { type: "string" } }])),
+    },
+    intelligence: {
+      type: "object", additionalProperties: false,
+      required: ["discipline", "technique", "goal", "problem", "suspected_cause", "coach_instructor_cue", "what_worked", "what_failed", "context", "confidence", "follow_up_needed", "reported_facts", "fightiq_hypotheses", "experiment_result"],
+      properties: {
+        discipline: { type: "string" }, technique: { type: "string" }, goal: { type: "string" }, problem: { type: "string" }, suspected_cause: { type: "string" }, coach_instructor_cue: { type: "string" }, what_worked: { type: "string" }, what_failed: { type: "string" }, context: { type: "string" }, confidence: { type: "number", minimum: 0, maximum: 1 }, follow_up_needed: { type: "boolean" }, reported_facts: { type: "array", items: { type: "string" } }, fightiq_hypotheses: { type: "array", items: { type: "string" } }, experiment_result: { type: "string", enum: ["unknown", "helped", "not_helped", "mixed"] },
+      },
     },
     question: {
       type: "object", additionalProperties: false,
@@ -46,24 +64,26 @@ const resultSchema = {
   },
 };
 
-const systemPrompt = `You are FightIQ, a warm, observant MMA training intelligence coach. Analyze one athlete's training note and ask only one high-value follow-up question.
+const systemPrompt = `You are FightIQ, a warm, observant MMA training intelligence coach. You are having a short, natural clarification conversation after training.
 
 Rules:
 - Preserve the athlete's raw account. Never invent facts. Treat anything the athlete says a coach/instructor taught as high-value instructor_detail memory, quoted or closely paraphrased, never as your own instruction.
 - Keep reported coach details separate from FightIQ explanations. coach_detail contains only the athlete's report of what their coach said. fightiq_explanation must use uncertainty language when causal reasoning is not certain.
 - Speak like a concise human coach: natural sentences, no Markdown, no headings, no bullets, no report language. Keep each field short.
-- Ask one short question at a time. Prefer concrete answer choices that fit the exact session. Do not repeat facts already stated. When a pre-training brief exists, ask how its mission went rather than asking a generic question.
-- Prioritize the first technical breakdown, live-training context, attempted correction, coach detail, or next-session intent.
-- Ask exactly one high-value follow-up question, then complete the debrief using that answer. Never ask a second question.
+- Ask one short question at a time, only while the answer could materially improve the athlete's next experiment. Do not use a fixed question count. Do not repeat facts already stated. When a pre-training experiment exists, first ask how that specific test went.
+- For vague notes, clarify the observed problem before naming a cause. Useful uncertainty includes what happened, what worked or failed, side/situation, mechanics versus timing/balance/mobility, resistance, an instructor cue, and what the athlete tried.
+- Set intelligence.follow_up_needed true and status question only when a further answer is materially useful. Otherwise set it false and status complete. Never turn a single observation into a confirmed weakness.
+- Keep athlete-reported facts in reported_facts. Put only qualified FightIQ reasoning in fightiq_hypotheses and suspected_cause. Instructor teaching belongs in coach_instructor_cue and memory.instructor_details, not as FightIQ advice.
+- Suggested choices are optional, short answer starters only. A natural spoken/typed answer is always preferred.
 - Questions are optional. Do not diagnose injuries or give dangerous weight-cut advice.
 - If status is complete, return an empty question prompt, choices, target_field, and why_asked.
 - Keep the takeaway and next-session focus concise and directly useful.`;
 
 export async function generateDebrief(args: {
-  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null;
 }): Promise<DebriefResult> {
   const nextSequence = args.history.length + 1;
-  const allowQuestion = nextSequence <= MAX_QUESTIONS;
+  const allowQuestion = nextSequence <= MAX_CLARIFYING_QUESTIONS;
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
       const result = mockDebrief(args.entry, args.history);
@@ -91,7 +111,7 @@ export async function generateDebrief(args: {
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: JSON.stringify({
-            task: args.history.length === 0 ? "Create the initial takeaway and first question." : "Update the session from the answers and either ask the next useful question or complete the debrief.",
+            task: args.history.length === 0 ? "Create the initial takeaway and first clarification question." : "Use the answer to update training intelligence. Ask another question only if it materially changes the next experiment; otherwise complete the debrief.",
             must_ask_question: args.history.length === 0,
             allow_another_question: allowQuestion,
             next_question_sequence: nextSequence,
@@ -101,6 +121,7 @@ export async function generateDebrief(args: {
             previous_questions_and_answers: args.history,
             current_debrief: args.current ?? null,
             pre_training_brief_for_this_session: args.preTrainingBrief ?? null,
+            active_experiment_for_this_session: args.activeExperiment ?? null,
           }) },
         ],
       }),
@@ -151,16 +172,21 @@ export function validateDebriefResult(value: unknown): DebriefResult {
   if (strings.some((key) => typeof value[key] !== "string")) throw invalid();
   if (typeof value.confidence !== "number" || value.confidence < 0 || value.confidence > 1) throw invalid();
   if (!isRecord(value.memory) || !isRecord(value.question)) throw invalid();
-  const memoryKeys = ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details"] as const;
+  const memoryKeys = ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details", "reported_facts", "fightiq_hypotheses", "what_worked", "what_failed", "experiments"] as const;
   for (const key of memoryKeys) if (!stringArray(value.memory[key])) throw invalid();
-  if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 4 || typeof value.question.target_field !== "string" || typeof value.question.why_asked !== "string") throw invalid();
-  if (value.status === "question" && (!value.question.prompt.trim() || value.question.choices.length < 2)) throw invalid();
+  if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 3 || typeof value.question.target_field !== "string" || typeof value.question.why_asked !== "string") throw invalid();
+  if (!isRecord(value.intelligence)) throw invalid();
+  const intelligenceStrings = ["discipline", "technique", "goal", "problem", "suspected_cause", "coach_instructor_cue", "what_worked", "what_failed", "context"] as const;
+  if (intelligenceStrings.some((key) => typeof value.intelligence[key] !== "string") || typeof value.intelligence.confidence !== "number" || value.intelligence.confidence < 0 || value.intelligence.confidence > 1 || typeof value.intelligence.follow_up_needed !== "boolean" || !stringArray(value.intelligence.reported_facts) || !stringArray(value.intelligence.fightiq_hypotheses) || !["unknown", "helped", "not_helped", "mixed"].includes(String(value.intelligence.experiment_result))) throw invalid();
+  if (value.status === "question" && (!value.question.prompt.trim() || value.intelligence.follow_up_needed !== true)) throw invalid();
+  if (value.status === "complete" && value.intelligence.follow_up_needed !== false) throw invalid();
   const result = value as DebriefResult;
   const clean = (text: string) => text.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s{0,3}#{1,6}\s*/gm, "").replace(/^\s*[-*]\s+/gm, "").trim();
   result.summary = clean(result.summary); result.takeaway = clean(result.takeaway); result.coach_detail = clean(result.coach_detail);
   result.fightiq_explanation = clean(result.fightiq_explanation); result.next_session_focus = clean(result.next_session_focus);
   result.question.prompt = clean(result.question.prompt); result.question.choices = result.question.choices.map(clean);
   result.memory.instructor_details = result.memory.instructor_details.map(clean);
+  result.memory.reported_facts = result.memory.reported_facts.map(clean); result.memory.fightiq_hypotheses = result.memory.fightiq_hypotheses.map(clean);
   return result;
 }
 
@@ -175,12 +201,13 @@ async function hashIdentifier(value: string) {
 }
 
 function mockDebrief(entry: Entry, history: History): DebriefResult {
-  const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [] };
+  const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [], reported_facts: [], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: [] };
+  const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique: "", goal: "", problem: "", suspected_cause: "", coach_instructor_cue: "", what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length < 1, reported_facts: [entry.raw_entry], fightiq_hypotheses: [], experiment_result: "unknown" };
   if (history.length >= 1) return {
     status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail, and the next step is making it reliable against live resistance.",
     coach_detail: "", fightiq_explanation: "One likely reason is that the sequence is breaking down before you can apply the detail consistently.",
     next_session_focus: "Identify the first breakdown and test one correction during live rounds.", confidence: .82, memory,
-    question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+    intelligence: { ...intelligence, follow_up_needed: false, confidence: .72 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const first: Record<string, [string, string[], string]> = {
     MMA: ["Where was the first breakdown happening?", ["At the entry", "Against the fence", "During the transition", "After I defended"], "first_breakdown"],
@@ -191,7 +218,7 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
     Kickboxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I kicked"], "striking_phase"],
   };
   const prompt = first[entry.discipline] ?? first.MMA;
-  return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "There’s a useful gap between understanding the detail and applying it under live pressure.", coach_detail: "", fightiq_explanation: "This may help because finding the first breakdown makes the next correction more specific.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer can identify the most useful next-session focus." } };
+  return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "There’s a useful gap between understanding the detail and applying it under live pressure.", coach_detail: "", fightiq_explanation: "This may help because finding the first breakdown makes the next correction more specific.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, intelligence, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer can identify the most useful next-session focus." } };
 }
 
 export class DebriefAIError extends Error {

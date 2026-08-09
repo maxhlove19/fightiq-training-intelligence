@@ -4,8 +4,7 @@ import {
   getOwnedEntry, markDebriefError, markDebriefPreparing,
 } from "../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../lib/debrief-server";
-import { getLatestPreTrainingBrief } from "../../../../../lib/product-db";
-import { ensureProductSchema } from "../../../../../lib/product-db";
+import { ensureProductSchema, getActiveTrainingExperiment, getLatestPreTrainingBrief, updateActiveTrainingExperiment } from "../../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +39,11 @@ export async function POST(_request: Request, context: Context) {
   const history = await getFollowupHistory(db, id, ownerId);
   const current = await getDebriefRecord(db, id, ownerId);
   try {
-    const brief = await getLatestPreTrainingBrief(db, ownerId);
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: brief ? { mission: brief.mission, reason: brief.reason, cue: brief.cue } : null });
+    const [brief, activeExperiment] = await Promise.all([getLatestPreTrainingBrief(db, ownerId), getActiveTrainingExperiment(db, ownerId)]);
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: brief ? { mission: brief.mission, reason: brief.reason, cue: brief.cue } : null, activeExperiment: activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue, reason: activeExperiment.reason } : null });
     const sequence = history.length + 1;
     await persistDebriefResult(db, id, ownerId, result, sequence);
+    if (result.status === "complete") await updateActiveTrainingExperiment(db, ownerId, result.intelligence.experiment_result, result.summary);
     return Response.json(await getDebriefState(db, id, ownerId));
   } catch (error) {
     await markDebriefError(db, id, ownerId);

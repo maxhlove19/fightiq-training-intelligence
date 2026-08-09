@@ -29,6 +29,7 @@ export type MemorySnapshot = {
 };
 
 export type PreTrainingBrief = { mission: string; reason: string; cue: string; sourceFocus: string; createdAt: string };
+export type TrainingExperiment = { id: string; mission: string; cue: string; reason: string; status: string; startedAt: string | null; outcome: string | null };
 
 export async function getProductOwnerId() {
   const user = await getChatGPTUser();
@@ -101,6 +102,21 @@ export async function ensureProductSchema(db: D1) {
       consumed_at TEXT
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_pre_training_briefs_owner_created ON pre_training_briefs (owner_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS training_experiments (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      brief_id TEXT,
+      mission TEXT NOT NULL,
+      cue TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'planned',
+      started_at TEXT,
+      outcome TEXT,
+      evidence TEXT,
+      created_at TEXT NOT NULL,
+      completed_at TEXT
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)"),
   ]);
   await db.prepare("PRAGMA optimize").run();
 }
@@ -169,7 +185,7 @@ function compactTopic(value: string, fallback: string) {
   return words.length > 8 ? `${words.slice(0, 8).join(" ")}…` : words.join(" ");
 }
 
-export function getCoachSuggestions(memory: MemorySnapshot) {
+export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { mission: string; cue: string } | null) {
   const focus = compactTopic(memory.currentFocus, "your current focus");
   const confirmedProblem = memory.recurringProblems.find((item) => !item.toLowerCase().includes("no recurring"));
   const strength = memory.strongestAreas.find((item) => !item.toLowerCase().includes("still learning"));
@@ -178,7 +194,7 @@ export function getCoachSuggestions(memory: MemorySnapshot) {
   const latestNote = memory.recentTraining[0]?.note.toLowerCase() ?? "";
   const armDrag = latestNote.includes("arm drag") || memory.currentFocus.toLowerCase().includes("arm drag");
   const candidates = [
-    instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
+    experiment ? `What should I notice while I test “${compactTopic(experiment.mission, "this experiment")}”?` : instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
     armDrag ? "How do I stop them squaring after the arm drag?" : confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
     strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
   ];
@@ -205,6 +221,8 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const concepts: string[] = [];
   const relatedTopics: string[] = [];
   const instructorDetails: string[] = [];
+  const reportedFacts: string[] = [];
+  const hypotheses: string[] = [];
   for (const row of rows) {
     try {
       const memory = JSON.parse(row.structured_memory_json ?? "{}") as Record<string, unknown>;
@@ -214,6 +232,12 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
       if (Array.isArray(memory.concepts)) concepts.push(...memory.concepts.filter((v): v is string => typeof v === "string"));
       if (Array.isArray(memory.related_topics)) relatedTopics.push(...memory.related_topics.filter((v): v is string => typeof v === "string"));
       if (Array.isArray(memory.instructor_details)) instructorDetails.push(...memory.instructor_details.filter((v): v is string => typeof v === "string"));
+      if (Array.isArray(memory.reported_facts)) reportedFacts.push(...memory.reported_facts.filter((v): v is string => typeof v === "string"));
+      if (Array.isArray(memory.fightiq_hypotheses)) hypotheses.push(...memory.fightiq_hypotheses.filter((v): v is string => typeof v === "string"));
+      if (memory.intelligence && typeof memory.intelligence === "object" && !Array.isArray(memory.intelligence)) {
+        const intelligence = memory.intelligence as Record<string, unknown>;
+        for (const key of ["technique", "problem", "suspected_cause", "goal", "context"]) if (typeof intelligence[key] === "string" && intelligence[key].trim()) relatedTopics.push(intelligence[key]);
+      }
     } catch { /* malformed historical memory is ignored */ }
   }
   const latestFocus = rows.find((row) => row.next_session_focus)?.next_session_focus;
@@ -246,7 +270,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     nextEvolution,
     instructorDetails: takeDistinct(topValues(instructorDetails, 8), [], 3),
     emergingStrengths,
-    oneTimeObservations: takeDistinct(topValues([...techniques, ...problems, ...successes], 12), [], 4),
+    oneTimeObservations: takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
     recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.takeaway, focus: row.next_session_focus, createdAt: row.created_at })),
   };
 }
@@ -254,6 +278,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
 function briefCue(mission: string) {
   const lower = mission.toLowerCase();
   if (lower.includes("arm drag") || lower.includes("drag")) return "Drag → take the angle.";
+  if (lower.includes("kick") || lower.includes("hip")) return "Pivot first → hip follows.";
   if (lower.includes("frame")) return "Frames first → then move.";
   if (lower.includes("defense")) return "See it early → make space.";
   return "One clean rep → then notice what breaks.";
@@ -279,6 +304,31 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
     VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), ownerId, brief.mission, brief.reason, brief.cue, brief.sourceFocus, brief.createdAt).run();
   return brief;
+}
+
+export async function startPreTrainingExperiment(db: D1, ownerId: string) {
+  const brief = await getOrCreatePreTrainingBrief(db, ownerId);
+  const now = new Date().toISOString();
+  const existing = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
+    WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<TrainingExperiment & { started_at: string | null }>();
+  if (existing) return { ...existing, startedAt: existing.started_at };
+  const id = crypto.randomUUID();
+  await db.prepare(`INSERT INTO training_experiments (id, owner_id, mission, cue, reason, status, started_at, created_at)
+    VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`)
+    .bind(id, ownerId, brief.mission, brief.cue, brief.reason, now, now).run();
+  return { id, mission: brief.mission, cue: brief.cue, reason: brief.reason, status: "active", startedAt: now, outcome: null };
+}
+
+export async function getActiveTrainingExperiment(db: D1, ownerId: string) {
+  return db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
+    WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
+}
+
+export async function updateActiveTrainingExperiment(db: D1, ownerId: string, outcome: string, evidence: string) {
+  if (outcome === "unknown") return;
+  await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = ?, evidence = ?, completed_at = ? WHERE id = (
+    SELECT id FROM training_experiments WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1
+  )`).bind(outcome, evidence.slice(0, 2000), new Date().toISOString(), ownerId).run();
 }
 
 export async function getLatestPreTrainingBrief(db: D1, ownerId: string) {

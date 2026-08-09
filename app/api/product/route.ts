@@ -11,17 +11,25 @@ const videoCatalog = [
   { id: "dLUhx1f8H6o", title: "Masters of the Teep", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Study", topics: ["teep", "distance", "timing", "striking"], description: "Study how elite strikers use the teep to control pace and center line." },
   { id: "yXj9IPvxftw", title: "How to Arm Drag and Take the Back in Jiu-Jitsu", creator: "YouTube technique study", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back take", "angle", "shoulder", "grappling"], description: "Turn a clean arm drag into control before they can square back up." },
   { id: "iPB3axhgSis", title: "Arm Drag to Back Take", creator: "Realize BJJ Life", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back", "control", "grappling"], description: "Study the moment after the drag: angle, shoulder control, and back exposure." },
+  { id: "FypzZG6xTtc", title: "Master the Roundhouse Kick with This Drill", creator: "Namsaknoi Muay Thai", discipline: "Muay Thai / MMA", duration: "Drill", topics: ["kick", "round kick", "hip", "hip rotation", "pivot", "support foot", "balance"], description: "A focused drill for connecting the standing-foot pivot to hip rotation." },
+  { id: "Hl4xhjTzT08", title: "How to Switch Kick: Lead-Leg Roundhouse", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Technique", topics: ["kick", "round kick", "pivot", "support foot", "balance", "hip rotation"], description: "Study how the support foot and tall posture make the hip turn through." },
+  { id: "FypzZG6xTtc", title: "Round Kick: Support-Foot Pivot Study", creator: "Namsaknoi Muay Thai", discipline: "Muay Thai / MMA", duration: "Study", topics: ["kick", "pivot", "support foot", "turning hip", "balance"], description: "Use the same drill as a slow-motion study of when the support foot turns." },
+  { id: "Hl4xhjTzT08", title: "Round Kick Balance and Posture", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Study", topics: ["kick", "balance", "support foot", "hip", "mobility"], description: "Watch how posture over the standing leg lets the kick finish without falling away." },
 ];
 
-function personalizedVideos(memory: Awaited<ReturnType<typeof getMemorySnapshot>>) {
+function personalizedVideos(memory: Awaited<ReturnType<typeof getMemorySnapshot>>, refresh = false) {
   const focusContext = [memory.currentFocus, memory.nextEvolution, ...memory.recurringProblems, ...memory.instructorDetails].join(" ").toLowerCase();
-  const recentContext = memory.recentTraining.slice(0, 3).map((item) => `${item.discipline} ${item.note} ${item.takeaway ?? ""}`).join(" ").toLowerCase();
-  return videoCatalog.map((video) => ({
+  const recentContext = `${memory.recentTraining.slice(0, 3).map((item) => `${item.discipline} ${item.note} ${item.takeaway ?? ""}`).join(" ")} ${memory.oneTimeObservations.join(" ")}`.toLowerCase();
+  const words = new Set(recentContext.split(/[^a-z]+/).filter((word) => word.length > 2));
+  const relevant = (topic: string, context: string) => context.includes(topic) || topic.split(" ").some((word) => word.length > 2 && words.has(word));
+  const ranked = videoCatalog.map((video) => ({
     ...video,
-    focusMatches: video.topics.filter((topic) => focusContext.includes(topic)),
-    recentMatches: video.topics.filter((topic) => recentContext.includes(topic)),
-  })).map((video) => ({ ...video, score: video.recentMatches.length * 8 + video.focusMatches.length * 4 + (video.discipline.includes("MMA") ? 1 : 0) }))
-    .sort((a, b) => b.score - a.score).slice(0, 4).map(({ score, focusMatches, recentMatches, ...video }, index) => ({
+    focusMatches: video.topics.filter((topic) => relevant(topic, focusContext)),
+    recentMatches: video.topics.filter((topic) => relevant(topic, recentContext)),
+  })).map((video) => ({ ...video, score: video.recentMatches.length * 10 + video.focusMatches.length * 4 + (video.discipline.includes("MMA") ? 1 : 0) }))
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  const pool = refresh ? [...ranked.filter((video) => video.score > 0).slice(2), ...ranked.filter((video) => video.score > 0).slice(0, 2), ...ranked.filter((video) => video.score === 0)] : ranked;
+  return pool.slice(0, 8).map(({ score, focusMatches, recentMatches, ...video }, index) => ({
     ...video,
     thumbnail: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
     url: `https://www.youtube.com/watch?v=${video.id}`,
@@ -34,7 +42,7 @@ function personalizedVideos(memory: Awaited<ReturnType<typeof getMemorySnapshot>
   }));
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime();
@@ -61,7 +69,7 @@ export async function GET() {
       body: memory.focusReason,
       currentFocus: memory.currentFocus,
     },
-    videos: personalizedVideos(memory),
+    videos: personalizedVideos(memory, new URL(request.url).searchParams.get("recommendations") === "next"),
     preTrainingBrief,
     nutrition,
     recentWorkouts: recentWorkouts.results ?? [],

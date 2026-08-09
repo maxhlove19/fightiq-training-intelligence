@@ -68,7 +68,7 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
     "SELECT * FROM training_followups WHERE entry_id = ? AND owner_id = ? ORDER BY sequence ASC"
   ).bind(entryId, ownerId).all<FollowupRow>();
   const rows = followups.results ?? [];
-  const pending = rows.find((row) => row.status === "pending" && row.sequence <= 1);
+  const pending = rows.find((row) => row.status === "pending");
   const answeredCount = rows.filter((row) => row.status === "answered").length;
   const base = {
     entryId,
@@ -78,7 +78,6 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
     nextSessionFocus: debrief.next_session_focus,
     answeredCount,
     questionCount: rows.length,
-    maxQuestions: 1,
   };
   if (debrief.status === "complete") return { ...base, status: "complete" as const };
   if (pending) return {

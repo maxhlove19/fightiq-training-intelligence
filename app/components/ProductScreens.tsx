@@ -33,9 +33,9 @@ function cleanAiDisplay(value: string) {
 function useProductData() {
   const [data, setData] = useState<ProductData | null>(null);
   const [error, setError] = useState("");
-  async function load() {
+  async function load(url = "/api/product") {
     try {
-      const response = await fetch("/api/product");
+      const response = await fetch(url);
       const payload = await response.json() as ProductData & { error?: { message?: string } };
       if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t load your game.");
       setError(""); setData(payload);
@@ -88,12 +88,18 @@ function LoadingState({ label = "Reading your FightIQ memory…" }: { label?: st
 
 export function LearnScreen() {
   const { data, error, reload } = useProductData();
+  const [refreshing, setRefreshing] = useState(false);
+  async function refreshRecommendations() {
+    setRefreshing(true);
+    await reload(`/api/product?recommendations=next`);
+    setRefreshing(false);
+  }
   return <main className="page product-page"><ScreenHeader title="Learn" kicker="PERSONALIZED FOR YOUR GAME" />
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={reload}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
       <section className="focus-banner"><span>CURRENT STUDY FOCUS</span><h2>{data.memory.currentFocus}</h2><p>{data.memory.focusReason}</p></section>
-      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2></div></div>
+      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2></div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> Refresh recommendations</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
         <div className="video-copy"><span className="video-type">{video.discipline}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>

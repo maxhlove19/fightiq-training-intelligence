@@ -1,5 +1,5 @@
 import { answerCoach, ProductAIError } from "../../../lib/product-ai";
-import { ensureProductSchema, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +9,14 @@ export async function GET() {
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
   await ensureProductSchema(db);
-  const [messages, memory] = await Promise.all([
+  const [messages, memory, activeExperiment] = await Promise.all([
     db.prepare(`SELECT id, role, content, created_at FROM (
       SELECT id, role, content, created_at FROM coach_messages WHERE owner_id = ? ORDER BY created_at DESC LIMIT 60
     ) ORDER BY created_at ASC`).bind(ownerId).all(),
     getMemorySnapshot(db, ownerId),
+    getActiveTrainingExperiment(db, ownerId),
   ]);
-  return Response.json({ messages: messages.results ?? [], currentFocus: memory.currentFocus, suggestions: getCoachSuggestions(memory) });
+  return Response.json({ messages: messages.results ?? [], currentFocus: memory.currentFocus, suggestions: getCoachSuggestions(memory, activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null) });
 }
 
 export async function POST(request: Request) {
@@ -36,12 +37,13 @@ export async function POST(request: Request) {
   if (existingMessage && (existingMessage.owner_id !== ownerId || existingMessage.role !== "user" || existingMessage.content !== question)) {
     return productError("MESSAGE_CONFLICT", "That saved message cannot be retried.", 409);
   }
-  const [memory, profile, workoutRows, nutrition, historyRows] = await Promise.all([
+  const [memory, profile, workoutRows, nutrition, historyRows, activeExperiment] = await Promise.all([
     getMemorySnapshot(db, ownerId),
     getOrCreateProfile(db, ownerId),
     db.prepare("SELECT discipline, goal, fatigue, duration_minutes, plan_json, status, created_at FROM workout_plans WHERE owner_id = ? ORDER BY created_at DESC LIMIT 4").bind(ownerId).all(),
     getTodayNutrition(db, ownerId),
     db.prepare("SELECT id, role, content FROM coach_messages WHERE owner_id = ? ORDER BY created_at DESC LIMIT 8").bind(ownerId).all<{ id: string; role: string; content: string }>(),
+    getActiveTrainingExperiment(db, ownerId),
   ]);
   const now = new Date().toISOString();
   const userMessageId = existingMessage?.id ?? (requestedMessageId || crypto.randomUUID());
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
   }
   try {
     const history = (historyRows.results ?? []).filter((message) => message.id !== userMessageId).reverse();
-    const answer = await answerCoach({ apiKey, allowMockAi, ownerId, question, memory, profile, workouts: workoutRows.results ?? [], nutrition, history });
+    const answer = await answerCoach({ apiKey, allowMockAi, ownerId, question, memory, profile, workouts: workoutRows.results ?? [], nutrition, history, activeExperiment });
     const assistantMessageId = crypto.randomUUID();
     await db.prepare("INSERT INTO coach_messages (id, owner_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)")
       .bind(assistantMessageId, ownerId, answer, new Date().toISOString()).run();

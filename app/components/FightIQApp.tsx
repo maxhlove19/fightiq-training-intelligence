@@ -27,7 +27,7 @@ function HomeScreen({ name, onLog }: { name: string; onLog: () => void }) {
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   return (
     <main className="page">
-      <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><div className="avatar">{name.slice(0, 1).toUpperCase()}</div></header>
+      <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
       <p className="date-line">{date}</p>
       <h1 className="greeting">{greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>

@@ -47,6 +47,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   width: 34px; height: 34px; border: 1px solid #27364a; border-radius: 50%;
   display: grid; place-items: center; color: #b9c8db; background: #101824;
   font-size: 12px; font-weight: 700;
+  text-decoration: none;
 }
 .date-line { color: var(--muted-2); font-size: 12px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 10px; }
 .greeting { margin: 0; font-size: clamp(30px, 8vw, 46px); letter-spacing: -.045em; line-height: 1.04; font-weight: 650; }

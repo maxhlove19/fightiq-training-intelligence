@@ -253,7 +253,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
 
 function briefCue(mission: string) {
   const lower = mission.toLowerCase();
-  if (lower.includes("arm drag")) return "Drag → take the angle.";
+  if (lower.includes("arm drag") || lower.includes("drag")) return "Drag → take the angle.";
   if (lower.includes("frame")) return "Frames first → then move.";
   if (lower.includes("defense")) return "See it early → make space.";
   return "One clean rep → then notice what breaks.";

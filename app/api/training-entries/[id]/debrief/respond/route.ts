@@ -13,7 +13,7 @@ export async function POST(request: Request, context: Context) {
   const ownerId = await getOwnerId();
   if (!ownerId) return apiError("AUTH_REQUIRED", "Authentication required.", 401);
   const { id } = await context.params;
-  const { db, apiKey } = getRuntime();
+  const { db, apiKey, allowMockAi } = getRuntime();
   if (!db) return apiError("STORAGE_UNAVAILABLE", "Training storage is unavailable.", 503, { entrySaved: true });
   await ensureDebriefSchema(db);
   const entry = await getOwnedEntry(db, id, ownerId);
@@ -45,12 +45,13 @@ export async function POST(request: Request, context: Context) {
   const current = await getDebriefRecord(db, id, ownerId);
   await markDebriefPreparing(db, id, ownerId);
   try {
-    const result = await generateDebrief({ apiKey, ownerId, entry, history, current });
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current });
     await persistDebriefResult(db, id, ownerId, result, history.length + 1);
     return Response.json(await getDebriefState(db, id, ownerId));
   } catch (error) {
     await markDebriefError(db, id, ownerId);
-    if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { entrySaved: true, answerSaved: true });
+    if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { entrySaved: true, answerSaved: true, development: error.development });
+    console.error("Unexpected FightIQ debrief response failure", error);
     return apiError("AI_UNAVAILABLE", "Your answer was saved, but FightIQ could not continue yet.", 503, { entrySaved: true, answerSaved: true });
   }
 }

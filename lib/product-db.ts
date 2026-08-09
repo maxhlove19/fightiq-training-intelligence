@@ -21,7 +21,7 @@ export type MemorySnapshot = {
   recurringProblems: string[];
   recentImprovement: string;
   styleInfluences: string[];
-  buildNext: string;
+  nextEvolution: string;
   recentTraining: Array<{ discipline: string; sessionType: string; note: string; takeaway: string | null; focus: string | null; createdAt: string }>;
 };
 
@@ -31,8 +31,8 @@ export async function getProductOwnerId() {
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string };
-  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
+  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
 }
 
 export async function ensureProductSchema(db: D1) {
@@ -118,6 +118,58 @@ function topValues(values: string[], limit: number) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([value]) => titleCase(value));
 }
 
+function normalizeInsight(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isDistinct(value: string, used: string[]) {
+  const normalized = normalizeInsight(value);
+  if (!normalized) return false;
+  return !used.some((existing) => {
+    const other = normalizeInsight(existing);
+    return normalized === other || (normalized.length > 12 && other.includes(normalized)) || (other.length > 12 && normalized.includes(other));
+  });
+}
+
+function takeDistinct(values: string[], used: string[], limit: number) {
+  const picked: string[] = [];
+  for (const value of values) {
+    const clean = titleCase(value.trim());
+    if (!clean || !isDistinct(clean, [...used, ...picked])) continue;
+    picked.push(clean);
+    if (picked.length === limit) break;
+  }
+  used.push(...picked);
+  return picked;
+}
+
+function shortTopic(value: string, fallback: string) {
+  const clean = value.replace(/[.!?]+$/g, "").trim();
+  return (clean || fallback).slice(0, 72);
+}
+
+function compactTopic(value: string, fallback: string) {
+  const words = shortTopic(value, fallback).split(/\s+/);
+  return words.length > 8 ? `${words.slice(0, 8).join(" ")}…` : words.join(" ");
+}
+
+export function getCoachSuggestions(memory: MemorySnapshot) {
+  const focus = compactTopic(memory.currentFocus, "your current focus");
+  const confirmedProblem = memory.recurringProblems.find((item) => !item.toLowerCase().includes("no recurring"));
+  const strength = memory.strongestAreas.find((item) => !item.toLowerCase().includes("still learning"));
+  const latestDiscipline = memory.recentTraining[0]?.discipline;
+  const candidates = [
+    `How should I test “${focus}” next session?`,
+    confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
+    strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
+  ];
+  const unique: string[] = [];
+  for (const candidate of candidates) if (isDistinct(candidate, unique)) unique.push(candidate);
+  const fallbacks = ["What is the smallest correction I can test next?", "What should I ask my coach to watch for?"];
+  for (const fallback of fallbacks) if (unique.length < 3 && isDistinct(fallback, unique)) unique.push(fallback);
+  return unique.slice(0, 3);
+}
+
 export async function getMemorySnapshot(db: D1, ownerId: string): Promise<MemorySnapshot> {
   const profile = await getOrCreateProfile(db, ownerId);
   const result = await db.prepare(`SELECT e.discipline, e.session_type, e.raw_entry, e.created_at,
@@ -131,27 +183,41 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const successes: string[] = [];
   const problems: string[] = [];
   const techniques: string[] = [];
+  const concepts: string[] = [];
+  const relatedTopics: string[] = [];
   for (const row of rows) {
     try {
       const memory = JSON.parse(row.structured_memory_json ?? "{}") as Record<string, unknown>;
       if (Array.isArray(memory.successes)) successes.push(...memory.successes.filter((v): v is string => typeof v === "string"));
       if (Array.isArray(memory.problems)) problems.push(...memory.problems.filter((v): v is string => typeof v === "string"));
       if (Array.isArray(memory.techniques)) techniques.push(...memory.techniques.filter((v): v is string => typeof v === "string"));
+      if (Array.isArray(memory.concepts)) concepts.push(...memory.concepts.filter((v): v is string => typeof v === "string"));
+      if (Array.isArray(memory.related_topics)) relatedTopics.push(...memory.related_topics.filter((v): v is string => typeof v === "string"));
     } catch { /* malformed historical memory is ignored */ }
   }
   const latestFocus = rows.find((row) => row.next_session_focus)?.next_session_focus;
   const currentFocus = profile.current_focus || latestFocus || "Build a reliable first layer of defense";
-  const strongestAreas = topValues([...successes, ...techniques], 3);
-  const recurringProblems = topValues(problems, 3);
-  const improvement = successes[0] ? titleCase(successes[0]) : rows[0]?.takeaway || "Log a few sessions and FightIQ will identify improvement.";
+  const used = [currentFocus];
+  const improvementCandidate = successes[0] ? titleCase(successes[0]) : rows[0]?.takeaway || "Log a few sessions and FightIQ will identify improvement.";
+  const strongestAreas = takeDistinct(topValues([...successes.slice(1), ...techniques], 8), used, 3);
+  const recurringProblems = takeDistinct(topValues(problems, 8), used, 3);
+  const improvement = isDistinct(improvementCandidate, used)
+    ? improvementCandidate
+    : rows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
+  used.push(improvement);
+  const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
+  const evolutionTopic = takeDistinct(topValues([...relatedTopics, ...concepts, ...techniques], 12), used, 1)[0];
+  const nextEvolution = evolutionTopic
+    ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
+    : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
   return {
     currentFocus,
     focusReason: profile.focus_reason || (latestFocus ? "This is the clearest next step from your recent training debrief." : "This gives your next sessions one clear direction."),
-    strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your game"],
+    strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
     recurringProblems: recurringProblems.length ? recurringProblems : ["No recurring problem confirmed yet"],
     recentImprovement: improvement,
-    styleInfluences: safeStringArray(profile.style_influences_json),
-    buildNext: latestFocus || currentFocus,
+    styleInfluences,
+    nextEvolution,
     recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.takeaway, focus: row.next_session_focus, createdAt: row.created_at })),
   };
 }
@@ -174,6 +240,6 @@ export async function getTodayNutrition(db: D1, ownerId: string) {
   };
 }
 
-export function productError(code: string, message: string, status: number) {
-  return Response.json({ error: { code, message } }, { status });
+export function productError(code: string, message: string, status: number, development?: Record<string, unknown>) {
+  return Response.json({ error: { code, message, ...(development ? { development } : {}) } }, { status });
 }

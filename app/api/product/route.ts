@@ -12,15 +12,22 @@ const videoCatalog = [
 ];
 
 function personalizedVideos(memory: Awaited<ReturnType<typeof getMemorySnapshot>>) {
-  const context = [memory.currentFocus, memory.buildNext, ...memory.recurringProblems, ...memory.recentTraining.map((item) => `${item.discipline} ${item.note}`)].join(" ").toLowerCase();
+  const focusContext = [memory.currentFocus, memory.nextEvolution, ...memory.recurringProblems].join(" ").toLowerCase();
+  const recentContext = memory.recentTraining.map((item) => `${item.discipline} ${item.note} ${item.takeaway ?? ""}`).join(" ").toLowerCase();
   return videoCatalog.map((video) => ({
     ...video,
-    score: video.topics.reduce((score, topic) => score + (context.includes(topic) ? 3 : 0), video.discipline.includes("MMA") ? 1 : 0),
-  })).sort((a, b) => b.score - a.score).slice(0, 4).map(({ score, ...video }, index) => ({
+    focusMatches: video.topics.filter((topic) => focusContext.includes(topic)),
+    recentMatches: video.topics.filter((topic) => recentContext.includes(topic)),
+  })).map((video) => ({ ...video, score: video.focusMatches.length * 4 + video.recentMatches.length * 2 + (video.discipline.includes("MMA") ? 1 : 0) }))
+    .sort((a, b) => b.score - a.score).slice(0, 4).map(({ score, focusMatches, recentMatches, ...video }, index) => ({
     ...video,
     thumbnail: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
     url: `https://www.youtube.com/watch?v=${video.id}`,
-    why: score > 1 ? `It connects directly to your current focus: ${memory.currentFocus}.` : index === 0 ? `It supports the next layer of your MMA game.` : `It develops a transferable skill without pulling you away from your current focus.`,
+    why: focusMatches.length
+      ? `It connects directly to your current focus: ${memory.currentFocus.replace(/[.!?]+$/g, "")}.`
+      : recentMatches.length
+        ? `Your recent training surfaced ${recentMatches.slice(0, 2).join(" and ")}.`
+        : index === 0 && score > 0 ? "It supports the next layer of your MMA game." : "It develops a transferable skill without pulling you away from your current focus.",
   }));
 }
 

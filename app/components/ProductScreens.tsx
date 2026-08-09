@@ -15,7 +15,7 @@ type SpeechRecognitionLike = {
 
 export type ProductData = {
   profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues };
-  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; buildNext: string };
+  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string };
   insight: { title: string; body: string; currentFocus: string };
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string }>;
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
@@ -99,44 +99,56 @@ export function LearnScreen() {
 }
 
 type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string };
+type CoachFailure = { messageId: string; question: string; code: string; message: string; development?: Record<string, unknown> };
 
 export function CoachScreen() {
   const [messages, setMessages] = useState<CoachMessage[]>([]);
   const [currentFocus, setCurrentFocus] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [failure, setFailure] = useState<CoachFailure | null>(null);
   const voice = useVoiceField(question, setQuestion);
   const endRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { void (async () => { try { const response = await fetch("/api/coach"); const data = await response.json() as { messages?: CoachMessage[]; currentFocus?: string; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setMessages(data.messages ?? []); setCurrentFocus(data.currentFocus ?? ""); } catch (caught) { setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); } finally { setLoading(false); } })(); }, []);
+  useEffect(() => { void (async () => { try { const response = await fetch("/api/coach"); const data = await response.json() as { messages?: CoachMessage[]; currentFocus?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setMessages(data.messages ?? []); setCurrentFocus(data.currentFocus ?? ""); setSuggestions(data.suggestions ?? []); } catch (caught) { setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); } finally { setLoading(false); } })(); }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
-  async function send() {
-    if (!question.trim() || sending) return;
-    const pending = question.trim();
-    setQuestion(""); setSending(true); setError("");
-    const optimistic: CoachMessage = { id: `pending-${Date.now()}`, role: "user", content: pending };
-    setMessages((current) => [...current, optimistic]);
+  async function send(explicitQuestion?: string, retryMessageId?: string) {
+    const pending = (explicitQuestion ?? question).trim();
+    if (!pending || sending) return;
+    const messageId = retryMessageId ?? crypto.randomUUID();
+    setQuestion(""); setSending(true); setError(""); setFailure(null);
+    const optimistic: CoachMessage = { id: messageId, role: "user", content: pending };
+    if (!retryMessageId) setMessages((current) => [...current, optimistic]);
     try {
-      const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending }) });
-      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; error?: { message?: string } };
-      if (!response.ok || !data.assistant) throw new Error(data.error?.message ?? "FightIQ Coach couldn’t answer.");
-      setMessages((current) => [...current.filter((item) => item.id !== optimistic.id), data.user ?? optimistic, data.assistant as CoachMessage]);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ Coach couldn’t answer."); }
+      const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId }) });
+      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; error?: { code?: string; message?: string; development?: Record<string, unknown> } };
+      if (!response.ok || !data.assistant) {
+        setQuestion(pending);
+        setFailure({ messageId, question: pending, code: data.error?.code ?? "AI_UNAVAILABLE", message: data.error?.message ?? "FightIQ Coach couldn’t answer.", development: data.error?.development });
+        return;
+      }
+      setMessages((current) => [...current.filter((item) => item.id !== messageId && item.id !== data.assistant?.id), data.user ?? optimistic, data.assistant as CoachMessage]);
+    } catch (caught) {
+      setQuestion(pending);
+      setFailure({ messageId, question: pending, code: "NETWORK_ERROR", message: "FightIQ Coach couldn’t answer. Your message is still here.", development: { cause: caught instanceof Error ? caught.message : "Request failed" } });
+    }
     finally { setSending(false); }
   }
-  const prompts = ["What should I focus on next session?", "Why do I keep losing this position?", "How should I recover around training?"];
   return <main className="page product-page coach-page"><ScreenHeader title="Ask FightIQ" kicker="YOUR TRAINING-AWARE COACH" />
     {currentFocus && <div className="context-pill"><Target size={14} /><span>Current focus: {currentFocus}</span></div>}
     <section className="coach-thread" aria-live="polite">
       {loading && <LoadingState label="Loading your conversation…" />}
-      {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p><div className="prompt-list">{prompts.map((prompt) => <button key={prompt} onClick={() => setQuestion(prompt)}>{prompt}<ChevronRight size={15} /></button>)}</div></div>}
+      {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p></div>}
       {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><p>{message.content}</p></div>)}
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div>}
       <div ref={endRef} />
     </section>
+    {suggestions.length > 0 && <section className="coach-suggestions" aria-label="Suggested questions"><span>SUGGESTED FROM YOUR FIGHTER BRAIN</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
-    <div className="coach-compose"><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about training, technique, recovery, workouts, or food…" aria-label="Ask FightIQ" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={send} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
+    {failure && <div className="coach-error" role="alert"><p>{failure.message} Your message was preserved.</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> Retry</button><code>{failure.code}{failure.development?.cause ? ` · ${String(failure.development.cause)}` : ""}</code></div>}
+    <div className="coach-compose"><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about training, technique, recovery, workouts, or food…" aria-label="Ask FightIQ" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
   </main>;
 }
 
@@ -159,12 +171,12 @@ export function GameScreen() {
     {data && <>
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">
-        <section className="game-card"><span>STRONGEST AREAS</span>{data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
+        <section className="game-card"><span>STRENGTHS</span>{data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
         <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
         <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.memory.recentImprovement}</p></section>
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
-      <section className="build-next"><Sparkles size={20} /><div><span>WHAT FIGHTIQ THINKS YOU SHOULD BUILD NEXT</span><h3>{data.memory.buildNext}</h3></div></section>
+      <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}
       {saved && <p className="saved-note" role="status"><Check size={14} /> My Game updated.</p>}
     </>}

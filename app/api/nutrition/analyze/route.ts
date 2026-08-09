@@ -14,7 +14,7 @@ function base64(buffer: ArrayBuffer) {
 export async function POST(request: Request) {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
-  const { apiKey } = getProductRuntime();
+  const { apiKey, allowMockAi } = getProductRuntime();
   let form: FormData;
   try { form = await request.formData(); } catch { return productError("INVALID_REQUEST", "Invalid meal.", 400); }
   const description = String(form.get("description") ?? "").trim().slice(0, 500);
@@ -25,9 +25,9 @@ export async function POST(request: Request) {
     image = { dataUrl: `data:${photo.type};base64,${base64(await photo.arrayBuffer())}`, mimeType: photo.type };
   }
   if (!description && !image) return productError("EMPTY_MEAL", "Describe the meal or add a photo.", 422);
-  try { return Response.json(await analyzeMeal({ apiKey, ownerId, description, image })); }
+  try { return Response.json(await analyzeMeal({ apiKey, allowMockAi, ownerId, description, image })); }
   catch (error) {
-    if (error instanceof ProductAIError) return productError(error.code, error.message, error.status);
+    if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, error.development);
     return productError("AI_UNAVAILABLE", "FightIQ couldn’t estimate that meal.", 503);
   }
 }

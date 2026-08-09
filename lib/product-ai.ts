@@ -1,7 +1,7 @@
 import type { FighterProfile, MemorySnapshot } from "./product-db";
 
 export class ProductAIError extends Error {
-  constructor(public code: string, message: string, public status: number) { super(message); }
+  constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
 }
 
 async function safetyIdentifier(ownerId: string) {
@@ -42,24 +42,39 @@ async function responseRequest(apiKey: string, ownerId: string, body: Record<str
         ...body,
       }),
     });
-    if (!response.ok) throw new ProductAIError("AI_UNAVAILABLE", "FightIQ couldn’t answer right now.", response.status === 429 ? 429 : 503);
+    if (!response.ok) {
+      const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
+      let providerCode = "unknown";
+      let providerMessage = "OpenAI returned a non-success response.";
+      try {
+        const failure = await response.json() as { error?: { code?: unknown; message?: unknown } };
+        if (typeof failure.error?.code === "string") providerCode = failure.error.code.slice(0, 120);
+        if (typeof failure.error?.message === "string") providerMessage = failure.error.message.slice(0, 500);
+      } catch { /* preserve the HTTP-level diagnostic */ }
+      throw new ProductAIError("AI_UPSTREAM_ERROR", "FightIQ couldn’t answer right now.", response.status === 429 ? 429 : 503, {
+        upstreamStatus: response.status,
+        providerCode,
+        providerMessage,
+        ...(requestId ? { requestId } : {}),
+      });
+    }
     return await response.json() as Record<string, unknown>;
   } catch (error) {
     if (error instanceof ProductAIError) throw error;
-    if (error instanceof Error && error.name === "AbortError") throw new ProductAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504);
-    throw new ProductAIError("AI_UNAVAILABLE", "FightIQ couldn’t answer right now.", 503);
+    if (error instanceof Error && error.name === "AbortError") throw new ProductAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504, { timeoutMs: 20000 });
+    throw new ProductAIError("AI_NETWORK_ERROR", "FightIQ couldn’t answer right now.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown network error" });
   } finally { clearTimeout(timeout); }
 }
 
 export async function answerCoach(args: {
-  apiKey?: string; ownerId: string; question: string; memory: MemorySnapshot; profile: FighterProfile;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; question: string; memory: MemorySnapshot; profile: FighterProfile;
   workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string }>;
 }) {
-  if (!args.apiKey) {
-    if (process.env.NODE_ENV !== "production") {
+  if (!args.apiKey?.trim()) {
+    if (args.allowMockAi) {
       return `Based on your current focus—${args.memory.currentFocus}—keep the next session simple: notice the first moment the position starts to break, use one correction, and review whether it held up under resistance. Your coach’s instruction should take priority over FightIQ.`;
     }
-    throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503);
+    throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const payload = await responseRequest(args.apiKey, args.ownerId, {
     max_output_tokens: 650,
@@ -108,10 +123,10 @@ const mealSchema = {
   },
 };
 
-export async function analyzeMeal(args: { apiKey?: string; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string } }) {
-  if (!args.apiKey) {
-    if (process.env.NODE_ENV !== "production") return mockMeal(args.description, Boolean(args.image));
-    throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503);
+export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string } }) {
+  if (!args.apiKey?.trim()) {
+    if (args.allowMockAi) return mockMeal(args.description, Boolean(args.image));
+    throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const content: Array<Record<string, unknown>> = [{
     type: "input_text",

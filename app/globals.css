@@ -223,6 +223,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .prompt-list { display: grid; gap: 8px; margin-top: 23px; }
 .prompt-list button { border: 1px solid var(--line); background: var(--surface); color: #d4deea; border-radius: 13px; min-height: 48px; padding: 0 14px; display: flex; justify-content: space-between; align-items: center; text-align: left; font-size: 12px; }
 .prompt-list button svg { color: var(--blue-bright); }
+.coach-suggestions { border-top: 1px solid var(--line-soft); padding: 13px 0 4px; }
+.coach-suggestions > span { color: var(--muted-2); font-size: 8px; letter-spacing: .13em; font-weight: 800; }
+.coach-suggestions .prompt-list { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 9px; }
+.coach-suggestions .prompt-list button { min-height: 44px; font-size: 10px; line-height: 1.35; }
+.coach-error { border: 1px solid rgba(255,120,120,.2); background: rgba(255,90,90,.05); border-radius: 13px; padding: 12px 14px; color: #ffaaaa; font-size: 12px; margin-top: 9px; }
+.coach-error p { margin: 0 0 7px; }
+.coach-error button { border: 0; background: none; color: var(--blue-bright); display: inline-flex; align-items: center; gap: 6px; padding: 3px 0; }
+.coach-error code { display: block; color: #8998a9; font-size: 9px; line-height: 1.4; overflow-wrap: anywhere; margin-top: 7px; }
 .chat-message { max-width: 88%; margin-bottom: 15px; }
 .chat-message > span { display: block; color: var(--muted-2); font-size: 8px; letter-spacing: .14em; font-weight: 800; margin: 0 0 5px 7px; }
 .chat-message p { white-space: pre-wrap; margin: 0; padding: 13px 15px; border-radius: 15px; line-height: 1.55; font-size: 13px; }
@@ -234,6 +242,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .coach-compose { position: sticky; bottom: calc(var(--nav-height) - 1px); background: rgba(7,10,15,.96); border-top: 1px solid var(--line-soft); padding: 12px 0 13px; }
 .coach-compose textarea { width: 100%; min-height: 78px; resize: none; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 13px 92px 13px 14px; font-size: 13px; outline: none; }
 .coach-compose .answer-mic { right: 51px; bottom: 21px; }
+@media (max-width: 520px) { .coach-suggestions .prompt-list { grid-template-columns: 1fr; } }
 .compose-send { position: absolute; right: 5px; bottom: 21px; width: 39px; height: 39px; border-radius: 50%; border: 0; background: var(--blue); color: white; display: grid; place-items: center; }
 .compose-send:disabled { opacity: .35; }
 .game-hero { border: 1px solid #25405e; background: linear-gradient(140deg, #102039, #0c131d); border-radius: 20px; padding: 22px; display: flex; justify-content: space-between; gap: 15px; margin-bottom: 14px; }

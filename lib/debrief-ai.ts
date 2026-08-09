@@ -59,17 +59,17 @@ Rules:
 - Keep the takeaway and next-session focus concise and directly useful.`;
 
 export async function generateDebrief(args: {
-  apiKey?: string; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null;
 }): Promise<DebriefResult> {
   const nextSequence = args.history.length + 1;
   const allowQuestion = nextSequence <= MAX_QUESTIONS;
-  if (!args.apiKey) {
-    if (process.env.NODE_ENV !== "production") {
+  if (!args.apiKey?.trim()) {
+    if (args.allowMockAi) {
       const result = mockDebrief(args.entry, args.history);
       if (!allowQuestion && result.status === "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ exceeded the question limit.", 502);
       return result;
     }
-    throw new DebriefAIError("AI_NOT_CONFIGURED", "FightIQ AI is not configured yet.", 503);
+    throw new DebriefAIError("AI_NOT_CONFIGURED", "FightIQ AI is not configured yet.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const safetyIdentifier = await hashIdentifier(args.ownerId);
   const controller = new AbortController();
@@ -104,11 +104,25 @@ export async function generateDebrief(args: {
       }),
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new DebriefAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504);
-    throw new DebriefAIError("AI_UNAVAILABLE", "FightIQ could not prepare the debrief.", 503);
+    if (error instanceof Error && error.name === "AbortError") throw new DebriefAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504, { timeoutMs: 15000 });
+    throw new DebriefAIError("AI_NETWORK_ERROR", "FightIQ could not prepare the debrief.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown network error" });
   } finally { clearTimeout(timeout); }
-  if (!response.ok) throw new DebriefAIError("AI_UNAVAILABLE", "FightIQ could not prepare the debrief.", response.status === 429 ? 429 : 503);
-  const payload = await response.json() as Record<string, unknown>;
+  if (!response.ok) {
+    const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
+    let providerCode = "unknown";
+    let providerMessage = "OpenAI returned a non-success response.";
+    try {
+      const failure = await response.json() as { error?: { code?: unknown; message?: unknown } };
+      if (typeof failure.error?.code === "string") providerCode = failure.error.code.slice(0, 120);
+      if (typeof failure.error?.message === "string") providerMessage = failure.error.message.slice(0, 500);
+    } catch { /* preserve the HTTP-level diagnostic */ }
+    throw new DebriefAIError("AI_UPSTREAM_ERROR", "FightIQ could not prepare the debrief.", response.status === 429 ? 429 : 503, {
+      upstreamStatus: response.status, providerCode, providerMessage, ...(requestId ? { requestId } : {}),
+    });
+  }
+  let payload: Record<string, unknown>;
+  try { payload = await response.json() as Record<string, unknown>; }
+  catch { throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ returned an unreadable debrief response.", 502); }
   const text = extractOutputText(payload);
   if (!text) throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete debrief.", 502);
   let parsed: unknown;
@@ -173,5 +187,5 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
 }
 
 export class DebriefAIError extends Error {
-  constructor(public code: string, message: string, public status: number) { super(message); }
+  constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
 }

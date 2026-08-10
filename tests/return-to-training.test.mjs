@@ -226,3 +226,50 @@ test("a step number outside the ladder is clamped rather than crashing", () => {
     assert.ok(view.stage.step >= 1 && view.stage.step <= view.totalSteps);
   }
 });
+
+// The scanner is deliberately tuned to over-fire, and a false positive now
+// costs a week of training rather than one dismissible card. The way out has to
+// exist, and it has to be recorded as what it was.
+test("a misread can be cleared at any step, and is recorded as a misread", () => {
+  for (const steps of [0, 1, 3]) {
+    let hold = newHold();
+    for (let step = 0; step < steps; step += 1) {
+      hold = applyHoldAction(hold, { type: "advance", symptomFree: true }, hoursAfter(START, 24 * (step + 1))).hold;
+    }
+    const cleared = applyHoldAction(hold, { type: "dismiss" }, hoursAfter(START, 24 * (steps + 1)));
+    assert.equal(cleared.changed, true, `dismiss failed after ${steps} advances`);
+    assert.ok(cleared.hold.clearedAt);
+    assert.equal(cleared.hold.clearedReason, "misread");
+    assert.equal(describeHold(cleared.hold, START).open, false);
+  }
+});
+
+test("walking the ladder off records something different from a misread", () => {
+  const { hold, clock } = climb(newHold());
+  assert.equal(applyHoldAction(hold, { type: "close" }, clock).hold.clearedReason, "completed");
+});
+
+test("a dismissed hold stops gating training", () => {
+  const cleared = applyHoldAction(newHold(), { type: "dismiss" }, START).hold;
+  assert.equal(trainingPermission(cleared, START).allowsContact, true);
+  assert.equal(sessionConflictsWithHold(cleared, "Hard sparring", START), "");
+});
+
+test("dismissing twice is not a second write", () => {
+  const cleared = applyHoldAction(newHold(), { type: "dismiss" }, START).hold;
+  const again = applyHoldAction(cleared, { type: "dismiss" }, hoursAfter(START, 1));
+  assert.equal(again.changed, false);
+  assert.match(again.error, /already closed/);
+});
+
+test("the way out asks a direct question rather than offering a shrug", () => {
+  const head = describeHold(newHold(), START);
+  assert.ok(head.dismissChecklist.length >= 3);
+  assert.match(head.dismissTitle, /\?$/);
+  // The checklist has to name the actual signs, not just say "are you sure".
+  assert.ok(head.dismissChecklist.some((line) => /head/i.test(line)));
+  assert.ok(head.dismissChecklist.some((line) => /headache|nausea|ringing|foggi|dizz/i.test(line)));
+  const injury = describeHold(newHold("acute_injury"), START);
+  assert.ok(injury.dismissChecklist.length >= 2);
+  assert.notDeepEqual(injury.dismissChecklist, head.dismissChecklist);
+});

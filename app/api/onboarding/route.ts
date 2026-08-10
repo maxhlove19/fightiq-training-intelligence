@@ -1,5 +1,6 @@
 import { calculateStartingMacros, validateOnboarding } from "../../../lib/athlete-onboarding";
 import { ensureProductSchema, getProductOwnerId, getProductRuntime, productError } from "../../../lib/product-db";
+import { startingFocus } from "../../../lib/session-cue";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
         heightCm: input.heightCm, weightKg: input.weightKg, dietaryRestrictions: input.dietaryRestrictions, foodPreferences: input.foodPreferences,
         foodsToAvoid: input.foodsToAvoid, mealsPerDay: input.mealsPerDay, trainingTime: input.trainingTime,
       }),
-      input.currentFocus || `Build a stronger ${input.disciplines[0]} game`,
+      // "Build a stronger Muay Thai game" names the sport and nothing else. A
+      // starting focus has to be something an athlete can act on tonight.
+      input.currentFocus || startingFocus(input.disciplines),
       input.currentFocus ? "Set during your athlete setup." : "Your starting focus will sharpen as FightIQ learns from your training.",
       input.primaryGoal, JSON.stringify(input.styleInfluences), targets?.calories ?? 2400, targets?.protein ?? 180,
       targets?.carbs ?? 260, targets?.fat ?? 70, now, now,

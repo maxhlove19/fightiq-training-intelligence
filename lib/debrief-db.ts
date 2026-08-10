@@ -1,9 +1,22 @@
-import { APP_SCHEMA } from "./schema";
+import { APP_COLUMNS, APP_SCHEMA } from "./schema";
 
 export type D1 = D1Database;
 
+/**
+ * Columns cannot go in the batch above: a batch is all-or-nothing, and the
+ * expected outcome here is failure. Each one is attempted on its own and the
+ * duplicate-column error is swallowed, which is what makes it idempotent.
+ */
+export async function applyColumns(db: D1) {
+  for (const { table, column, definition } of APP_COLUMNS) {
+    try { await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run(); }
+    catch { /* already there, which is the steady state */ }
+  }
+}
+
 export async function ensureDebriefSchema(db: D1) {
   await db.batch(APP_SCHEMA.map((statement) => db.prepare(statement)));
+  await applyColumns(db);
 }
 
 export async function getOwnedEntry(db: D1, entryId: string, ownerId: string) {

@@ -2,7 +2,7 @@
 // return-to-training.ts; this only moves rows.
 
 import type { D1 } from "./debrief-db";
-import { applyHoldAction, type Hold, type HoldAction, type HoldReason } from "./return-to-training";
+import { applyHoldAction, type ClearedReason, type Hold, type HoldAction, type HoldReason } from "./return-to-training";
 
 type HoldRow = {
   id: string;
@@ -14,6 +14,7 @@ type HoldRow = {
   step_entered_at: string;
   medical_cleared_at: string | null;
   cleared_at: string | null;
+  cleared_reason: string | null;
   setbacks: number;
 };
 
@@ -35,13 +36,14 @@ function toHold(row: HoldRow): Hold {
     stepEnteredAt: row.step_entered_at,
     medicalClearedAt: row.medical_cleared_at,
     clearedAt: row.cleared_at,
+    clearedReason: row.cleared_reason === "misread" || row.cleared_reason === "completed" ? (row.cleared_reason as ClearedReason) : null,
     setbacks: Number(row.setbacks) || 0,
   };
 }
 
 export async function getOpenHold(db: D1, ownerId: string): Promise<Hold | null> {
   const row = await db.prepare(
-    "SELECT id, reason, entry_id, matched_json, opened_at, step, step_entered_at, medical_cleared_at, cleared_at, setbacks FROM training_holds WHERE owner_id = ? AND cleared_at IS NULL ORDER BY opened_at DESC LIMIT 1"
+    "SELECT id, reason, entry_id, matched_json, opened_at, step, step_entered_at, medical_cleared_at, cleared_at, cleared_reason, setbacks FROM training_holds WHERE owner_id = ? AND cleared_at IS NULL ORDER BY opened_at DESC LIMIT 1"
   ).bind(ownerId).first<HoldRow>();
   return row ? toHold(row) : null;
 }
@@ -63,9 +65,15 @@ export async function openHoldForNote(
     // clearance requirement is stricter, so it is the one to be on.
     const promote = input.reason === "head_impact" && existing.reason === "acute_injury";
     const setback = applyHoldAction(existing, { type: "setback" }, now);
-    const updated: Hold = promote
-      ? { ...setback.hold, reason: "head_impact", step: 1, matched: input.matched, entryId: input.entryId }
-      : setback.hold;
+    // The card shows the athlete their own words. After a second knock those
+    // words are the new note's, not last week's — otherwise the hold quotes an
+    // event that is no longer the reason it is standing.
+    const updated: Hold = {
+      ...setback.hold,
+      ...(promote ? { reason: "head_impact" as const, step: 1 } : {}),
+      matched: input.matched.slice(0, 8),
+      entryId: input.entryId,
+    };
     await saveHold(db, ownerId, updated);
     return updated;
   }
@@ -79,22 +87,23 @@ export async function openHoldForNote(
     stepEnteredAt: now,
     medicalClearedAt: null,
     clearedAt: null,
+    clearedReason: null,
     setbacks: 0,
   };
   await db.prepare(
-    `INSERT INTO training_holds (id, owner_id, reason, entry_id, matched_json, opened_at, step, step_entered_at, medical_cleared_at, cleared_at, setbacks, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, ?)`
+    `INSERT INTO training_holds (id, owner_id, reason, entry_id, matched_json, opened_at, step, step_entered_at, medical_cleared_at, cleared_at, cleared_reason, setbacks, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0, ?)`
   ).bind(hold.id, ownerId, hold.reason, hold.entryId, JSON.stringify(hold.matched), hold.openedAt, hold.step, hold.stepEnteredAt, now).run();
   return hold;
 }
 
 export async function saveHold(db: D1, ownerId: string, hold: Hold): Promise<void> {
   await db.prepare(
-    `UPDATE training_holds SET reason = ?, matched_json = ?, step = ?, step_entered_at = ?, medical_cleared_at = ?, cleared_at = ?, setbacks = ?, updated_at = ?
+    `UPDATE training_holds SET reason = ?, matched_json = ?, step = ?, step_entered_at = ?, medical_cleared_at = ?, cleared_at = ?, cleared_reason = ?, setbacks = ?, updated_at = ?
      WHERE id = ? AND owner_id = ?`
   ).bind(
     hold.reason, JSON.stringify(hold.matched), hold.step, hold.stepEnteredAt,
-    hold.medicalClearedAt, hold.clearedAt, hold.setbacks, new Date().toISOString(), hold.id, ownerId,
+    hold.medicalClearedAt, hold.clearedAt, hold.clearedReason, hold.setbacks, new Date().toISOString(), hold.id, ownerId,
   ).run();
 }
 

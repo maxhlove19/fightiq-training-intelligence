@@ -32,9 +32,16 @@ export type SafetySignal = {
   holdTraining: boolean;
 };
 
-type Rule = { label: string; pattern: RegExp };
+type Rule = { label: string; pattern: RegExp; ambiguous?: boolean };
 
 const rule = (label: string, source: string): Rule => ({ label, pattern: new RegExp(source, "i") });
+
+/**
+ * Fight vernacular that means "I took a shot" without saying where it landed.
+ * "Got cracked" is a concussion in one note and a body kick in the next, so
+ * these only count as a head impact when nothing in the sentence says otherwise.
+ */
+const loose = (label: string, source: string): Rule => ({ label, pattern: new RegExp(source, "i"), ambiguous: true });
 
 // Said outright. No corroboration needed.
 const HEAD_EXPLICIT: Rule[] = [
@@ -43,17 +50,17 @@ const HEAD_EXPLICIT: Rule[] = [
   rule("lost consciousness", "\\b(lost consciousness|passed out|went out cold|out cold)\\b"),
   rule("blacked out", "\\bblack(ed)? out\\b"),
   rule("saw stars", "\\b(saw stars|lights went out|vision went)\\b"),
-  rule("can't remember", "\\b(can'?t|don'?t|couldn'?t) remember\\b"),
+  rule("can't remember", "\\b(can'?t|don'?t|couldn'?t)\\s+(\\w+\\s+)?remember\\b"),
 ];
 
 // Fight vernacular for taking a shot that landed. Written so the athlete has to
 // be on the receiving end: "I dropped him" is a good round, and so is "dei uma
 // bomba nele".
 const HEAD_IMPACT: Rule[] = [
-  rule("got rocked", "\\b(got|was|felt) (rocked|buzzed|stunned|wobbled|scrambled)\\b|\\brocked me\\b"),
-  rule("got dropped", "\\b(got|was) dropped\\b|\\bdropped me\\b"),
-  rule("got cracked", "\\b(got|was) (cracked|clipped|caught|tagged|smashed|rattled)\\b|\\b(cracked|clipped|tagged|caught) me\\b"),
-  rule("head clash", "\\b(head ?butt|clash of heads|heads clashed|banged heads)\\b"),
+  loose("got rocked", "\\b(got|was|felt) (rocked|buzzed|stunned|wobbled|scrambled)\\b|\\brocked me\\b"),
+  loose("got dropped", "\\b(got|was) dropped\\b|\\bdropped me\\b"),
+  loose("got cracked", "\\b(got|was) (cracked|clipped|caught|tagged|smashed|rattled)\\b|\\b(cracked|clipped|tagged|caught) me\\b"),
+  rule("head clash", "\\b(head ?butt|clash(ed)? (of )?heads|heads clashed|banged heads)\\b"),
   rule("took a knock to the head", "\\b(shot|kick|knee|elbow|punch|hook|cross|uppercut|head kick|overhand)\\b[^.!?]{0,28}\\b(to|on|off) (my|the) (head|temple|jaw|chin|face|skull)\\b"),
   rule("hit my head", "\\b(hit|banged|bounced|cracked|whacked) (my|the back of my) (head|skull)\\b"),
   rule("slammed", "\\b(got|was) (slammed|spiked|dumped on my head)\\b"),
@@ -76,7 +83,7 @@ const HEAD_SYMPTOM: Rule[] = [
 const HEAD_CONTEXT = /\b(head|skull|temple|jaw|chin|face|spar(ring|red)?|strik|punch|kick|elbow|knee|hook|cross|slam|takedown)/i;
 
 const ACUTE_INJURY: Rule[] = [
-  rule("heard a pop", "\\b(heard|felt) (a|it) (pop|snap|crack|tear|crunch)\\b|\\bpopped (out|my)\\b"),
+  rule("heard a pop", "\\b(heard|felt) (a|it) (pop|snap|crack|tear|crunch)\\b|\\bpopped (out|in|my)\\b|\\b(something|it|my \\w+) (popped|snapped|gave)\\b"),
   rule("joint gave way", "\\b(gave way|gave out|buckled|dislocat(ed|ion)|came out of (the|its) socket|subluxed)\\b"),
   rule("can't bear weight", "\\bcan'?t (put weight|bear weight|walk|stand)\\b|\\bcouldn'?t (put weight|bear weight|walk)\\b"),
   rule("numbness or tingling", "\\b(numb(ness)?|tingl(ing|y)|pins and needles|no feeling in)\\b"),
@@ -85,7 +92,9 @@ const ACUTE_INJURY: Rule[] = [
   rule("suspected break or tear", "\\b(broke|broken|fractur(e|ed)|torn|tore (my|a)|ruptur(e|ed))\\b"),
   rule("sharp pain", "\\bsharp pain\\b|\\bshooting pain\\b|\\bstabbing pain\\b"),
   rule("can't move it normally", "\\bcan'?t (straighten|bend|lift|rotate|move) (my|it)\\b"),
-  rule("ribs", "\\b(rib|ribs)\\b[^.!?]{0,24}\\b(hurt|pain|sore|pop|crack|breath)\\b|\\bhard to breathe\\b"),
+  // Sore ribs after body sparring is a normal Tuesday. A rib that pops, cracks,
+  // or makes breathing hurt is not.
+  rule("ribs", "\\b(rib|ribs)\\b[^.!?]{0,24}\\b(pop|popped|crack|cracked|broke|broken|breath|breathe)\\b|\\b(hard|hurts|painful) to breathe\\b"),
 ];
 
 const ILLNESS_OR_LOAD: Rule[] = [
@@ -108,11 +117,40 @@ function isNegated(text: string, index: number) {
   return !CONTRAST.test(afterNegator);
 }
 
+// Where the shot landed, when the note says. "Got cracked in the ribs" is a
+// body shot; "caught me with a body kick" is a body shot; "got cracked" on its
+// own stays a head impact, because the cost of being wrong runs one way.
+const BODY_TARGET = /\b(rib|ribs|body|liver|solar plexus|stomach|gut|belly|leg|legs|thigh|calf|shin|knee|ankle|foot|arm|shoulder|hand|wrist|back|hip)\b/i;
+const HEAD_TARGET = /\b(head|skull|temple|jaw|chin|face|nose|ear|eye|neck)\b/i;
+
+// Athletes write notes as one long run-on line. A sentence is far too wide a
+// window: "tweaked my knee, and got rocked in the last round" has a body part
+// and a head impact in it, and they are not the same event. Clauses are.
+const CLAUSE_BREAK = /[.!?,;]|\b(and|then|but|though|however|also|plus)\b/gi;
+
+/**
+ * True when the clause around an ambiguous hit names a body target and no head
+ * target — "got cracked in the ribs". A bare "got cracked" names nothing and
+ * stays a head impact, because the cost of being wrong runs one way.
+ */
+function landedOnTheBody(text: string, index: number) {
+  let start = 0;
+  let end = text.length;
+  CLAUSE_BREAK.lastIndex = 0;
+  for (let hit = CLAUSE_BREAK.exec(text); hit; hit = CLAUSE_BREAK.exec(text)) {
+    if (hit.index + hit[0].length <= index) start = hit.index + hit[0].length;
+    else { end = hit.index; break; }
+  }
+  const clause = text.slice(start, end);
+  return BODY_TARGET.test(clause) && !HEAD_TARGET.test(clause);
+}
+
 function matches(text: string, rules: Rule[]): string[] {
   const found: string[] = [];
   for (const item of rules) {
     const hit = item.pattern.exec(text);
     if (!hit || isNegated(text, hit.index)) continue;
+    if (item.ambiguous && landedOnTheBody(text, hit.index)) continue;
     found.push(item.label);
   }
   return found;

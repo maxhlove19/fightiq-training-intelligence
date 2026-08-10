@@ -245,9 +245,22 @@ export const APP_SCHEMA: string[] = [
       step_entered_at TEXT NOT NULL,
       medical_cleared_at TEXT,
       cleared_at TEXT,
+      cleared_reason TEXT,
       setbacks INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`,
   // Reads are always "the open hold for this athlete", so cleared_at leads.
   "CREATE INDEX IF NOT EXISTS idx_training_holds_owner_open ON training_holds (owner_id, cleared_at, opened_at)",
+];
+
+/**
+ * Columns added to tables that already exist somewhere. SQLite has no
+ * ADD COLUMN IF NOT EXISTS, so these are applied one at a time and the
+ * "duplicate column" failure is the success case on every run after the first.
+ *
+ * Adding a column means adding it here AND to the CREATE above, so a fresh
+ * database gets it directly and an existing one gets it on the next request.
+ */
+export const APP_COLUMNS: Array<{ table: string; column: string; definition: string }> = [
+  { table: "training_holds", column: "cleared_reason", definition: "TEXT" },
 ];

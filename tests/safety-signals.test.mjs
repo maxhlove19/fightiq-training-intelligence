@@ -93,3 +93,52 @@ test("empty and junk input is safe", () => {
   assert.equal(level("   "), "none");
   assert.equal(scanTrainingNote(undefined).level, "none");
 });
+
+// A false positive is no longer one dismissible card. It opens a hold that
+// stands between the athlete and their own training for days, so the ordinary
+// striking vocabulary below has to come back clean.
+test("a shot that landed on the body is not a head impact", () => {
+  const bodyShots = [
+    "Sparred light today. He caught me with a body kick a few times, need to keep my elbow down.",
+    "Got cracked in the ribs with a knee, winded me for a second but fine.",
+    "He dropped me with a leg kick in round two. Checked the rest of them after that.",
+    "Got tagged in the liver and had to take a knee.",
+    "He clipped my shoulder with a cross.",
+  ];
+  for (const note of bodyShots) assert.equal(level(note), "none", note);
+});
+
+test("naming the body does not explain away a separate head shot", () => {
+  // One run-on note, two different events. The clause is the window, not the note.
+  assert.equal(level("Exhausted, tweaked my knee, and got rocked in the last round."), "head_impact");
+  assert.equal(level("Got cracked in the ribs, then caught a head kick and my ears were ringing."), "head_impact");
+  assert.equal(level("Got cracked in the face."), "head_impact");
+});
+
+test("an unqualified 'got cracked' still holds, because the cost runs one way", () => {
+  assert.equal(level("Hard sparring, got cracked in the third."), "head_impact");
+  assert.equal(level("Got rocked."), "head_impact");
+});
+
+test("sore ribs after body work is a normal Tuesday, not a week off", () => {
+  assert.equal(level("Got hit a lot to the body, my ribs are sore."), "none");
+  assert.equal(level("Ribs hurt a bit from the body sparring."), "none");
+  // A rib that pops, or that makes breathing hurt, is a different thing.
+  assert.equal(level("Something cracked in my ribs and it hurts to breathe."), "acute_injury");
+});
+
+test("the ways athletes actually describe an injury are caught", () => {
+  assert.equal(level("Something popped in my knee when I checked a kick."), "acute_injury");
+  assert.equal(level("My shoulder gave when I posted."), "acute_injury");
+});
+
+test("memory loss counts however it is phrased", () => {
+  assert.equal(level("Sparring, I don't really remember the last round."), "head_impact");
+  assert.equal(level("Can't properly remember the third."), "head_impact");
+});
+
+test("clashing heads is caught in the words people use for it", () => {
+  for (const note of ["Clashed heads in the clinch.", "We banged heads going for the same shot.", "Headbutt by accident in the clinch."]) {
+    assert.equal(level(note), "head_impact", note);
+  }
+});

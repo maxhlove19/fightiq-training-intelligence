@@ -4,7 +4,7 @@ import { describeHold, type HoldAction } from "../../../../lib/return-to-trainin
 
 export const dynamic = "force-dynamic";
 
-const ACTIONS = new Set(["advance", "setback", "record_medical_clearance", "close"]);
+const ACTIONS = new Set(["advance", "setback", "record_medical_clearance", "close", "dismiss"]);
 
 async function view(db: Parameters<typeof getOpenHold>[0], ownerId: string) {
   const hold = await getOpenHold(db, ownerId);
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   // gets the same refusal the button would have.
   const request_: HoldAction = action === "advance"
     ? { type: "advance", symptomFree: body.symptomFree === true }
-    : { type: action as "setback" | "record_medical_clearance" | "close" };
+    : { type: action as "setback" | "record_medical_clearance" | "close" | "dismiss" };
   const { error } = await actOnOpenHold(db, ownerId, request_);
   return Response.json({ hold: await view(db, ownerId), error }, { headers: { "cache-control": "no-store" } });
 }

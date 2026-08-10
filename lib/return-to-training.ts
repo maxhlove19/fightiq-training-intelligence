@@ -124,6 +124,8 @@ export type Hold = {
   stepEnteredAt: string;
   medicalClearedAt: string | null;
   clearedAt: string | null;
+  /** Why it closed: walked off, or opened on a note the scanner misread. */
+  clearedReason: ClearedReason | null;
   /** How many times symptoms sent them back a step. Two is a reason to go back to a doctor. */
   setbacks: number;
 };
@@ -132,7 +134,11 @@ export type HoldAction =
   | { type: "advance"; symptomFree: boolean }
   | { type: "setback" }
   | { type: "record_medical_clearance" }
-  | { type: "close" };
+  | { type: "close" }
+  /** The scanner read the note wrong. Nothing happened, and the hold should never have opened. */
+  | { type: "dismiss" };
+
+export type ClearedReason = "completed" | "misread";
 
 export type HoldView = {
   open: boolean;
@@ -160,6 +166,12 @@ export type HoldView = {
   /** Shown when the same hold has sent them backwards more than once. */
   escalation: string;
   footnote: string;
+  /** The way out when the scanner was simply wrong, and what the athlete has to confirm to take it. */
+  dismissLabel: string;
+  dismissTitle: string;
+  dismissBody: string;
+  dismissChecklist: string[];
+  dismissConfirmLabel: string;
 };
 
 const HOUR = 3600_000;
@@ -189,6 +201,7 @@ export function openHold(input: { id: string; reason: HoldReason; entryId?: stri
     stepEnteredAt: at,
     medicalClearedAt: null,
     clearedAt: null,
+    clearedReason: null,
     setbacks: 0,
   };
 }
@@ -250,6 +263,23 @@ export function describeHold(hold: Hold, now: string | Date): HoldView {
     advanceLabel: ADVANCE_LABEL[stage.key] ?? "MOVE TO THE NEXT STEP",
     setbackLabel: head ? "Symptoms came back" : "It flared up again",
     escalation,
+    dismissLabel: "FightIQ read this wrong",
+    dismissTitle: head ? "Did any of this actually happen?" : "Did you actually hurt something?",
+    dismissBody: head
+      ? "FightIQ opened this by reading your own words, and it would rather be wrong this way round than the other. If none of the below is true, clear it and carry on — it will not hold it against you."
+      : "FightIQ opened this from your note. If nothing is actually hurt, clear it and carry on.",
+    dismissChecklist: head
+      ? [
+        "A shot, a fall or a clash landed on your head",
+        "You were dazed, wobbled, or lost track of a moment",
+        "A headache, nausea, ringing, fogginess or dizziness since training",
+        "Anyone there thought you looked out of it",
+      ]
+      : [
+        "Something is painful to load, or you are working around it",
+        "A pop, a give, swelling, or pain that is not ordinary soreness",
+      ],
+    dismissConfirmLabel: head ? "NONE OF THAT HAPPENED — CLEAR IT" : "NOTHING IS HURT — CLEAR IT",
     footnote: head
       ? "This is the standard stepwise return used in sport, kept on your phone. It is not a medical assessment and FightIQ is not a doctor. If a commission has suspended you, that suspension is longer than this and it is the one that counts."
       : "FightIQ is not a doctor and has not seen the injury. This keeps the clock; the person who assessed you sets the pace.",
@@ -283,9 +313,16 @@ export function applyHoldAction(hold: Hold, action: HoldAction, now: string | Da
     return { hold: { ...hold, step, stepEnteredAt: at, setbacks: hold.setbacks + 1 }, changed: true, error: "" };
   }
 
+  if (action.type === "dismiss") {
+    // Available at any point, deliberately. A hold that cannot be released when
+    // the scanner is wrong teaches athletes to stop writing honest notes, and
+    // that costs far more safety than it buys.
+    return { hold: { ...hold, clearedAt: at, clearedReason: "misread" }, changed: true, error: "" };
+  }
+
   if (action.type === "close") {
     if (view.stage.step < ladder.length) return unchanged("You are not at the last step yet.");
-    return { hold: { ...hold, clearedAt: at }, changed: true, error: "" };
+    return { hold: { ...hold, clearedAt: at, clearedReason: "completed" }, changed: true, error: "" };
   }
 
   if (!action.symptomFree) return unchanged("Advancing a step means the last one brought nothing on. Use the setback option instead.");

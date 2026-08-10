@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../app/chatgpt-auth";
-import type { D1 } from "./debrief-db";
+import { applyColumns, type D1 } from "./debrief-db";
 import { APP_SCHEMA } from "./schema";
+import { sessionCue as briefCue, startingFocus } from "./session-cue";
 
 export type FighterProfile = {
   owner_id: string;
@@ -41,6 +42,8 @@ export const emptyAthleteSetup: AthleteSetup = {
 };
 
 export type MemorySnapshot = {
+  /** What the athlete said they train. On day one it is the only signal there is. */
+  disciplines: string[];
   currentFocus: string;
   focusReason: string;
   strongestAreas: string[];
@@ -71,6 +74,7 @@ export async function ensureProductSchema(db: D1) {
   // One list owns the schema. Every entry point applies all of it, so no route
   // can be the only reason a table exists.
   await db.batch(APP_SCHEMA.map((statement) => db.prepare(statement)));
+  await applyColumns(db);
 }
 
 export async function getOrCreateProfile(db: D1, ownerId: string): Promise<FighterProfile> {
@@ -377,7 +381,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const latestFocus = completedRows.find((row) => row.next_session_focus)?.next_session_focus;
   // A manually saved focus is the athlete's intent. FightIQ's recommendation is
   // deliberately separate and can evolve from evidence without overwriting it.
-  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || "Build a reliable first layer of defense";
+  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || startingFocus(getAthleteSetup(profile).disciplines);
   const used = [currentFocus];
   const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
@@ -412,6 +416,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
   return {
+    disciplines: getAthleteSetup(profile).disciplines,
     currentFocus,
     focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
@@ -432,28 +437,31 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   };
 }
 
-function briefCue(mission: string) {
-  const lower = mission.toLowerCase();
-  if (lower.includes("arm drag") || lower.includes("drag")) return "Drag → take the angle.";
-  if (lower.includes("kick") || lower.includes("hip")) return "Pivot first → hip follows.";
-  if (lower.includes("frame")) return "Frames first → then move.";
-  if (lower.includes("defense")) return "See it early → make space.";
-  return "Pick one detail to pay attention to.";
-}
+
 
 export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memory?: MemorySnapshot): Promise<PreTrainingBrief> {
   const now = new Date();
   const since = new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString();
+  const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
+  const focus = fighterMemory.currentFocus;
   const existing = await db.prepare(`SELECT mission, reason, cue, source_focus, created_at FROM pre_training_briefs
     WHERE owner_id = ? AND consumed_at IS NULL AND created_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, since).first<{ mission: string; reason: string; cue: string; source_focus: string; created_at: string }>();
-  if (existing) {
+  // A brief is only worth reusing while the focus it was built from is still the
+  // athlete's focus. The first request an app makes lands before onboarding has
+  // finished, so without this a new athlete's first brief was built from an
+  // empty profile — and then cached for eighteen hours, telling a Muay Thai
+  // athlete about something from a sport they do not train.
+  if (existing && existing.source_focus === focus) {
     const refreshedCue = briefCue(existing.mission);
     if (refreshedCue !== existing.cue) await db.prepare("UPDATE pre_training_briefs SET cue = ? WHERE owner_id = ? AND created_at = ?").bind(refreshedCue, ownerId, existing.created_at).run();
     return { mission: existing.mission, reason: existing.reason, cue: refreshedCue, sourceFocus: existing.source_focus, createdAt: existing.created_at };
   }
-  const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
+  if (existing) {
+    // The stale one is retired rather than left to be picked up by the next read.
+    await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
+      .bind(now.toISOString(), ownerId).run();
+  }
   const latest = fighterMemory.recentTraining[0];
-  const focus = fighterMemory.currentFocus;
   const mission = latest?.focus || focus;
   const reason = latest?.takeaway || fighterMemory.focusReason;
   const brief: PreTrainingBrief = { mission: shortTopic(mission, "Test your current focus"), reason: shortTopic(reason, "Carry one clear detail from your last session into live work."), cue: briefCue(mission), sourceFocus: focus, createdAt: now.toISOString() };

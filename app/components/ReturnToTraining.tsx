@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Lock, ShieldAlert, Stethoscope, Undo2 } from "lucide-react";
+import { Check, Lock, ShieldAlert, Stethoscope, Undo2, X } from "lucide-react";
 
 export type HoldStage = {
   key: string;
@@ -37,9 +37,14 @@ export type HoldView = {
   setbackLabel: string;
   escalation: string;
   footnote: string;
+  dismissLabel: string;
+  dismissTitle: string;
+  dismissBody: string;
+  dismissChecklist: string[];
+  dismissConfirmLabel: string;
 };
 
-type Action = { action: "advance"; symptomFree: true } | { action: "setback" | "record_medical_clearance" | "close" };
+type Action = { action: "advance"; symptomFree: true } | { action: "setback" | "record_medical_clearance" | "close" | "dismiss" };
 
 /**
  * The hold, as the athlete sees it: which step they are on, what that step
@@ -52,7 +57,7 @@ type Action = { action: "advance"; symptomFree: true } | { action: "setback" | "
 export function ReturnToTraining({ hold, onChange, compact = false }: { hold: HoldView; onChange?: (hold: HoldView | null) => void; compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [confirming, setConfirming] = useState<"clearance" | null>(null);
+  const [confirming, setConfirming] = useState<"clearance" | "dismiss" | null>(null);
 
   async function send(body: Action) {
     if (busy) return;
@@ -94,17 +99,30 @@ export function ReturnToTraining({ hold, onChange, compact = false }: { hold: Ho
     {error && <p className="error-message" role="alert">{error}</p>}
 
     {onChange && <div className="rtt-actions">
-      {hold.needsMedicalClearance && (confirming === "clearance"
+      {hold.needsMedicalClearance && confirming !== "dismiss" && (confirming === "clearance"
         ? <div className="rtt-confirm">
+            <strong>Was this in person?</strong>
             <p>Only tap this if a doctor or physio has actually assessed you and said you can go back. FightIQ takes your word for it — nobody else checks.</p>
             <button className="primary-button" onClick={() => void send({ action: "record_medical_clearance" })} disabled={busy}>YES, I WAS CLEARED IN PERSON</button>
             <button className="quiet-button" onClick={() => setConfirming(null)}>Not yet</button>
           </div>
         : <button className="rtt-clearance" onClick={() => setConfirming("clearance")} disabled={busy}><Stethoscope size={16} /> A PROFESSIONAL CLEARED ME</button>)}
 
-      {hold.canAdvance && confirming !== "clearance" && <button className="primary-button" onClick={() => void send({ action: "advance", symptomFree: true })} disabled={busy}>{busy ? "SAVING…" : hold.advanceLabel}</button>}
-      {!hold.nextStage && confirming !== "clearance" && <button className="primary-button" onClick={() => void send({ action: "close" })} disabled={busy}>I’M BACK TO NORMAL — CLOSE THIS</button>}
-      {confirming !== "clearance" && <button className="quiet-button rtt-setback" onClick={() => void send({ action: "setback" })} disabled={busy}><Undo2 size={15} /> {hold.setbackLabel}</button>}
+      {confirming === "dismiss" && <div className="rtt-confirm">
+        <strong>{hold.dismissTitle}</strong>
+        <p>{hold.dismissBody}</p>
+        <ul>{hold.dismissChecklist.map((line) => <li key={line}>{line}</li>)}</ul>
+        <button className="rtt-dismiss-confirm" onClick={() => void send({ action: "dismiss" })} disabled={busy}>{hold.dismissConfirmLabel}</button>
+        <button className="quiet-button" onClick={() => setConfirming(null)}>Keep the hold</button>
+      </div>}
+
+      {hold.canAdvance && confirming === null && <button className="primary-button" onClick={() => void send({ action: "advance", symptomFree: true })} disabled={busy}>{busy ? "SAVING…" : hold.advanceLabel}</button>}
+      {!hold.nextStage && confirming === null && <button className="primary-button" onClick={() => void send({ action: "close" })} disabled={busy}>I’M BACK TO NORMAL — CLOSE THIS</button>}
+      {confirming === null && <button className="quiet-button rtt-setback" onClick={() => void send({ action: "setback" })} disabled={busy}><Undo2 size={15} /> {hold.setbackLabel}</button>}
+      {/* The way out. A hold that cannot be released when the scanner is wrong
+          teaches athletes to stop writing honest notes, which costs far more
+          safety than it buys — so it is here, behind a direct question. */}
+      {confirming === null && <button className="rtt-misread" onClick={() => setConfirming("dismiss")} disabled={busy}><X size={14} /> {hold.dismissLabel}</button>}
     </div>}
 
     <p className="rtt-footnote">{hold.footnote}</p>

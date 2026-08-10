@@ -160,7 +160,7 @@ function preservedArray(value: unknown) {
 // Finishing early means “don't infer more,” not “forget what the athlete and
 // coach already said.” This preserves factual context at low confidence while
 // removing tentative problems, causes, and recommendations.
-function conservativeFinishMemory(value: string | null, coachDetail: string | null) {
+function conservativeFinishMemory(value: string | null, coachDetail: string | null, answeredFacts: string[] = []) {
   try {
     const parsed = JSON.parse(value ?? "{}");
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
@@ -170,7 +170,11 @@ function conservativeFinishMemory(value: string | null, coachDetail: string | nu
       : {};
     const coachCues = [...preservedArray(memory.instructor_details), ...(coachDetail?.trim() ? [coachDetail.trim()] : []), ...(typeof intelligence.coach_instructor_cue === "string" && intelligence.coach_instructor_cue.trim() ? [intelligence.coach_instructor_cue.trim()] : [])]
       .filter((item, index, values) => values.indexOf(item) === index).slice(0, 4);
-    const facts = [...preservedArray(memory.reported_facts), ...preservedArray(intelligence.reported_facts)].slice(0, 8);
+    // The most important thing to retain during a timeout/error is the
+    // athlete's actual answer. It belongs in durable factual memory even when
+    // FightIQ never got a chance to interpret it.
+    const facts = [...preservedArray(memory.reported_facts), ...preservedArray(intelligence.reported_facts), ...answeredFacts]
+      .filter((item, index, values) => values.indexOf(item) === index).slice(0, 8);
     const technique = typeof intelligence.technique === "string" ? intelligence.technique.trim().slice(0, 160) : "";
     return JSON.stringify({
       techniques: preservedArray(memory.techniques), positions: preservedArray(memory.positions), successes: [], problems: [],
@@ -188,19 +192,25 @@ function conservativeFinishMemory(value: string | null, coachDetail: string | nu
 
 export async function finishDebrief(db: D1, entryId: string, ownerId: string) {
   const now = new Date().toISOString();
-  const existing = await db.prepare(`SELECT summary, takeaway, coach_detail, structured_memory_json, question_count
-    FROM training_debriefs WHERE entry_id = ? AND owner_id = ? LIMIT 1`)
-    .bind(entryId, ownerId).first<{ summary: string | null; takeaway: string | null; coach_detail: string | null; structured_memory_json: string | null; question_count: number | null }>();
-  const preservedMemory = conservativeFinishMemory(existing?.structured_memory_json ?? null, existing?.coach_detail ?? null);
+  const [existing, answers] = await Promise.all([
+    db.prepare(`SELECT summary, takeaway, coach_detail, structured_memory_json, question_count
+      FROM training_debriefs WHERE entry_id = ? AND owner_id = ? LIMIT 1`)
+      .bind(entryId, ownerId).first<{ summary: string | null; takeaway: string | null; coach_detail: string | null; structured_memory_json: string | null; question_count: number | null }>(),
+    db.prepare(`SELECT answer FROM training_followups
+      WHERE entry_id = ? AND owner_id = ? AND status = 'answered' AND answer IS NOT NULL
+      ORDER BY sequence ASC`).bind(entryId, ownerId).all<{ answer: string }>(),
+  ]);
+  const answeredFacts = (answers.results ?? []).map((row) => row.answer.replace(/\s+/g, " ").trim().slice(0, 500)).filter(Boolean).slice(0, 5);
+  const preservedMemory = conservativeFinishMemory(existing?.structured_memory_json ?? null, existing?.coach_detail ?? null, answeredFacts);
   const takeaway = existing?.takeaway?.trim() || "Your training note is saved.";
   const confidence = preservedMemory ? 0.25 : 0;
   await db.batch([
-    db.prepare("UPDATE training_followups SET status = 'skipped', answer_source = 'finish', answered_at = ? WHERE entry_id = ? AND owner_id = ? AND status = 'pending'").bind(now, entryId, ownerId),
+    db.prepare("UPDATE training_followups SET status = 'skipped', answer_source = 'finish', confidence_after = ?, answered_at = ? WHERE entry_id = ? AND owner_id = ? AND status = 'pending'").bind(confidence, now, entryId, ownerId),
     db.prepare(`INSERT INTO training_debriefs (entry_id, owner_id, summary, takeaway, coach_detail, structured_memory_json, next_session_focus, status, question_count, confidence, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, NULL, 'complete', ?, ?, ?, ?)
       ON CONFLICT(entry_id) DO UPDATE SET summary = excluded.summary, takeaway = excluded.takeaway,
         coach_detail = excluded.coach_detail, structured_memory_json = excluded.structured_memory_json,
-        next_session_focus = NULL, status = 'complete', confidence = excluded.confidence, updated_at = excluded.updated_at`)
+        fightiq_explanation = NULL, next_session_focus = NULL, status = 'complete', confidence = excluded.confidence, updated_at = excluded.updated_at`)
       .bind(entryId, ownerId, existing?.summary ?? null, takeaway, existing?.coach_detail ?? null, preservedMemory, existing?.question_count ?? 0, confidence, now, now),
   ]);
   return { structuredMemory: preservedMemory, confidence };

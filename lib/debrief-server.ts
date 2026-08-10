@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../app/chatgpt-auth";
 import type { DebriefResult } from "./debrief-ai";
 import type { D1 } from "./debrief-db";
-import { persistFighterBrainEvidence } from "./product-db";
+import { fighterBrainEvidenceStatements } from "./product-db";
 
 export async function getOwnerId() {
   const user = await getChatGPTUser();
@@ -18,6 +18,13 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
   const now = new Date().toISOString();
   const status = result.status === "complete" ? "complete" : "question";
   const structuredMemory = JSON.stringify({ ...result.memory, intelligence: result.intelligence });
+  const entry = result.status === "complete"
+    ? await db.prepare("SELECT id, discipline, created_at FROM training_entries WHERE id = ? AND owner_id = ? LIMIT 1")
+      .bind(entryId, ownerId).first<{ id: string; discipline: string; created_at: string }>()
+    : null;
+  const evidenceStatements = entry
+    ? fighterBrainEvidenceStatements(db, ownerId, entry, structuredMemory, result.confidence)
+    : [];
   // A recommendation can evolve after a high-confidence completed debrief. It is
   // not the same field as an athlete's manually pinned current focus.
   const shouldRecommendFocus = result.status === "complete"
@@ -57,12 +64,7 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
       .bind(crypto.randomUUID(), entryId, ownerId, sequence, result.question.prompt, JSON.stringify(result.question.choices),
         result.question.target_field, result.question.why_asked, result.confidence, now)
   );
-  await db.batch(statements);
-  if (result.status === "complete") {
-    const entry = await db.prepare("SELECT id, discipline, created_at FROM training_entries WHERE id = ? AND owner_id = ? LIMIT 1")
-      .bind(entryId, ownerId).first<{ id: string; discipline: string; created_at: string }>();
-    if (entry) await persistFighterBrainEvidence(db, ownerId, entry, structuredMemory, result.confidence);
-  }
+  await db.batch([...statements, ...evidenceStatements]);
 }
 
 export function apiError(code: string, message: string, status: number, extra: Record<string, unknown> = {}) {

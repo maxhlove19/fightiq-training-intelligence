@@ -59,11 +59,25 @@ function briefForSession(brief: PreTrainingBrief, sessionPlan: string): PreTrain
   };
 }
 
+function useDialogDismiss(onClose: () => void) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") onCloseRef.current(); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+  return closeRef;
+}
+
 function PreTrainingCheckIn({ brief, onClose, onStart }: { brief: PreTrainingBrief; onClose: () => void; onStart: (sessionPlan: string) => Promise<void> }) {
   const [sessionPlan, setSessionPlan] = useState("");
   const [showBrief, setShowBrief] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
+  const closeRef = useDialogDismiss(onClose);
   const suggestedSessions = ["MMA class", "BJJ class", "Muay Thai class", "Sparring", "Open mat"];
   const sessionBrief = briefForSession(brief, sessionPlan);
   async function beginTraining() {
@@ -74,7 +88,7 @@ function PreTrainingCheckIn({ brief, onClose, onStart }: { brief: PreTrainingBri
     finally { setStarting(false); }
   }
   return <div className="sheet-backdrop"><section className="pre-training-checkin" role="dialog" aria-modal="true" aria-labelledby="pre-training-title">
-    <button className="sheet-close" onClick={onClose} aria-label="Close pre-training brief"><X size={18} /></button>
+    <button ref={closeRef} className="sheet-close" onClick={onClose} aria-label="Close pre-training brief"><X size={18} /></button>
     {!showBrief ? <>
       <p className="eyebrow">BEFORE TRAINING</p><h2 id="pre-training-title">What are you training today?</h2><p>One line is enough. FightIQ will pull forward the one thing worth remembering.</p>
       <div className="session-options">{suggestedSessions.map((session) => <button key={session} className={sessionPlan === session ? "selected" : ""} onClick={() => setSessionPlan(session)}>{session}</button>)}</div>
@@ -375,7 +389,8 @@ function ActionSheet({ onClose, onAction }: { onClose: () => void; onAction: (ac
     { name: "Workout", note: "Train for your martial art", icon: Dumbbell },
     { name: "Food", note: "Support your performance", icon: Utensils },
   ];
-  return <div className="sheet-backdrop"><section className="action-sheet" role="dialog" aria-modal="true" aria-label="Quick actions"><div className="sheet-handle" /><button className="sheet-close" onClick={onClose} aria-label="Close quick actions"><X size={18} /></button><h2>What do you want to do?</h2><div className="sheet-grid">{actions.map(({ name, note, icon: Icon }) => <button className="sheet-action" key={name} onClick={() => onAction(name)}><Icon size={21} /><strong>{name}</strong><span>{note}</span></button>)}</div></section></div>;
+  const closeRef = useDialogDismiss(onClose);
+  return <div className="sheet-backdrop"><section className="action-sheet" role="dialog" aria-modal="true" aria-label="Quick actions"><div className="sheet-handle" /><button ref={closeRef} className="sheet-close" onClick={onClose} aria-label="Close quick actions"><X size={18} /></button><h2>What do you want to do?</h2><div className="sheet-grid">{actions.map(({ name, note, icon: Icon }) => <button className="sheet-action" key={name} onClick={() => onAction(name)}><Icon size={21} /><strong>{name}</strong><span>{note}</span></button>)}</div></section></div>;
 }
 
 export function FightIQApp({ displayName, initialEntryId = null }: { displayName: string; initialEntryId?: string | null }) {

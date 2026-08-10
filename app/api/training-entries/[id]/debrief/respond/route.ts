@@ -25,12 +25,19 @@ export async function POST(request: Request, context: Context) {
   try { body = await request.json(); } catch { return apiError("INVALID_REQUEST", "Invalid response.", 400); }
   const action = body.action;
   if (action === "finish") {
-    const finished = await finishDebrief(db, id, ownerId);
-    if (finished.structuredMemory) await persistFighterBrainEvidence(db, ownerId, entry, finished.structuredMemory, finished.confidence);
-    await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
-      .bind(new Date().toISOString(), ownerId).run();
-    await updateExperimentForEntry(db, ownerId, id, "inconclusive", "The athlete finished the debrief before there was enough evidence to judge the experiment.");
-    return Response.json(await getDebriefState(db, id, ownerId));
+    // Finish is a real write, not just a UI dismissal. It shares the same
+    // lease as generation so a late model response cannot overwrite the
+    // athlete's explicit decision to stop here.
+    const leaseId = await claimDebriefGeneration(db, id, ownerId);
+    if (!leaseId) return Response.json(await getDebriefState(db, id, ownerId), { status: 202 });
+    try {
+      const finished = await finishDebrief(db, id, ownerId);
+      if (finished.structuredMemory) await persistFighterBrainEvidence(db, ownerId, entry, finished.structuredMemory, finished.confidence);
+      await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
+        .bind(new Date().toISOString(), ownerId).run();
+      await updateExperimentForEntry(db, ownerId, id, "inconclusive", "The athlete finished the debrief before there was enough evidence to judge the experiment.");
+      return Response.json(await getDebriefState(db, id, ownerId));
+    } finally { await releaseDebriefGeneration(db, id, ownerId, leaseId); }
   }
   if (action !== "answer" && action !== "skip") return apiError("INVALID_REQUEST", "Choose answer, skip, or finish.", 422);
   const questionId = typeof body.questionId === "string" ? body.questionId : "";

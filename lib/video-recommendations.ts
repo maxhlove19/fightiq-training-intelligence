@@ -59,9 +59,20 @@ function topicScore(topic: string, context: string, contextTokens: Set<string>) 
 }
 
 function contextFor(memory: MemorySnapshot) {
-  const latest = memory.recentTraining.slice(0, 3).map((entry) => `${entry.discipline} ${entry.note} ${entry.takeaway ?? ""}`).join(" ");
+  // A fresh session should lead the feed. Older training is useful context, but
+  // it should not dilute a problem the athlete reported today.
+  const latestEntry = memory.recentTraining[0];
+  const current = latestEntry ? `${latestEntry.discipline} ${latestEntry.note} ${latestEntry.takeaway ?? ""}` : "";
+  const latest = memory.recentTraining.slice(1, 4).map((entry) => `${entry.discipline} ${entry.note} ${entry.takeaway ?? ""}`).join(" ");
   const focus = [memory.currentFocus, memory.focusReason, ...memory.instructorDetails, ...memory.oneTimeObservations].join(" ");
-  return { latest: latest.toLowerCase(), focus: focus.toLowerCase(), latestTokens: tokens(latest), focusTokens: tokens(focus) };
+  return {
+    current: current.toLowerCase(),
+    latest: latest.toLowerCase(),
+    focus: focus.toLowerCase(),
+    currentTokens: tokens(current),
+    latestTokens: tokens(latest),
+    focusTokens: tokens(focus),
+  };
 }
 
 function disciplineFromContext(value: string) {
@@ -73,22 +84,31 @@ function disciplineFromContext(value: string) {
   return "MMA";
 }
 
-function queryFor(memory: MemorySnapshot, refreshCursor: number, topicOverride?: string) {
+function queryVariants(memory: MemorySnapshot, topicOverride?: string) {
   const requestedTopic = topicOverride?.replace(/\s+/g, " ").trim().slice(0, 140) ?? "";
-  if (requestedTopic) return requestedTopic;
+  if (requestedTopic) return [
+    requestedTopic,
+    `${requestedTopic} drill under pressure`,
+    `${requestedTopic} common mistakes and corrections`,
+    `${requestedTopic} live application`,
+  ];
   const raw = `${memory.recentTraining[0]?.note ?? ""} ${memory.currentFocus} ${memory.instructorDetails[0] ?? ""}`.toLowerCase();
-  const rotations = /kick|hip|pivot|bag|roundhouse/.test(raw)
-    ? ["Muay Thai round kick support foot pivot", "Muay Thai hip rotation round kick balance", "Muay Thai round kick mechanics drill"]
+  return /kick|hip|pivot|bag|roundhouse/.test(raw)
+    ? ["Muay Thai round kick support foot pivot", "Muay Thai hip rotation round kick balance", "Muay Thai round kick timing and return to stance", "Muay Thai round kick mechanics drill"]
     : /arm drag/.test(raw)
-      ? ["BJJ arm drag take back control", "BJJ arm drag opponent squares back", "MMA arm drag back take drill"]
+      ? ["BJJ arm drag take back control", "BJJ arm drag opponent squares back", "MMA arm drag back take drill", "BJJ arm drag shoulder control under resistance"]
       : /guard|pass/.test(raw)
-        ? ["BJJ guard retention frames hip movement", "BJJ guard retention drill under pressure", "MMA guard retention technique"]
+        ? ["BJJ guard retention frames hip movement", "BJJ guard retention drill under pressure", "MMA guard retention technique", "BJJ guard retention recovering inside position"]
         : /wrestl|single leg|double leg|takedown/.test(raw)
-          ? ["wrestling takedown finish in live rounds", "wrestling penetration step timing drill", "MMA wrestling chain takedown"]
+          ? ["wrestling takedown finish in live rounds", "wrestling penetration step timing drill", "MMA wrestling chain takedown", "wrestling finish takedown when opponent defends"]
           : /box|jab|cross|hook|footwork/.test(raw)
-            ? ["boxing footwork exit drill technique", "boxing balance after combination", "boxing defensive footwork drill"]
-            : [`MMA ${compact(memory.currentFocus, "fundamentals", 70)}`, `MMA ${compact(memory.focusReason, "technique drill", 70)}`, "MMA technique drilling in live rounds"];
-  return rotations[Math.abs(refreshCursor) % rotations.length];
+            ? ["boxing footwork exit drill technique", "boxing balance after combination", "boxing defensive footwork drill", "boxing footwork after punching combination"]
+            : [`MMA ${compact(memory.currentFocus, "fundamentals", 70)}`, `MMA ${compact(memory.focusReason, "technique drill", 70)}`, "MMA technique drilling in live rounds", "MMA technique under controlled resistance"];
+}
+
+function queryFor(memory: MemorySnapshot, refreshCursor: number, topicOverride?: string) {
+  const variants = queryVariants(memory, topicOverride);
+  return variants[Math.abs(refreshCursor) % variants.length].replace(/\s+/g, " ").trim().slice(0, 180);
 }
 
 function topicFamily(memory: MemorySnapshot) {
@@ -134,16 +154,19 @@ function currentTrainingSignal(memory: MemorySnapshot) {
 }
 
 function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnapshot, index: number) {
-  const { latest, focus, latestTokens, focusTokens } = contextFor(memory);
+  const { current, latest, focus, currentTokens, latestTokens, focusTokens } = contextFor(memory);
+  const currentMatches = video.topics.filter((topic) => topicScore(topic, current, currentTokens) > 0);
   const recentMatches = video.topics.filter((topic) => topicScore(topic, latest, latestTokens) > 0);
   const focusMatches = video.topics.filter((topic) => topicScore(topic, focus, focusTokens) > 0);
-  const first = recentMatches[0] ?? focusMatches[0] ?? video.topics[0] ?? "the first key detail";
-  const why = recentMatches.length
-    ? `Your newest training note points to ${recentMatches.slice(0, 2).join(" and ")}.`
+  const first = currentMatches[0] ?? recentMatches[0] ?? focusMatches[0] ?? video.topics[0] ?? "the first key detail";
+  const why = currentMatches.length
+    ? `Your latest session mentioned ${currentMatches.slice(0, 2).join(" and ")}. This stays on that exact layer.`
+    : recentMatches.length
+      ? `A recent session points to ${recentMatches.slice(0, 2).join(" and ")}. This keeps building that detail.`
     : focusMatches.length
       ? `It supports your current study focus through ${focusMatches.slice(0, 2).join(" and ")}.`
       : index === 0
-        ? "It is the closest supporting study for the next layer of your MMA game."
+        ? "It is the closest supporting study for the next layer of the work you are building."
         : "It builds a related skill without pulling you away from the work you logged.";
   const watchFor = video.topics.includes("support foot") || video.topics.includes("pivot")
     ? "Watch whether the support foot turns before the hip comes through."
@@ -160,14 +183,14 @@ function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnaps
 }
 
 function rankedCurated(memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>) {
-  const { latest, focus, latestTokens, focusTokens } = contextFor(memory);
+  const { current, latest, focus, currentTokens, latestTokens, focusTokens } = contextFor(memory);
   const family = topicFamily(memory);
   const ranked = curatedCatalog
     .filter((video) => !excludeIds.has(video.id))
     .map((video) => ({
       ...video,
       domainBoost: familyBoost(family, video.topics),
-      score: familyBoost(family, video.topics) + video.topics.reduce((score, topic) => score + topicScore(topic, latest, latestTokens) * 4 + topicScore(topic, focus, focusTokens) * 2, 0) + (video.discipline.includes("MMA") ? 1 : 0),
+      score: familyBoost(family, video.topics) + video.topics.reduce((score, topic) => score + topicScore(topic, current, currentTokens) * 9 + topicScore(topic, latest, latestTokens) * 3 + topicScore(topic, focus, focusTokens) * 2, 0) + (video.discipline.includes("MMA") ? 1 : 0),
     }))
     .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
   if (!refreshCursor || ranked.length < 2) return ranked;
@@ -180,6 +203,7 @@ function rankedCurated(memory: MemorySnapshot, refreshCursor: number, excludeIds
 
 type YouTubeSearchItem = { id?: { videoId?: unknown }; snippet?: { title?: unknown; channelTitle?: unknown; description?: unknown; publishedAt?: unknown } };
 type YouTubeVideoItem = { id?: unknown; contentDetails?: { duration?: unknown }; status?: { embeddable?: unknown; privacyStatus?: unknown } };
+type YouTubeSearchResult = { videos: LearnVideo[]; upstreamUnavailable: boolean };
 
 function isVideoId(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9_-]{11}$/.test(value);
@@ -194,29 +218,40 @@ function isoDuration(value: unknown) {
   return parts.join(":");
 }
 
-async function youtubeJson(url: URL, timeoutMs = 6500) {
+async function youtubeJson(url: URL, timeoutMs = 6500): Promise<{ payload: Record<string, unknown> | null; upstreamUnavailable: boolean }> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) return null;
-    return await response.json() as Record<string, unknown>;
-  } catch { return null; } finally { clearTimeout(timeout); }
+    if (!response.ok) return { payload: null, upstreamUnavailable: true };
+    return { payload: await response.json() as Record<string, unknown>, upstreamUnavailable: false };
+  } catch { return { payload: null, upstreamUnavailable: true }; } finally { clearTimeout(timeout); }
 }
 
-async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>, topicOverride?: string): Promise<LearnVideo[]> {
+function directTopicMatch(query: string, title: string, description: string) {
+  const text = `${title} ${description}`.toLowerCase();
+  const queryWords = [...tokens(query)];
+  const genericWords = new Set(["mma", "muay", "thai", "bjj", "jiu", "jiujitsu", "boxing", "wrestling", "technique", "tutorial", "drill", "training", "live", "under", "pressure", "application", "common", "mistakes", "corrections", "with", "your", "from", "that"]);
+  const intentWords = queryWords.filter((word) => !genericWords.has(word));
+  if (!intentWords.length) return true;
+  const phrase = intentWords.length > 1 ? intentWords.slice(0, Math.min(3, intentWords.length)).join(" ") : "";
+  const matched = intentWords.filter((word) => text.includes(word) || (word === "round" && text.includes("roundhouse"))).length;
+  return Boolean(phrase && text.includes(phrase)) || matched >= Math.min(intentWords.length, intentWords.length >= 4 ? 2 : 1);
+}
+
+async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>, topicOverride?: string): Promise<YouTubeSearchResult> {
   const query = queryFor(memory, refreshCursor, topicOverride);
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
   searchUrl.search = new URLSearchParams({ part: "snippet", type: "video", maxResults: "18", q: query, order: refreshCursor % 2 ? "date" : "relevance", videoEmbeddable: "true", videoSyndicated: "true", safeSearch: "strict", relevanceLanguage: "en", key: apiKey }).toString();
   const search = await youtubeJson(searchUrl);
-  const items = Array.isArray(search?.items) ? search.items as YouTubeSearchItem[] : [];
+  const items = Array.isArray(search.payload?.items) ? search.payload.items as YouTubeSearchItem[] : [];
   const candidates = items.map((item) => ({ id: item.id?.videoId, snippet: item.snippet })).filter((item): item is { id: string; snippet: NonNullable<YouTubeSearchItem["snippet"]> } => isVideoId(item.id) && !excludeIds.has(item.id) && typeof item.snippet?.title === "string" && typeof item.snippet?.channelTitle === "string").slice(0, 12);
-  if (!candidates.length) return [];
+  if (!candidates.length) return { videos: [], upstreamUnavailable: search.upstreamUnavailable };
 
   const detailUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
   detailUrl.search = new URLSearchParams({ part: "contentDetails,status", id: candidates.map((item) => item.id).join(","), key: apiKey }).toString();
   const details = await youtubeJson(detailUrl);
-  const allowed = new Map((Array.isArray(details?.items) ? details.items as YouTubeVideoItem[] : []).filter((item) => isVideoId(item.id) && item.status?.embeddable === true && item.status?.privacyStatus === "public").map((item) => [item.id as string, isoDuration(item.contentDetails?.duration)]));
+  const allowed = new Map((Array.isArray(details.payload?.items) ? details.payload.items as YouTubeVideoItem[] : []).filter((item) => isVideoId(item.id) && item.status?.embeddable === true && item.status?.privacyStatus === "public").map((item) => [item.id as string, isoDuration(item.contentDetails?.duration)]));
   const discipline = disciplineFromContext(`${memory.currentFocus} ${memory.recentTraining[0]?.note ?? ""}`);
   const topicWords = query.toLowerCase().split(/\s+/).filter((word) => word.length > 2);
   const relevance = (title: string, description: string) => {
@@ -229,18 +264,19 @@ async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCurs
     const title = String(item.snippet.title).replace(/\s+/g, " ").trim().slice(0, 150);
     const creator = String(item.snippet.channelTitle).replace(/\s+/g, " ").trim().slice(0, 90);
     const detail = typeof item.snippet.description === "string" ? compact(item.snippet.description, `A study selected for ${query}.`, 180) : `A study selected for ${query}.`;
-    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, score: relevance(title, detail) };
-  }).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 8);
+    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, score: relevance(title, detail), direct: directTopicMatch(query, title, detail) };
+  }).filter((item) => item.score > 0 && item.direct).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 8);
   const signal = currentTrainingSignal(memory);
-  return ranked.map(({ score, ...item }) => {
+  return { videos: ranked.map(({ score, direct, ...item }) => {
     void score;
+    void direct;
     return {
       ...item,
       thumbnail: thumbnail(item.id), url: videoUrl(item.id), source: "youtube" as const,
       why: `You logged ${signal}. This stays on ${compact(query, "that exact detail", 78)}.`,
       watchFor: studyWatchFor(query),
     };
-  });
+  }), upstreamUnavailable: details.upstreamUnavailable };
 }
 
 export async function getRecentVideoIds(db: D1, ownerId: string, family: string) {
@@ -249,12 +285,12 @@ export async function getRecentVideoIds(db: D1, ownerId: string, family: string)
   return new Set((rows.results ?? []).map((row) => row.video_id));
 }
 
-export async function rememberVideoRefresh(db: D1, ownerId: string, videos: LearnVideo[], studyTopic: string) {
+export async function rememberVideoRefresh(db: D1, ownerId: string, videos: LearnVideo[], studyTopicFamily: string) {
   if (!videos.length) return;
   const now = new Date().toISOString();
   await db.batch(videos.map((video) => db.prepare(`INSERT INTO video_recommendation_history (owner_id, video_id, study_topic, served_at)
     VALUES (?, ?, ?, ?) ON CONFLICT(owner_id, video_id) DO UPDATE SET study_topic = excluded.study_topic, served_at = excluded.served_at`)
-    .bind(ownerId, video.id, studyTopic.slice(0, 180), now)));
+    .bind(ownerId, video.id, studyTopicFamily.slice(0, 180), now)));
 }
 
 export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: MemorySnapshot; youtubeApiKey?: string; refreshCursor: number; topicOverride?: string }) : Promise<LearnFeed> {
@@ -265,7 +301,10 @@ export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: Me
     : args.memory;
   const family = topicFamily(rankingMemory);
   const recentIds = refresh ? await getRecentVideoIds(args.db, args.ownerId, family) : new Set<string>();
-  const liveVideos = refresh && args.youtubeApiKey?.trim() ? await searchYouTube(args.youtubeApiKey, args.memory, args.refreshCursor, recentIds, args.topicOverride) : [];
+  const liveSearch = refresh && args.youtubeApiKey?.trim()
+    ? await searchYouTube(args.youtubeApiKey, args.memory, args.refreshCursor, recentIds, args.topicOverride)
+    : { videos: [], upstreamUnavailable: false };
+  const liveVideos = liveSearch.videos;
   const used = new Set([...recentIds, ...liveVideos.map((video) => video.id)]);
   const curatedLimit = liveVideos.length ? 12 - liveVideos.length : 10;
   // A small curated library should rotate before it repeats, but it must never
@@ -301,5 +340,9 @@ export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: Me
     ? [curated[0], ...liveVideos.slice(0, 5), ...curated.slice(1)].filter((video): video is LearnVideo => Boolean(video)).slice(0, 12)
     : curated.slice(0, 12);
   if (refresh) await rememberVideoRefresh(args.db, args.ownerId, videos, family);
-  return { videos, studyTopic, exploreUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(studyTopic)}`, liveDiscoveryAvailable: Boolean(args.youtubeApiKey?.trim()), refreshed: refresh };
+  // Only call a refresh "live" when fresh videos were actually returned. A
+  // configured-but-unavailable upstream service must fall back honestly to the
+  // curated rotation instead of making the UI imply a successful search.
+  const liveDiscoveryAvailable = liveVideos.length > 0 && !liveSearch.upstreamUnavailable;
+  return { videos, studyTopic, exploreUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(studyTopic)}`, liveDiscoveryAvailable, refreshed: refresh };
 }

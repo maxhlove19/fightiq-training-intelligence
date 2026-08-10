@@ -322,8 +322,12 @@ function evidenceInputs(memory: StructuredMemory) {
   ].filter((item) => item.label.length > 1);
 }
 
-/** Persist reported training evidence without treating FightIQ hypotheses as facts. */
-export async function persistFighterBrainEvidence(
+/**
+ * Build evidence writes separately so callers can include them in the same D1
+ * batch as the completed debrief. That keeps a completed conversation from
+ * becoming visible before its durable Fighter Brain evidence is written.
+ */
+export function fighterBrainEvidenceStatements(
   db: D1,
   ownerId: string,
   entry: { id: string; discipline: string; created_at: string },
@@ -331,7 +335,7 @@ export async function persistFighterBrainEvidence(
   confidence: number,
 ) {
   const memory = safeStructuredMemory(structuredMemoryJson);
-  if (!memory) return;
+  if (!memory) return [];
   const technique = claimLabel(memory.intelligence && typeof memory.intelligence === "object" && !Array.isArray(memory.intelligence) ? memory.intelligence.technique : "") || stringsFrom(memory.techniques)[0] || "";
   const unique = new Map<string, EvidenceInput>();
   for (const input of evidenceInputs(memory)) {
@@ -343,7 +347,7 @@ export async function persistFighterBrainEvidence(
   }
   const now = new Date().toISOString();
   const boundedConfidence = Math.max(0.15, Math.min(1, Number.isFinite(confidence) ? confidence : 0.35));
-  await db.batch([...unique.values()].map((input) => {
+  return [...unique.values()].map((input) => {
     const key = canonicalClaimKey(entry.discipline, input.category, input.label, technique);
     return db.prepare(`INSERT INTO fighter_brain_evidence (
       id, owner_id, entry_id, category, canonical_key, label, source, confidence, observed_at, created_at
@@ -351,7 +355,19 @@ export async function persistFighterBrainEvidence(
     ON CONFLICT(owner_id, entry_id, category, canonical_key) DO UPDATE SET
       label = excluded.label, source = excluded.source, confidence = MAX(fighter_brain_evidence.confidence, excluded.confidence)`)
       .bind(crypto.randomUUID(), ownerId, entry.id, input.category, key, input.label, input.source, boundedConfidence, entry.created_at, now);
-  }));
+  });
+}
+
+/** Persist reported training evidence without treating FightIQ hypotheses as facts. */
+export async function persistFighterBrainEvidence(
+  db: D1,
+  ownerId: string,
+  entry: { id: string; discipline: string; created_at: string },
+  structuredMemoryJson: string | null | undefined,
+  confidence: number,
+) {
+  const statements = fighterBrainEvidenceStatements(db, ownerId, entry, structuredMemoryJson, confidence);
+  if (statements.length) await db.batch(statements);
 }
 
 type EvidenceGroup = { label: string; count: number; latest: string };
@@ -575,8 +591,15 @@ function trainingDomain(value: string) {
 }
 
 export async function getActiveTrainingExperiment(db: D1, ownerId: string) {
+  // An experiment is a single near-term test, not a permanent state. Quietly
+  // close abandoned plans so an old “I'm training now” cannot attach itself to
+  // a later, unrelated class.
+  const staleBefore = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+  await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = 'inconclusive', completed_at = ?
+    WHERE owner_id = ? AND status = 'active' AND (started_at IS NULL OR started_at < ?)`)
+    .bind(new Date().toISOString(), ownerId, staleBefore).run();
   return db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
-    WHERE owner_id = ? AND status = 'active' AND started_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
+    WHERE owner_id = ? AND status = 'active' AND started_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, staleBefore).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
 }
 
 export async function linkExperimentToEntry(db: D1, ownerId: string, entryId: string, experimentId?: string) {
@@ -584,6 +607,12 @@ export async function linkExperimentToEntry(db: D1, ownerId: string, entryId: st
   const experiment = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
     WHERE id = ? AND owner_id = ? AND status = 'active' LIMIT 1`).bind(experimentId, ownerId).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
   if (!experiment) return null;
+  // One tap on the pre-session brief represents one training experiment. If a
+  // duplicate log is created, it remains saved but cannot overwrite the
+  // outcome of the original experiment.
+  const alreadyLinked = await db.prepare(`SELECT entry_id FROM training_experiment_sessions
+    WHERE owner_id = ? AND experiment_id = ? LIMIT 1`).bind(ownerId, experiment.id).first<{ entry_id: string }>();
+  if (alreadyLinked && alreadyLinked.entry_id !== entryId) return null;
   await db.prepare(`INSERT OR IGNORE INTO training_experiment_sessions (entry_id, owner_id, experiment_id, created_at)
     VALUES (?, ?, ?, ?)`)
     .bind(entryId, ownerId, experiment.id, new Date().toISOString()).run();

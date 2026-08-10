@@ -5,6 +5,7 @@ import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, 
 export const dynamic = "force-dynamic";
 
 type StoredAssistant = { id: string; role: "assistant"; content: string; created_at: string; follow_up: string | null; video_mode: "none" | "offer" | "direct" | null; video_topic: string | null; video_prompt: string | null };
+type CoachConversationContext = { follow_up: string | null; video_topic: string | null };
 
 async function completedTurnResponse(db: D1, ownerId: string, userMessageId: string, userContent: string, userCreatedAt: string) {
   const assistant = await db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
@@ -24,7 +25,7 @@ export async function GET() {
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
   await ensureProductSchema(db);
-  const [messages, memory, activeExperiment] = await Promise.all([
+  const [messages, memory, activeExperiment, conversationContext] = await Promise.all([
     db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
         enrichments.follow_up, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
       FROM (
@@ -34,8 +35,28 @@ export async function GET() {
       ORDER BY messages.created_at ASC`).bind(ownerId, ownerId).all(),
     getMemorySnapshot(db, ownerId),
     getActiveTrainingExperiment(db, ownerId),
+    db.prepare(`SELECT enrichments.follow_up, enrichments.video_topic
+      FROM (
+        SELECT id, owner_id FROM coach_messages
+        WHERE owner_id = ? AND role = 'assistant'
+        ORDER BY created_at DESC LIMIT 1
+      ) messages
+      INNER JOIN coach_message_enrichments enrichments
+        ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = messages.owner_id
+      `).bind(ownerId).first<CoachConversationContext>(),
   ]);
-  return Response.json({ messages: messages.results ?? [], currentFocus: memory.currentFocus, suggestions: getCoachSuggestions(memory, activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null) });
+  return Response.json({
+    messages: messages.results ?? [],
+    currentFocus: memory.currentFocus,
+    // Coach can be left for a video and reopened. Keep the suggestions attached
+    // to the last actual conversation turn instead of falling back to generic
+    // prompts after that round trip.
+    suggestions: getCoachSuggestions(
+      memory,
+      activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null,
+      conversationContext?.follow_up ? { followUp: conversationContext.follow_up, videoTopic: conversationContext.video_topic ?? undefined } : null,
+    ),
+  });
 }
 
 export async function POST(request: Request) {

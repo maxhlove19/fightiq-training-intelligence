@@ -87,10 +87,15 @@ function coachReplyFrom(value: unknown): CoachReply {
   }
   const replySentences = cleanCoachText(reply.reply).replace(/\?+/g, ".").split(/(?<=[.!])\s+/).filter(Boolean).slice(0, 2).join(" ");
   const rawFollowUp = cleanCoachText(reply.follow_up).replace(/[.\s]+$/g, "");
+  const videoMode = offer.mode as CoachVideoOffer["mode"];
   const cleaned = {
     reply: replySentences.slice(0, 420),
     followUp: `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?`,
-    video: { mode: offer.mode as CoachVideoOffer["mode"], topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
+    // A no-video answer should not carry stale or speculative video text into
+    // the saved conversation. That keeps a later turn's context truthful.
+    video: videoMode === "none"
+      ? { mode: videoMode, topic: "", prompt: "" }
+      : { mode: videoMode, topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
   };
   if (!cleaned.reply || cleaned.followUp === "?" || cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3 || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
@@ -162,9 +167,11 @@ Use the response JSON exactly. reply is one or two short, plain-language sentenc
 
 First decide whether a missing detail would change your advice. For technique, training, recovery, or strategy questions with meaningful uncertainty, say only what is clear, then ask the one missing question. Do not guess the cause or prescribe a drill first. When enough context is already present, answer it directly, then ask one natural question that would help tailor what comes next. Never ask more than one question and never repeat an answer already in the supplied context. A direct safety response still needs a gentle, relevant question when it is safe to continue.
 
+Conversation continuity matters more than sounding clever. If the latest assistant turn in recent_conversation included a follow_up and the athlete's new message answers it, acknowledge the reported detail and build from it. Do not reset to a generic baseline question or ask the same thing again. Make the next question the smallest uncertainty that would genuinely change what you recommend. Do not use vague prompts like "what do you think?" or "how did that feel?" when the context gives you a more specific thing to ask. Keep the athlete's own language where it helps them recognize the moment.
+
 Treat coach or instructor details as high-value athlete reports; attribute them to the coach and do not replace or contradict them. Separate athlete reports from FightIQ inference. Do not diagnose injuries. For dangerous weight cuts, eating disorders, severe symptoms, or urgent medical issues, advise qualified professional help.
 
-video.mode is "direct" only when the athlete explicitly asks for a video, a clip, or someone to study. It is "offer" only when a visual technique study would genuinely help; otherwise "none". For "offer" or "direct", set video.topic to a specific searchable technique topic and video.prompt to a short natural invitation. Do not offer a video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the actual video; never invent a link or title.` },
+video.mode is "direct" only when the athlete explicitly asks for a video, a clip, or a fighter/technique to study. It is "offer" only when a visual technique study would genuinely help; otherwise "none". For "offer" or "direct", set video.topic to a specific searchable technique topic and video.prompt to a short natural invitation. Do not offer a video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the actual video; never invent a link or title.` },
       { role: "user", content: JSON.stringify({
         question: args.question,
         fighter_memory: compactCoachMemory(args.memory),

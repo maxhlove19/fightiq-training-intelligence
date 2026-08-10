@@ -924,8 +924,8 @@ body { letter-spacing: 0; font-size: 13px; }
 .answer-compose textarea, .coach-compose textarea { border-color: #18304f; background: #040a13; }
 
 /* Home is deliberately denser than a dashboard: one observation, one focus,
-   one next action, and one study item. The right-hand visual is CSS-only so
-   it gives the reference screen its technical mass without inventing imagery. */
+   one next action, and one study item. The card uses its real recommended
+   study-video still, never generated or unrelated fighter imagery. */
 .home-page { padding-top: 18px; }
 .home-header { min-height: 38px; margin-bottom: 14px; }
 .home-header .wordmark { color: #f3f7ff; font-size: 19px; font-style: italic; font-weight: 880; letter-spacing: .04em; transform: skewX(-7deg); }
@@ -953,14 +953,10 @@ body { letter-spacing: 0; font-size: 13px; }
 .home-card-focus p { display: -webkit-box; overflow: hidden; margin: 5px 0 0; color: #7188a4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 8px; line-height: 1.35; }
 .home-insight-link { display: inline-flex; align-items: center; gap: 1px; margin-top: 14px; border: 0; background: transparent; color: #238aff; padding: 0; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .02em; cursor: pointer; }
 .home-insight-link svg { width: 13px; height: 13px; }
-.home-insight-plate { position: absolute; top: 0; right: -22px; bottom: 0; width: 52%; overflow: hidden; background: radial-gradient(circle at 68% 38%, rgba(28,130,255,.18), transparent 5%), radial-gradient(circle at 78% 82%, rgba(35,98,170,.17), transparent 38%), linear-gradient(125deg, transparent 0 35%, rgba(11,48,86,.5) 35.3% 36%, transparent 36.3% 100%); opacity: .9; }
-.home-insight-plate::before { position: absolute; width: 172px; height: 172px; top: 28px; right: 2px; border: 1px solid rgba(85,169,255,.18); border-radius: 50%; box-shadow: 0 0 0 22px rgba(50,129,219,.045), 0 0 0 44px rgba(50,129,219,.035), 0 0 0 66px rgba(50,129,219,.022); content: ""; }
-.home-insight-plate::after { position: absolute; inset: 0; background-image: linear-gradient(rgba(92,154,227,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(92,154,227,.06) 1px, transparent 1px); background-size: 19px 19px; content: ""; mask-image: linear-gradient(90deg, transparent, #000 28%); }
-.home-insight-plate i { position: absolute; z-index: 1; display: block; border: 1px solid rgba(93,176,255,.21); border-radius: 50%; }
-.home-insight-plate i:nth-child(1) { width: 11px; height: 11px; top: 77px; right: 74px; background: #208cff; box-shadow: 0 0 16px rgba(32,140,255,.9); }
-.home-insight-plate i:nth-child(2) { width: 65px; height: 65px; top: 51px; right: 47px; }
-.home-insight-plate i:nth-child(3) { width: 112px; height: 112px; top: 27px; right: 22px; border-color: rgba(93,176,255,.12); }
-.home-insight-plate b { position: absolute; z-index: 1; top: 82px; right: 79px; width: 84px; height: 1px; background: linear-gradient(90deg, #2d91ff, transparent); transform: rotate(-34deg); transform-origin: 0 0; }
+.home-insight-media { position: absolute; top: 0; right: 0; bottom: 0; width: 50%; overflow: hidden; background: linear-gradient(135deg, #08192a, #030914); }
+.home-insight-media img { width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(.55) contrast(1.16) brightness(.72); transform: scale(1.025); }
+.home-insight-media::before { position: absolute; z-index: 1; inset: 0; background: linear-gradient(90deg, #071321 0%, rgba(7,19,33,.84) 12%, rgba(5,14,24,.25) 61%, rgba(3,8,15,.13) 100%), linear-gradient(0deg, rgba(3,9,17,.58), transparent 48%); content: ""; }
+.home-insight-media::after { position: absolute; z-index: 2; inset: 0; border-left: 1px solid rgba(48,132,221,.13); background: linear-gradient(145deg, rgba(26,119,215,.18), transparent 36%); content: ""; mix-blend-mode: screen; }
 
 .home-brief-rail { width: 100%; display: grid; grid-template-columns: 1fr auto 15px; gap: 2px 9px; align-items: center; min-height: 47px; margin: 0 0 9px; padding: 8px 11px; border: 1px solid #11335b; border-left: 2px solid #1384ff; border-radius: 5px; background: #061426; color: #cfe0f4; text-align: left; cursor: pointer; }
 .home-brief-rail.active { border-left-color: #37d594; border-color: #1b604e; background: #061a20; }

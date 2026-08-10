@@ -154,7 +154,9 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
           <div className="home-card-focus"><span>CURRENT FOCUS</span><strong>{insight.currentFocus}</strong><p>{product?.memory.focusReason || "The most useful detail to test in your next session."}</p></div>
           <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
         </div>
-        <div className="home-insight-plate" aria-hidden="true"><i /><i /><i /><b /></div>
+        <div className={`home-insight-media ${firstVideo?.thumbnail ? "has-video" : ""}`} aria-hidden="true">
+          {firstVideo?.thumbnail && <img src={firstVideo.thumbnail} alt="" />}
+        </div>
       </section>
 
       {brief && <button className={`home-brief-rail ${activeExperiment ? "active" : ""}`} onClick={() => activeExperiment ? onLog(activeExperiment.reason, activeExperiment.id) : setBriefOpen(true)}><span>{briefLabel}</span><strong>{briefDetail}</strong><em>{activeExperiment ? "LOG THE RESULT" : "START BRIEF"}</em><ChevronRight size={15} /></button>}

@@ -73,7 +73,9 @@ function disciplineFromContext(value: string) {
   return "MMA";
 }
 
-function queryFor(memory: MemorySnapshot, refreshCursor: number) {
+function queryFor(memory: MemorySnapshot, refreshCursor: number, topicOverride?: string) {
+  const requestedTopic = topicOverride?.replace(/\s+/g, " ").trim().slice(0, 140) ?? "";
+  if (requestedTopic) return requestedTopic;
   const raw = `${memory.recentTraining[0]?.note ?? ""} ${memory.currentFocus} ${memory.instructorDetails[0] ?? ""}`.toLowerCase();
   const rotations = /kick|hip|pivot|bag|roundhouse/.test(raw)
     ? ["Muay Thai round kick support foot pivot", "Muay Thai hip rotation round kick balance", "Muay Thai round kick mechanics drill"]
@@ -82,10 +84,10 @@ function queryFor(memory: MemorySnapshot, refreshCursor: number) {
       : /guard|pass/.test(raw)
         ? ["BJJ guard retention frames hip movement", "BJJ guard retention drill under pressure", "MMA guard retention technique"]
         : /wrestl|single leg|double leg|takedown/.test(raw)
-          ? ["wrestling takedown finish under resistance", "wrestling penetration step timing drill", "MMA wrestling chain takedown"]
+          ? ["wrestling takedown finish in live rounds", "wrestling penetration step timing drill", "MMA wrestling chain takedown"]
           : /box|jab|cross|hook|footwork/.test(raw)
             ? ["boxing footwork exit drill technique", "boxing balance after combination", "boxing defensive footwork drill"]
-            : [`MMA ${compact(memory.currentFocus, "fundamentals", 70)}`, `MMA ${compact(memory.focusReason, "technique drill", 70)}`, "MMA technique drilling under resistance"];
+            : [`MMA ${compact(memory.currentFocus, "fundamentals", 70)}`, `MMA ${compact(memory.focusReason, "technique drill", 70)}`, "MMA technique drilling in live rounds"];
   return rotations[Math.abs(refreshCursor) % rotations.length];
 }
 
@@ -129,7 +131,7 @@ function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnaps
       : index === 0
         ? "It is the closest supporting study for the next layer of your MMA game."
         : "It builds a related skill without pulling you away from the work you logged.";
-  return { why, watchFor: `Watch the ${first} detail during the first clean repetition.` };
+  return { why, watchFor: `Watch how the ${first} detail is set before the movement starts.` };
 }
 
 function rankedCurated(memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>) {
@@ -177,8 +179,8 @@ async function youtubeJson(url: URL, timeoutMs = 6500) {
   } catch { return null; } finally { clearTimeout(timeout); }
 }
 
-async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>): Promise<LearnVideo[]> {
-  const query = queryFor(memory, refreshCursor);
+async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>, topicOverride?: string): Promise<LearnVideo[]> {
+  const query = queryFor(memory, refreshCursor, topicOverride);
   const searchUrl = new URL("https://www.googleapis.com/youtube/v3/search");
   searchUrl.search = new URLSearchParams({ part: "snippet", type: "video", maxResults: "18", q: query, order: refreshCursor % 2 ? "date" : "relevance", videoEmbeddable: "true", videoSyndicated: "true", safeSearch: "strict", relevanceLanguage: "en", key: apiKey }).toString();
   const search = await youtubeJson(searchUrl);
@@ -197,7 +199,7 @@ async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCurs
     const creator = String(item.snippet.channelTitle).replace(/\s+/g, " ").trim().slice(0, 90);
     const detail = typeof item.snippet.description === "string" ? compact(item.snippet.description, `A study selected for ${query}.`, 180) : `A study selected for ${query}.`;
     const firstTopic = topicWords[index % topicWords.length] ?? "first technical";
-    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, thumbnail: thumbnail(item.id), url: videoUrl(item.id), source: "youtube" as const, why: `Fresh YouTube result for ${compact(query, "your latest training", 72)}.`, watchFor: `Watch the ${firstTopic} detail in the first clean rep, then compare it to your last session.` };
+    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, thumbnail: thumbnail(item.id), url: videoUrl(item.id), source: "youtube" as const, why: `Fresh YouTube result for ${compact(query, "your latest training", 72)}.`, watchFor: `Watch how the ${firstTopic} detail is set up, then compare it to your last session.` };
   });
 }
 
@@ -215,18 +217,21 @@ export async function rememberVideoRefresh(db: D1, ownerId: string, videos: Lear
     .bind(ownerId, video.id, studyTopic.slice(0, 180), now)));
 }
 
-export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: MemorySnapshot; youtubeApiKey?: string; refreshCursor: number }) : Promise<LearnFeed> {
+export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: MemorySnapshot; youtubeApiKey?: string; refreshCursor: number; topicOverride?: string }) : Promise<LearnFeed> {
   const refresh = args.refreshCursor > 0;
-  const studyTopic = queryFor(args.memory, args.refreshCursor);
-  const family = topicFamily(args.memory);
+  const studyTopic = queryFor(args.memory, args.refreshCursor, args.topicOverride);
+  const rankingMemory = args.topicOverride?.trim()
+    ? { ...args.memory, currentFocus: studyTopic, focusReason: "A specific technique from your Coach conversation.", recentTraining: [] }
+    : args.memory;
+  const family = topicFamily(rankingMemory);
   const recentIds = refresh ? await getRecentVideoIds(args.db, args.ownerId, family) : new Set<string>();
-  const liveVideos = refresh && args.youtubeApiKey?.trim() ? await searchYouTube(args.youtubeApiKey, args.memory, args.refreshCursor, recentIds) : [];
+  const liveVideos = refresh && args.youtubeApiKey?.trim() ? await searchYouTube(args.youtubeApiKey, args.memory, args.refreshCursor, recentIds, args.topicOverride) : [];
   const used = new Set([...recentIds, ...liveVideos.map((video) => video.id)]);
   const curatedLimit = liveVideos.length ? 12 - liveVideos.length : 10;
   // A small curated library should rotate before it repeats, but it must never
   // disappear merely because an athlete has refreshed through every item.
-  const freshCurated = rankedCurated(args.memory, args.refreshCursor, used);
-  const fallbackCurated = rankedCurated(args.memory, args.refreshCursor, new Set(liveVideos.map((video) => video.id)));
+  const freshCurated = rankedCurated(rankingMemory, args.refreshCursor, used);
+  const fallbackCurated = rankedCurated(rankingMemory, args.refreshCursor, new Set(liveVideos.map((video) => video.id)));
   // Relevance wins over novelty. Within the exact study cluster we prefer
   // unseen results, then rotate known good studies before unrelated material.
   const freshIds = new Set(freshCurated.map((video) => video.id));
@@ -248,7 +253,7 @@ export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: Me
       description: video.description,
     };
     const { topics } = video;
-    return { ...rest, thumbnail: thumbnail(video.id), url: videoUrl(video.id), source: "curated" as const, ...whyAndWatchFor({ topics }, args.memory, index) };
+    return { ...rest, thumbnail: thumbnail(video.id), url: videoUrl(video.id), source: "curated" as const, ...whyAndWatchFor({ topics }, rankingMemory, index) };
   });
   const videos = [...liveVideos, ...curated].slice(0, 12);
   if (refresh) await rememberVideoRefresh(args.db, args.ownerId, videos, family);

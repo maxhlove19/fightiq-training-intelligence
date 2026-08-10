@@ -4,6 +4,18 @@ export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
 }
 
+export type CoachVideoOffer = {
+  mode: "none" | "offer" | "direct";
+  topic: string;
+  prompt: string;
+};
+
+export type CoachReply = {
+  reply: string;
+  followUp: string;
+  video: CoachVideoOffer;
+};
+
 async function safetyIdentifier(ownerId: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`fightiq:${ownerId}`));
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 48);
@@ -30,12 +42,56 @@ function extractOutputText(payload: Record<string, unknown>) {
 // Keep the stored and rendered coach voice clean rather than relying on each surface to strip it.
 export function cleanCoachText(value: string) {
   return value
+    .replace(/```[\s\S]*?```/g, "")
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/__(.*?)__/g, "$1")
+    .replace(/^\s*>\s?/gm, "")
     .replace(/^\s{0,3}#{1,6}\s*/gm, "")
     .replace(/^\s*[-*]\s+/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+const coachReplySchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reply", "follow_up", "video"],
+  properties: {
+    reply: { type: "string" },
+    follow_up: { type: "string" },
+    video: {
+      type: "object",
+      additionalProperties: false,
+      required: ["mode", "topic", "prompt"],
+      properties: {
+        mode: { type: "string", enum: ["none", "offer", "direct"] },
+        topic: { type: "string" },
+        prompt: { type: "string" },
+      },
+    },
+  },
+};
+
+function coachReplyFrom(value: unknown): CoachReply {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
+  const reply = value as Record<string, unknown>;
+  const video = reply.video;
+  if (typeof reply.reply !== "string" || typeof reply.follow_up !== "string" || !video || typeof video !== "object" || Array.isArray(video)) {
+    throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
+  }
+  const offer = video as Record<string, unknown>;
+  if (!(["none", "offer", "direct"] as string[]).includes(String(offer.mode)) || typeof offer.topic !== "string" || typeof offer.prompt !== "string") {
+    throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
+  }
+  const cleaned = {
+    reply: cleanCoachText(reply.reply).slice(0, 1100),
+    followUp: cleanCoachText(reply.follow_up).slice(0, 220),
+    video: { mode: offer.mode as CoachVideoOffer["mode"], topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
+  };
+  if (!cleaned.reply || !cleaned.followUp || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
+    throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
+  }
+  return cleaned;
 }
 
 async function responseRequest(apiKey: string, ownerId: string, body: Record<string, unknown>) {
@@ -84,15 +140,27 @@ export async function answerCoach(args: {
 }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
-      return `Based on your current focus—${args.memory.currentFocus}—keep the next session simple: notice the first moment the position starts to break, use one correction, and review whether it held up under resistance. Your coach’s instruction should take priority over FightIQ.`;
+      return {
+        reply: `I have your current focus as ${args.memory.currentFocus}. I want to understand where it is breaking down before I suggest a change.`,
+        followUp: "What is the first thing you notice going wrong when you try it?",
+        video: { mode: "none", topic: "", prompt: "" },
+      } satisfies CoachReply;
     }
     throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const payload = await responseRequest(args.apiKey, args.ownerId, {
     max_output_tokens: 650,
-    text: { verbosity: "low" },
+    text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_coach_reply", strict: true, schema: coachReplySchema } },
     input: [
-      { role: "system", content: `You are FightIQ Coach, an MMA-first training intelligence assistant. Answer the athlete directly and practically using only relevant provided context. Distinguish athlete reports, coach instructions, and your own inference. Never contradict an in-person coach. Do not diagnose injuries. For dangerous weight cuts, eating disorders, severe symptoms, or urgent medical issues, advise qualified professional help. Keep most answers under 220 words and end with one actionable next step.` },
+      { role: "system", content: `You are FightIQ Coach, a thoughtful MMA-first coach who remembers the athlete's training. Sound like a good coach in a real conversation: calm, curious, observant, and concise. Never sound like a report, therapist, motivational speaker, or content creator.
+
+Use the response JSON exactly. reply is one to four short, plain-language sentences. follow_up is exactly one short, direct question that moves the conversation forward. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
+
+First decide whether a missing detail would change your advice. For technique, training, recovery, or strategy questions with meaningful uncertainty, say only what is clear, then ask the one missing question. Do not guess the cause or prescribe a drill first. When enough context is already present, answer it directly, then ask one natural question that would help tailor what comes next. Never ask more than one question and never repeat an answer already in the supplied context. A direct safety response still needs a gentle, relevant question when it is safe to continue.
+
+Treat coach or instructor details as high-value athlete reports; attribute them to the coach and do not replace or contradict them. Separate athlete reports from FightIQ inference. Do not diagnose injuries. For dangerous weight cuts, eating disorders, severe symptoms, or urgent medical issues, advise qualified professional help.
+
+video.mode is "direct" only when the athlete explicitly asks for a video, a clip, or someone to study. It is "offer" only when a visual technique study would genuinely help; otherwise "none". For "offer" or "direct", set video.topic to a specific searchable technique topic and video.prompt to a short natural invitation. Do not offer a video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the actual video; never invent a link or title.` },
       { role: "user", content: JSON.stringify({
         question: args.question,
         fighter_memory: args.memory,
@@ -104,9 +172,10 @@ export async function answerCoach(args: {
       }) },
     ],
   });
-  const text = extractOutputText(payload)?.trim();
+  const text = extractOutputText(payload);
   if (!text) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
-  return cleanCoachText(text).slice(0, 5000);
+  try { return coachReplyFrom(JSON.parse(text)); }
+  catch (error) { if (error instanceof ProductAIError) throw error; throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502); }
 }
 
 export type MealEstimate = {

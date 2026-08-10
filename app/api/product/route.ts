@@ -8,6 +8,11 @@ function refreshCursor(request: Request) {
   return Number.isInteger(raw) && raw > 0 && raw < 10000 ? raw : 0;
 }
 
+function requestedTopic(request: Request) {
+  const value = new URL(request.url).searchParams.get("topic")?.replace(/\s+/g, " ").trim() ?? "";
+  return value.length >= 2 && value.length <= 140 ? value : undefined;
+}
+
 export async function GET(request: Request) {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
@@ -21,9 +26,10 @@ export async function GET(request: Request) {
     db.prepare("SELECT id, discipline, goal, fatigue, duration_minutes, plan_json, status, created_at FROM workout_plans WHERE owner_id = ? ORDER BY created_at DESC LIMIT 3").bind(ownerId).all(),
   ]);
   const cursor = refreshCursor(request);
+  const topic = requestedTopic(request);
   const [preTrainingBrief, learn, activeExperiment] = await Promise.all([
     getOrCreatePreTrainingBrief(db, ownerId, memory),
-    buildLearnFeed({ db, ownerId, memory, youtubeApiKey, refreshCursor: cursor }),
+    buildLearnFeed({ db, ownerId, memory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
     getActiveTrainingExperiment(db, ownerId),
   ]);
   return Response.json({

@@ -4,7 +4,7 @@ import {
   getOwnedEntry, markDebriefError, markDebriefPreparing,
 } from "../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../lib/debrief-server";
-import { ensureProductSchema, getActiveTrainingExperiment, getLatestPreTrainingBrief, updateActiveTrainingExperiment } from "../../../../../lib/product-db";
+import { ensureProductSchema, getExperimentForEntry, updateExperimentForEntry } from "../../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,7 @@ export async function POST(_request: Request, context: Context) {
   const { db, apiKey, allowMockAi } = getRuntime();
   if (!db) return apiError("STORAGE_UNAVAILABLE", "Training storage is unavailable.", 503, { entrySaved: true });
   await ensureDebriefSchema(db);
+  await ensureProductSchema(db);
   const entry = await getOwnedEntry(db, id, ownerId);
   if (!entry) return apiError("NOT_FOUND", "Training entry not found.", 404);
   const existing = await getDebriefState(db, id, ownerId);
@@ -39,11 +40,12 @@ export async function POST(_request: Request, context: Context) {
   const history = await getFollowupHistory(db, id, ownerId);
   const current = await getDebriefRecord(db, id, ownerId);
   try {
-    const [brief, activeExperiment] = await Promise.all([getLatestPreTrainingBrief(db, ownerId), getActiveTrainingExperiment(db, ownerId)]);
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: brief ? { mission: brief.mission, reason: brief.reason, cue: brief.cue } : null, activeExperiment: activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue, reason: activeExperiment.reason } : null });
+    const experiment = await getExperimentForEntry(db, ownerId, id);
+    const experimentContext = experiment ? { mission: experiment.mission, cue: experiment.cue, reason: experiment.reason } : null;
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext });
     const sequence = history.length + 1;
     await persistDebriefResult(db, id, ownerId, result, sequence);
-    if (result.status === "complete") await updateActiveTrainingExperiment(db, ownerId, result.intelligence.experiment_result, result.summary);
+    if (result.status === "complete") await updateExperimentForEntry(db, ownerId, id, result.intelligence.experiment_result, result.summary);
     return Response.json(await getDebriefState(db, id, ownerId));
   } catch (error) {
     await markDebriefError(db, id, ownerId);

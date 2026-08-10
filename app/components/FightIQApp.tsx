@@ -1,6 +1,4 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- FightIQ displays source-owned video thumbnails, not decorative assets. */
-
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleUserRound,
@@ -91,7 +89,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
   const brief = product?.preTrainingBrief;
   const activeExperiment = product?.activeExperiment;
   return (
-    <main className="page">
+    <main className="page home-page">
       <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
       <p className="date-line">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
@@ -110,8 +108,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
       <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>
 
-      <h2 className="section-heading">FOR YOUR GAME</h2>
-      {firstVideo ? <article className="video-card"><a className="video-thumb real-video-thumb" href={firstVideo.url} target="_blank" rel="noreferrer"><img src={firstVideo.thumbnail} alt={`Video thumbnail for ${firstVideo.title}`} /><div className="play"><ChevronRight size={22} fill="currentColor" /></div><span className="duration">{firstVideo.duration}</span></a><div className="video-copy"><span className="video-type">{firstVideo.discipline}</span><h3>{firstVideo.title}</h3><p>{firstVideo.description}</p><button className="text-link" onClick={onLearn}>Why FightIQ picked this <ChevronRight size={14} /></button></div></article> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
+      {firstVideo ? <button className="home-study" onClick={onLearn}><span>STUDY NEXT</span><strong>{firstVideo.title}</strong><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
     </main>
   );
@@ -332,6 +329,7 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
   const [screen, setScreen] = useState<Screen>(initialEntryId ? "log" : "home");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(initialEntryId);
   const [activePlan, setActivePlan] = useState<string | null>(null);
+  const [learnTopic, setLearnTopic] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
@@ -349,17 +347,17 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t start that training brief.");
     setToast("Brief set. Tell FightIQ how it went after training.");
   }
-  return <div className="app-frame">
-    {screen === "home" && <HomeScreen name={displayName} onLog={(plan) => { setActivePlan(plan ?? null); setScreen("log"); }} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
+  return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
+    {screen === "home" && <HomeScreen name={displayName} onLog={(plan) => { setActivePlan(plan ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} />}
-    {screen === "learn" && <LearnScreen />}
-    {screen === "coach" && <CoachScreen />}
+    {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => setLearnTopic(null)} />}
+    {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setScreen("learn"); }} />}
     {screen === "game" && <GameScreen />}
     {screen === "workout" && <WorkoutScreen onBack={goHome} />}
     {screen === "food" && <FoodScreen onBack={goHome} />}
     {screen !== "log" && screen !== "workout" && screen !== "food" && <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={`nav-button ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}><Home size={21} /><span>HOME</span></button>
-      <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => setScreen("learn")}><BookOpen size={21} /><span>LEARN</span></button>
+      <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => { setLearnTopic(null); setScreen("learn"); }}><BookOpen size={21} /><span>LEARN</span></button>
       <button className="nav-button center" onClick={() => setSheetOpen(true)} aria-label="Open quick actions"><span className="nav-center-icon"><Plus size={27} /></span><span>FIGHTIQ</span></button>
       <button className={`nav-button ${screen === "coach" ? "active" : ""}`} onClick={() => setScreen("coach")}><Sparkles size={21} /><span>COACH</span></button>
       <button className={`nav-button ${screen === "game" ? "active" : ""}`} onClick={() => setScreen("game")}><CircleUserRound size={21} /><span>MY GAME</span></button>

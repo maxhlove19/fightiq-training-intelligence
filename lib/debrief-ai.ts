@@ -209,12 +209,12 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
   const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique: "", goal: "", problem: "", suspected_cause: "", coach_instructor_cue: "", what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length < 1, reported_facts: [entry.raw_entry], fightiq_hypotheses: [], experiment_result: "unknown" };
   if (history.length >= 1) return {
     status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail, and the next step is making it reliable against live resistance.",
-    coach_detail: "", fightiq_explanation: "One likely reason is that the sequence is breaking down before you can apply the detail consistently.",
-    next_session_focus: "Identify the first breakdown and test one correction during live rounds.", confidence: .82, memory,
+    coach_detail: "", fightiq_explanation: "Before we settle on a cause, it helps to know where the detail first starts to slip.",
+    next_session_focus: "Notice the moment the detail stops working, then test one small change.", confidence: .82, memory,
     intelligence: { ...intelligence, follow_up_needed: false, confidence: .72 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const first: Record<string, [string, string[], string]> = {
-    MMA: ["Where was the first breakdown happening?", ["At the entry", "Against the fence", "During the transition", "After I defended"], "first_breakdown"],
+    MMA: ["Where did it first start to fall apart?", ["At the entry", "Against the fence", "During the transition", "After I defended"], "first_breakdown"],
     BJJ: ["What control did you lose first?", ["Frames", "Inside position", "Hip position", "Grip control"], "first_control_lost"],
     Wrestling: ["When were you getting beaten?", ["On the entry", "During the finish", "After my first defense", "In the scramble"], "breakdown_phase"],
     Boxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I attacked"], "striking_phase"],
@@ -222,7 +222,7 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
     Kickboxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I kicked"], "striking_phase"],
   };
   const prompt = first[entry.discipline] ?? first.MMA;
-  return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "There’s a useful gap between understanding the detail and applying it under live pressure.", coach_detail: "", fightiq_explanation: "This may help because finding the first breakdown makes the next correction more specific.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, intelligence, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer can identify the most useful next-session focus." } };
+  return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "You have the detail. Now we need to see what changes once the round gets live.", coach_detail: "", fightiq_explanation: "That tells us what to test instead of guessing.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, intelligence, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer decides what FightIQ should help you test." } };
 }
 
 function resilientDebrief(entry: Entry, history: History, activeExperiment?: Record<string, unknown> | null): DebriefResult {
@@ -239,7 +239,7 @@ function resilientDebrief(entry: Entry, history: History, activeExperiment?: Rec
   const activeCue = activeExperiment && typeof activeExperiment.cue === "string" ? activeExperiment.cue : "";
   const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique, goal: kickSession ? "Cleaner kick mechanics" : "", problem: "", suspected_cause: "", coach_instructor_cue: coachDetail, what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length === 0, reported_facts: [note], fightiq_hypotheses: [], experiment_result: "unknown" };
   if (history.length > 0) return {
-    status: "complete", summary: note.slice(0, 220), takeaway: "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: "FightIQ needs more repeated evidence before calling this a pattern.", next_session_focus: kickSession ? "Use controlled reps and notice whether the support-foot pivot changes your rotation and balance." : "Repeat one clear detail and notice what changes under resistance.", confidence: .58, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: .58 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+    status: "complete", summary: note.slice(0, 220), takeaway: "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: "FightIQ needs more repeated evidence before calling this a pattern.", next_session_focus: kickSession ? "Use controlled reps and notice whether the support-foot pivot changes your rotation and balance." : "Repeat one clear detail and notice what changes as the pace picks up.", confidence: .58, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: .58 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const prompt = activeMission
     ? `How did ${activeCue || "that cue"} affect ${activeMission.toLowerCase()} today?`

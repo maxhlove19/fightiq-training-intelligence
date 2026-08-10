@@ -16,6 +16,12 @@ export function getRuntime() {
 export async function persistDebriefResult(db: D1, entryId: string, ownerId: string, result: DebriefResult, sequence: number) {
   const now = new Date().toISOString();
   const status = result.status === "complete" ? "complete" : "question";
+  // A completed experiment is evidence. A single untested observation is not enough
+  // to silently replace the athlete's longer-term focus.
+  const shouldPromoteFocus = result.status === "complete"
+    && result.intelligence.experiment_result === "helped"
+    && result.confidence >= 0.65
+    && Boolean(result.next_session_focus.trim());
   const statements = [
     db.prepare(`INSERT INTO training_debriefs (
       entry_id, owner_id, summary, takeaway, coach_detail, fightiq_explanation, next_session_focus,
@@ -32,7 +38,7 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
     db.prepare(`UPDATE training_followups SET confidence_after = ?
       WHERE entry_id = ? AND owner_id = ? AND sequence = ? AND status IN ('answered', 'skipped')`)
       .bind(result.confidence, entryId, ownerId, sequence - 1),
-    ...(result.status === "complete" ? [db.prepare(`UPDATE fighter_profiles SET current_focus = ?, focus_reason = ?, updated_at = ? WHERE owner_id = ?`)
+    ...(shouldPromoteFocus ? [db.prepare(`UPDATE fighter_profiles SET current_focus = ?, focus_reason = ?, updated_at = ? WHERE owner_id = ?`)
       .bind(result.next_session_focus || result.takeaway, result.fightiq_explanation || result.takeaway, now, ownerId)] : []),
   ];
   if (result.status === "question") statements.push(

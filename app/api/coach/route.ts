@@ -10,9 +10,13 @@ export async function GET() {
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
   await ensureProductSchema(db);
   const [messages, memory, activeExperiment] = await Promise.all([
-    db.prepare(`SELECT id, role, content, created_at FROM (
+    db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
+        enrichments.follow_up, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
+      FROM (
       SELECT id, role, content, created_at FROM coach_messages WHERE owner_id = ? ORDER BY created_at DESC LIMIT 60
-    ) ORDER BY created_at ASC`).bind(ownerId).all(),
+      ) messages LEFT JOIN coach_message_enrichments enrichments
+        ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = ?
+      ORDER BY messages.created_at ASC`).bind(ownerId, ownerId).all(),
     getMemorySnapshot(db, ownerId),
     getActiveTrainingExperiment(db, ownerId),
   ]);
@@ -57,8 +61,19 @@ export async function POST(request: Request) {
     const answer = await answerCoach({ apiKey, allowMockAi, ownerId, question, memory, profile, workouts: workoutRows.results ?? [], nutrition, history, activeExperiment });
     const assistantMessageId = crypto.randomUUID();
     await db.prepare("INSERT INTO coach_messages (id, owner_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)")
-      .bind(assistantMessageId, ownerId, answer, new Date().toISOString()).run();
-    return Response.json({ user: { id: userMessageId, role: "user", content: question, created_at: userCreatedAt }, assistant: { id: assistantMessageId, role: "assistant", content: answer, created_at: new Date().toISOString() } });
+      .bind(assistantMessageId, ownerId, answer.reply, new Date().toISOString()).run();
+    const assistantCreatedAt = new Date().toISOString();
+    await db.prepare(`INSERT INTO coach_message_enrichments (
+      assistant_message_id, owner_id, follow_up, video_mode, video_topic, video_prompt, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(assistantMessageId, ownerId, answer.followUp, answer.video.mode, answer.video.topic || null, answer.video.prompt || null, assistantCreatedAt).run();
+    return Response.json({
+      user: { id: userMessageId, role: "user", content: question, created_at: userCreatedAt },
+      assistant: {
+        id: assistantMessageId, role: "assistant", content: answer.reply, created_at: assistantCreatedAt,
+        follow_up: answer.followUp, video_mode: answer.video.mode, video_topic: answer.video.topic || null, video_prompt: answer.video.prompt || null,
+      },
+    });
   } catch (error) {
     if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, { ...error.development, savedMessageId: userMessageId });
     console.error("Unexpected FightIQ Coach failure", error);

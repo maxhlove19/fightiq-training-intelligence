@@ -64,6 +64,16 @@ export async function ensureProductSchema(db: D1) {
       created_at TEXT NOT NULL
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS coach_message_enrichments (
+      assistant_message_id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      follow_up TEXT NOT NULL,
+      video_mode TEXT NOT NULL DEFAULT 'none',
+      video_topic TEXT,
+      video_prompt TEXT,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS workout_plans (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -117,6 +127,13 @@ export async function ensureProductSchema(db: D1) {
       completed_at TEXT
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS training_experiment_sessions (
+      entry_id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      experiment_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiment_sessions_owner_experiment ON training_experiment_sessions (owner_id, experiment_id)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS video_recommendation_history (
       owner_id TEXT NOT NULL,
       video_id TEXT NOT NULL,
@@ -290,7 +307,7 @@ function briefCue(mission: string) {
   if (lower.includes("kick") || lower.includes("hip")) return "Pivot first → hip follows.";
   if (lower.includes("frame")) return "Frames first → then move.";
   if (lower.includes("defense")) return "See it early → make space.";
-  return "One clean rep → then notice what breaks.";
+  return "Pick one detail to pay attention to.";
 }
 
 export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memory?: MemorySnapshot): Promise<PreTrainingBrief> {
@@ -319,6 +336,9 @@ export async function startPreTrainingExperiment(db: D1, ownerId: string, sessio
   const brief = await getOrCreatePreTrainingBrief(db, ownerId);
   const now = new Date().toISOString();
   const plan = sessionPlan?.replace(/\s+/g, " ").trim().slice(0, 240) ?? "";
+  await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = 'inconclusive', completed_at = ?
+    WHERE owner_id = ? AND status = 'active' AND started_at < ?`)
+    .bind(now, ownerId, new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()).run();
   const existing = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
     WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<TrainingExperiment & { started_at: string | null }>();
   if (existing) {
@@ -339,14 +359,32 @@ export async function startPreTrainingExperiment(db: D1, ownerId: string, sessio
 
 export async function getActiveTrainingExperiment(db: D1, ownerId: string) {
   return db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
-    WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
+    WHERE owner_id = ? AND status = 'active' AND started_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
 }
 
-export async function updateActiveTrainingExperiment(db: D1, ownerId: string, outcome: string, evidence: string) {
-  if (outcome === "unknown") return;
-  await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = ?, evidence = ?, completed_at = ? WHERE id = (
-    SELECT id FROM training_experiments WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1
-  )`).bind(outcome, evidence.slice(0, 2000), new Date().toISOString(), ownerId).run();
+export async function linkActiveExperimentToEntry(db: D1, ownerId: string, entryId: string) {
+  const experiment = await getActiveTrainingExperiment(db, ownerId);
+  if (!experiment) return null;
+  await db.prepare(`INSERT OR IGNORE INTO training_experiment_sessions (entry_id, owner_id, experiment_id, created_at)
+    VALUES (?, ?, ?, ?)`)
+    .bind(entryId, ownerId, experiment.id, new Date().toISOString()).run();
+  return experiment;
+}
+
+export async function getExperimentForEntry(db: D1, ownerId: string, entryId: string) {
+  return db.prepare(`SELECT e.id, e.mission, e.cue, e.reason, e.status, e.started_at, e.outcome
+    FROM training_experiment_sessions s
+    INNER JOIN training_experiments e ON e.id = s.experiment_id AND e.owner_id = s.owner_id
+    WHERE s.entry_id = ? AND s.owner_id = ? LIMIT 1`)
+    .bind(entryId, ownerId).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
+}
+
+export async function updateExperimentForEntry(db: D1, ownerId: string, entryId: string, outcome: string, evidence: string) {
+  const resolvedOutcome = outcome === "unknown" ? "inconclusive" : outcome;
+  await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = ?, evidence = ?, completed_at = ?
+    WHERE id = (SELECT experiment_id FROM training_experiment_sessions WHERE entry_id = ? AND owner_id = ?)
+      AND owner_id = ? AND status = 'active'`)
+    .bind(resolvedOutcome, evidence.slice(0, 2000), new Date().toISOString(), entryId, ownerId, ownerId).run();
 }
 
 export async function getLatestPreTrainingBrief(db: D1, ownerId: string) {

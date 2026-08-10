@@ -1152,3 +1152,7 @@ body { letter-spacing: .003em; }
 .draft-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 11px 13px; border: 1px solid rgba(73,161,255,.3); border-radius: 12px; background: rgba(8,124,255,.07); }
 .draft-notice span { flex: 1; min-width: 160px; color: #c7d8ec; font-size: 12px; line-height: 1.45; }
 .draft-notice button { border: 0; background: transparent; color: var(--blue-bright); font-size: 12px; font-weight: 650; padding: 4px 0; cursor: pointer; text-decoration: underline; }
+
+.coach-safety { margin: 4px 0 12px; }
+.coach-safety .safety-notice { margin-bottom: 0; }
+.pre-training-checkin .safety-notice { margin: 4px 0 6px; }

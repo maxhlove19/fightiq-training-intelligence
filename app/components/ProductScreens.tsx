@@ -6,6 +6,7 @@ import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
+import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -179,6 +180,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [failure, setFailure] = useState<CoachFailure | null>(null);
+  const [safety, setSafety] = useState<{ signal: SafetySignal; messageId: string } | null>(null);
   const voice = useVoiceField(question, setQuestion);
   const endRef = useRef<HTMLDivElement | null>(null);
   const composeRef = useRef<HTMLTextAreaElement | null>(null);
@@ -194,7 +196,11 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     if (!retryMessageId) setMessages((current) => [...current, optimistic]);
     try {
       const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId, chatId: activeChatId }) });
-      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; error?: { code?: string; message?: string } };
+      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; safety?: SafetySignal; error?: { code?: string; message?: string } };
+      // The scan runs on the server for every outcome, so an athlete who asks
+      // Coach whether they can train after a head knock gets the same answer
+      // whether or not the model replied at all.
+      if (data.safety) setSafety(data.safety.level === "none" ? null : { signal: data.safety, messageId });
       if (!response.ok || !data.assistant) {
         const code = data.error?.code ?? "AI_UNAVAILABLE";
         // The saved turn is still processing elsewhere. Keeping it in the
@@ -243,6 +249,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     </section>
     {showSuggestions && <section className="coach-suggestions" aria-label="Suggested questions"><span>ASK NEXT</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
+    {safety && <div className="coach-safety"><SafetyNotice signal={safety.signal} storageKey={`fightiq-safety-coach-${safety.messageId}`} /></div>}
     {failure && <div className="coach-error" role="alert"><p>{failureText}</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> {failure.code === "COACH_RESPONSE_PENDING" ? "Check for reply" : "Retry"}</button></div>}
     <div className="coach-compose"><textarea ref={composeRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={sendWithKeyboard} placeholder={activeFollowUp ? "Type or talk a different answer…" : "Ask about training, technique, recovery, workouts, or food…"} aria-label="Ask FightIQ" aria-keyshortcuts="Control+Enter Meta+Enter" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
     <p className="sr-status" aria-live="polite">{sending ? "FightIQ is thinking with your training context." : messages.at(-1)?.role === "assistant" ? "FightIQ replied." : ""}</p>

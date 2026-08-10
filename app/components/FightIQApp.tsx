@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
 import { AthleteOnboarding } from "./AthleteOnboarding";
+import { clearDraft, draftAge, readDraft, writeDraft } from "../../lib/training-draft";
 
 type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food" | "onboarding";
 type SpeechRecognitionLike = {
@@ -250,9 +251,15 @@ function sessionTypeForPlan(plan?: string | null) {
 }
 
 function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null; activeExperimentId?: string | null }) {
-  const [discipline, setDiscipline] = useState(() => disciplineForPlan(activePlan));
-  const [sessionType, setSessionType] = useState(() => sessionTypeForPlan(activePlan));
-  const [transcript, setTranscript] = useState("");
+  // The unsaved note is read back before the first render, so an athlete who
+  // lost signal, backgrounded the app or ran the battery flat opens the log
+  // screen and finds their own words already there.
+  const restored = useState(() => (typeof window === "undefined" || initialEntryId ? null : readDraft(window.localStorage)))[0];
+  const [discipline, setDiscipline] = useState(() => restored?.discipline ?? disciplineForPlan(activePlan));
+  const [sessionType, setSessionType] = useState(() => restored?.sessionType ?? sessionTypeForPlan(activePlan));
+  const [transcript, setTranscript] = useState(() => restored?.text ?? "");
+  const [draftNotice, setDraftNotice] = useState(() => (restored ? `Restored the note you didn’t get to save · ${draftAge(restored.savedAt)}` : ""));
+  const [offlineHold, setOfflineHold] = useState(false);
   const [listening, setListening] = useState(false);
   const [answerListening, setAnswerListening] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(true);
@@ -272,6 +279,13 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const debriefPollAttemptsRef = useRef(0);
 
   useEffect(() => () => { recognitionRef.current?.stop(); if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current); }, []);
+  useEffect(() => {
+    if (entryId) return;
+    const timer = window.setTimeout(() => {
+      writeDraft(window.localStorage, { text: transcript, discipline, sessionType, savedAt: new Date().toISOString() });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [transcript, discipline, sessionType, entryId]);
   useEffect(() => { if (debriefPhase === "question") questionHeadingRef.current?.focus(); }, [debriefPhase, debrief?.question?.id]);
 
   function scheduleDebriefPoll(id: string) {
@@ -320,17 +334,25 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   }
 
   async function saveEntry() {
-    if (!transcript.trim()) return;
-    setSaving(true); setError("");
+    if (!transcript.trim() || saving) return;
+    setSaving(true); setError(""); setDraftNotice("");
     try {
       const response = await fetch("/api/training-entries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, sessionType, rawEntry: transcript.trim(), ...(activeExperimentId ? { experimentId: activeExperimentId } : {}) }) });
       if (!response.ok) throw new Error("save failed");
       const data = await response.json() as { id: string };
       setEntryId(data.id);
+      setOfflineHold(false);
+      clearDraft(window.localStorage);
       window.history.replaceState({}, "", `/?debrief=${encodeURIComponent(data.id)}`);
       await startDebrief(data.id);
     } catch {
-      setError("Your note couldn’t be saved yet. Your text is still here—please try again.");
+      // Nothing is lost here: the note is already on the device, and it stays
+      // there until the server has it.
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+      setOfflineHold(true);
+      setError(offline
+        ? "No connection. Your note is safe on this phone — FightIQ will send it the moment you are back online."
+        : "FightIQ couldn’t reach the server. Your note is safe on this phone — try again, or come back to it later.");
     } finally { setSaving(false); }
   }
 
@@ -401,6 +423,14 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     finally { setSubmitting(false); setAnswerListening(false); }
   }
 
+  // Signal comes back in the car park. The note goes without being asked twice.
+  useEffect(() => {
+    if (!offlineHold) return;
+    const retry = () => { void saveEntry(); };
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  });
+
   if (debriefPhase === "loading") return (
     <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training debrief</h1></header>
@@ -453,6 +483,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
 
       <details className="log-options"><summary>Training details <span>{discipline} · {sessionType}</span></summary><span className="field-label">DISCIPLINE</span><div className="chip-row">{disciplines.map((item) => <button key={item} className={`chip ${discipline === item ? "selected" : ""}`} onClick={() => setDiscipline(item)}>{item}</button>)}</div>
       <span className="field-label">SESSION TYPE</span><div className="chip-row">{sessionTypes.map((item) => <button key={item} className={`chip ${sessionType === item ? "selected" : ""}`} onClick={() => setSessionType(item)}>{item}</button>)}</div></details>
+      {draftNotice && <div className="draft-notice" role="status"><span>{draftNotice}</span><button onClick={() => { setTranscript(""); clearDraft(window.localStorage); setDraftNotice(""); }}>Start fresh</button></div>}
       <label className="field-label" htmlFor="transcript">WHAT HAPPENED?</label>
       <textarea id="transcript" className="transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="We worked double-leg defense and wall wrestling. Coach told me to keep my head position…" />
       {error && <p className="error-message" role="alert">{error}</p>}

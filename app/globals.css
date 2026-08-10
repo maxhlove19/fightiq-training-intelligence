@@ -1148,3 +1148,7 @@ body { letter-spacing: .003em; }
 .safety-dismiss { margin-top: 11px; border: 0; background: transparent; padding: 6px 0; color: #c2a79f; font-size: 11.5px; text-decoration: underline; cursor: pointer; }
 .next-focus.held strong { color: #ffb59e; }
 .next-focus.held small { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+
+.draft-notice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 11px 13px; border: 1px solid rgba(73,161,255,.3); border-radius: 12px; background: rgba(8,124,255,.07); }
+.draft-notice span { flex: 1; min-width: 160px; color: #c7d8ec; font-size: 12px; line-height: 1.45; }
+.draft-notice button { border: 0; background: transparent; color: var(--blue-bright); font-size: 12px; font-weight: 650; padding: 4px 0; cursor: pointer; text-decoration: underline; }

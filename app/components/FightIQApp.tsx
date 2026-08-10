@@ -161,7 +161,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
   return (
     <main className="page home-page native-page">
-      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p><span className="app-status">TRAINING INTELLIGENCE</span></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "—"}</span><small>FOCUS</small></button></div></header>
+      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "—"}</span><small>FOCUS</small></button></div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
@@ -169,10 +169,12 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
 
       <section className="home-reference-insight" aria-label="FightIQ insight">
         <div className="home-insight-copy">
-          <p className="eyebrow">YOUR FOCUS</p>
-          <h2>{insight.currentFocus || insight.title}</h2>
+          <p className="eyebrow">FIGHTIQ INSIGHT</p>
+          <h2>{insight.title}</h2>
           <p className="home-insight-body">{insight.body}</p>
-          <button className="home-insight-link" onClick={onGame}>MY GAME <ChevronRight size={14} /></button>
+          <span className="home-focus-label">CURRENT FOCUS</span>
+          <strong className="home-focus-name">{insight.currentFocus}</strong>
+          <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
         </div>
         <div className="home-insight-media" aria-hidden="true">
           <img src={homePosterImages[posterIndex]} alt="" decoding="async" />

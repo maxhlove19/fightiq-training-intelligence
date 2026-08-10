@@ -896,6 +896,64 @@ body { letter-spacing: 0; font-size: 13px; }
 .page-header .page-title { line-height: 1; }
 .product-page .page-header, .analysis-page .page-header, .log-page .page-header { margin-top: 1px; }
 
+/* Quiet, utilitarian mobile system: one obvious action per screen and the
+   supporting explanation stays secondary or behind an intentional tap. */
+:root { --canvas: #080b12; --surface: #111827; --surface-2: #192237; --line: #26324b; --line-soft: rgba(120, 145, 185, .2); --blue: #08c8df; --blue-bright: #18d9ed; --blue-wash: rgba(8, 200, 223, .13); }
+body { letter-spacing: .003em; }
+.app-frame { background: linear-gradient(180deg, #10192a 0, #080b12 230px); }
+.home-page { padding: 22px 14px 14px; }
+.home-page .app-header { margin-bottom: 20px; }
+.wordmark { font-size: 17px; letter-spacing: .13em; font-style: italic; }
+.home-date { color: #22d7ee; font-family: var(--font-geist-mono), monospace; font-size: 8px; }
+.home-page .greeting { font-size: 27px; font-weight: 700; }
+.home-page .subgreeting { color: #9aa7bb; font-size: 11px; }
+.home-profile { background: #123841; border-color: #1ad8e8; color: #61ebf8; }
+.home-focus-meter { border-color: #0878e6; background: #0b1220; color: #dceafd; }
+.home-reference-insight { min-height: 314px; border-radius: 17px; border-color: #182c49; background: #0d1523; box-shadow: none; }
+.home-reference-insight::after { background: linear-gradient(90deg, #0d1523 36%, rgba(13,21,35,.78) 57%, rgba(13,21,35,.04) 100%); }
+.home-insight-copy { width: 60%; padding: 22px 0 18px 18px; }
+.home-insight-copy .eyebrow { margin-bottom: 12px; color: #1bceec; font-size: 8px; }
+.home-insight-copy h2 { max-width: 190px; font-size: 21px; line-height: 1.11; font-weight: 680; }
+.home-insight-body { display: -webkit-box; overflow: hidden; max-width: 182px; -webkit-box-orient: vertical; -webkit-line-clamp: 3; color: #b5c1d1; font-size: 11px; line-height: 1.42; }
+.home-focus-label { display: block; margin-top: 17px; color: #1ed1e8; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .13em; }
+.home-focus-name { display: -webkit-box; overflow: hidden; margin-top: 5px; max-width: 180px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #f0f7ff; font-size: 13px; line-height: 1.25; }
+.home-insight-link { margin-top: 13px; color: #20cff0; font-size: 9px; }
+.home-insight-media { width: 62%; }
+.home-brief-rail { border-color: #24405e; background: #121c2d; }
+.home-brief-rail span, .home-brief-rail em { color: #28d9e9; }
+.home-log-button { min-height: 64px; border-radius: 14px; background: linear-gradient(135deg, #096bd4, #08c8df); box-shadow: none; font-size: 12px; }
+.home-log-button:hover { background: linear-gradient(135deg, #096bd4, #08c8df); }
+.home-plan-section { margin-top: 20px; }
+.home-plan-heading span { color: #aab8ca; font-size: 8px; }
+.home-personal-plan { min-height: 106px; border-color: #26324b; background: #101725; }
+.home-personal-plan img { width: 122px; height: 76px; border-radius: 8px; object-fit: cover; }
+.home-personal-plan strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #eaf4ff; font-size: 12px; line-height: 1.27; }
+.home-personal-plan small { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #8596ac; font-size: 9px; }
+.bottom-nav { border-top-color: #28334a; background: #111827; }
+.nav-button { color: #8b98ac; font-family: var(--font-geist-sans), Arial, sans-serif; font-size: 8px; letter-spacing: 0; }
+.nav-button.active { color: #27d7ea; }
+.nav-button.active svg { color: #27d7ea; fill: rgba(39,215,234,.15); }
+.nav-center-icon { width: 51px; height: 51px; border-color: #111827; background: #0dd0e4; box-shadow: 0 0 18px rgba(13,208,228,.32); }
+.nav-button.center { color: #a8b5c8; }
+.page { padding-inline: 16px; }
+.page-header { margin-bottom: 15px; border-bottom: 0; }
+.page-header::before { background: #17d8eb; }
+.page-title { font-size: 22px; font-weight: 700; }
+.focus-banner, .game-hero, .macro-summary, .food-log-card, .estimate-card, .macro-settings, .workout-complete { border-color: #2a3650; background: #121a2a; }
+.focus-banner h2, .game-hero h2 { font-size: 17px; }
+.primary-button { min-height: 52px; border-radius: 12px; background: linear-gradient(135deg, #08c1d7, #12d7e7); box-shadow: none; font-size: 11px; }
+.primary-button:hover { background: linear-gradient(135deg, #08c1d7, #12d7e7); }
+.secondary-button { border-color: #33415c; background: #1a2438; }
+.chip, .setup-chip-grid button { border-color: #2a3650; background: #111827; }
+.chip.selected, .setup-chip-grid button.selected { border-color: #16d4e7; background: #0b3d49; box-shadow: inset 2px 0 0 #16d4e7; }
+.learn-page .video-feed { gap: 10px; }
+.learn-page .learn-video { border-color: #2a3650; background: #111827; }
+.learn-page .learn-video .video-copy h3 { font-size: 11px; }
+.coach-suggestions .prompt-list button, .game-card, .exercise-card, .plan-step { border-color: #2a3650; background: #111827; }
+.workout-gear { border-color: #2a3650; background: #121a2a; }
+.workout-page .choice-stack button { border-color: #2a3650; background: #111827; }
+.workout-page .choice-stack button.selected { border-color: #16d4e7; background: #0b3d49; }
+
 .home-page { padding-top: 12px; }
 .home-header { min-height: 31px; margin-bottom: 11px; }
 .home-header-tools { display: flex; align-items: center; gap: 10px; }

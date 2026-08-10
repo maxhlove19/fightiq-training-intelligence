@@ -20,6 +20,7 @@ export type ProductData = {
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };
+  activeExperiment: { mission: string; cue: string; reason: string; startedAt: string | null } | null;
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
 };

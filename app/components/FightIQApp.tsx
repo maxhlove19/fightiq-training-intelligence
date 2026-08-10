@@ -71,7 +71,7 @@ function PreTrainingCheckIn({ brief, onClose, onStart }: { brief: PreTrainingBri
   </section></div>;
 }
 
-function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<void> }) {
+function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: (activePlan?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<void> }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
@@ -89,6 +89,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
   const insight = product?.insight ?? { title: "FightIQ is learning your game.", body: "Log today’s training and FightIQ will turn it into a useful pattern, one insight, and a clear next focus.", currentFocus: "Build your fighter memory" };
   const firstVideo = product?.videos[0];
   const brief = product?.preTrainingBrief;
+  const activeExperiment = product?.activeExperiment;
   return (
     <main className="page">
       <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
@@ -96,7 +97,8 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
 
-      {brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
+      {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">TODAY&apos;S TRAINING PLAN</p><h2>{activeExperiment.mission}</h2><p>{activeExperiment.reason}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason)}>LOG THIS SESSION <ChevronRight size={14} /></button></div></section>
+        : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
 
       <section className="insight-card">
         <p className="eyebrow">FIGHTIQ INSIGHT</p>
@@ -110,14 +112,39 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
 
       <h2 className="section-heading">FOR YOUR GAME</h2>
       {firstVideo ? <article className="video-card"><a className="video-thumb real-video-thumb" href={firstVideo.url} target="_blank" rel="noreferrer"><img src={firstVideo.thumbnail} alt={`Video thumbnail for ${firstVideo.title}`} /><div className="play"><ChevronRight size={22} fill="currentColor" /></div><span className="duration">{firstVideo.duration}</span></a><div className="video-copy"><span className="video-type">{firstVideo.discipline}</span><h3>{firstVideo.title}</h3><p>{firstVideo.description}</p><button className="text-link" onClick={onLearn}>Why FightIQ picked this <ChevronRight size={14} /></button></div></article> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
-      {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); setBriefOpen(false); }} />}
+      {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
     </main>
   );
 }
 
-function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEntryId: string | null }) {
-  const [discipline, setDiscipline] = useState("MMA");
-  const [sessionType, setSessionType] = useState("Class");
+function sessionPlanLabel(plan?: string | null) {
+  const match = plan?.match(/^For\s+(.+?):\s+/i);
+  return match?.[1] ?? plan?.trim() ?? "";
+}
+
+function disciplineForPlan(plan?: string | null) {
+  const value = sessionPlanLabel(plan).toLowerCase();
+  if (value.includes("muay thai")) return "Muay Thai";
+  if (value.includes("kickbox")) return "Kickboxing";
+  if (value.includes("boxing")) return "Boxing";
+  if (value.includes("wrestl")) return "Wrestling";
+  if (/bjj|jiu.?jitsu/.test(value)) return "BJJ";
+  if (value.includes("judo")) return "Judo";
+  return "MMA";
+}
+
+function sessionTypeForPlan(plan?: string | null) {
+  const value = sessionPlanLabel(plan).toLowerCase();
+  if (value.includes("sparring")) return "Sparring";
+  if (value.includes("open mat")) return "Open mat";
+  if (value.includes("drill")) return "Drilling";
+  if (value.includes("private")) return "Private";
+  return "Class";
+}
+
+function TrainingLog({ onBack, initialEntryId, activePlan }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null }) {
+  const [discipline, setDiscipline] = useState(() => disciplineForPlan(activePlan));
+  const [sessionType, setSessionType] = useState(() => sessionTypeForPlan(activePlan));
   const [transcript, setTranscript] = useState("");
   const [listening, setListening] = useState(false);
   const [answerListening, setAnswerListening] = useState(false);
@@ -277,7 +304,7 @@ function TrainingLog({ onBack, initialEntryId }: { onBack: () => void; initialEn
   return (
     <main className="page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Tell FightIQ about training</h1></header>
-      <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>Just talk naturally. I’ll organize it for you.</p></div>
+      <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>{activePlan ? `You planned: ${sessionPlanLabel(activePlan)}` : "Just talk naturally. I’ll organize it for you."}</p></div>
       <div className="mic-stage"><button className={`mic-button ${listening ? "listening" : ""}`} onClick={toggleListening} aria-label={listening ? "Stop listening" : "Start voice entry"}>{listening ? <X size={34} /> : <Mic size={38} />}</button><span className="record-status">{listening ? "Listening… tap to stop" : speechAvailable ? "Tap to start talking" : "Voice isn’t available in this browser"}</span></div>
       <button className="type-toggle" onClick={() => document.getElementById("transcript")?.focus()}>Type instead</button>
 
@@ -304,13 +331,14 @@ function ActionSheet({ onClose, onAction }: { onClose: () => void; onAction: (ac
 export function FightIQApp({ displayName, initialEntryId = null }: { displayName: string; initialEntryId?: string | null }) {
   const [screen, setScreen] = useState<Screen>(initialEntryId ? "log" : "home");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(initialEntryId);
+  const [activePlan, setActivePlan] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
   function goHome() { window.history.replaceState({}, "", "/"); setActiveEntryId(null); setScreen("home"); }
   function act(name: string) {
     setSheetOpen(false);
-    if (name === "Log Training") setScreen("log");
+    if (name === "Log Training") { setActivePlan(null); setScreen("log"); }
     else if (name === "Ask FightIQ") setScreen("coach");
     else if (name === "Workout") setScreen("workout");
     else if (name === "Food") setScreen("food");
@@ -322,8 +350,8 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     setToast("Brief set. Tell FightIQ how it went after training.");
   }
   return <div className="app-frame">
-    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
-    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={(plan) => { setActivePlan(plan ?? null); setScreen("log"); }} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
+    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} />}
     {screen === "learn" && <LearnScreen />}
     {screen === "coach" && <CoachScreen />}
     {screen === "game" && <GameScreen />}

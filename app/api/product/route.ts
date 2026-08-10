@@ -1,5 +1,5 @@
 import { buildLearnFeed } from "../../../lib/video-recommendations";
-import { ensureProductSchema, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { ensureProductSchema, getActiveTrainingExperiment, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +21,10 @@ export async function GET(request: Request) {
     db.prepare("SELECT id, discipline, goal, fatigue, duration_minutes, plan_json, status, created_at FROM workout_plans WHERE owner_id = ? ORDER BY created_at DESC LIMIT 3").bind(ownerId).all(),
   ]);
   const cursor = refreshCursor(request);
-  const [preTrainingBrief, learn] = await Promise.all([
+  const [preTrainingBrief, learn, activeExperiment] = await Promise.all([
     getOrCreatePreTrainingBrief(db, ownerId, memory),
     buildLearnFeed({ db, ownerId, memory, youtubeApiKey, refreshCursor: cursor }),
+    getActiveTrainingExperiment(db, ownerId),
   ]);
   return Response.json({
     profile: {
@@ -42,6 +43,7 @@ export async function GET(request: Request) {
     videos: learn.videos,
     learn: { studyTopic: learn.studyTopic, exploreUrl: learn.exploreUrl, liveDiscoveryAvailable: learn.liveDiscoveryAvailable, refreshed: learn.refreshed },
     preTrainingBrief,
+    activeExperiment: activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue, reason: activeExperiment.reason, startedAt: activeExperiment.started_at } : null,
     nutrition,
     recentWorkouts: recentWorkouts.results ?? [],
   });

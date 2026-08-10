@@ -68,6 +68,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .insight-card > p { position: relative; color: var(--muted); margin: 0 0 23px; max-width: 540px; line-height: 1.55; font-size: 14px; }
 .pre-training-brief { position: relative; overflow: hidden; border: 1px solid #2d557c; background: linear-gradient(135deg, #10233a, #0b131d); border-radius: 18px; padding: 20px; margin: 0 0 18px; box-shadow: 0 12px 32px rgba(29,130,255,.11); }
 .pre-training-brief::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--blue-bright); }
+.pre-training-brief.active-plan { border-color: rgba(94,210,160,.42); background: linear-gradient(135deg, #102538, #0c171d); }
+.pre-training-brief.active-plan::before { background: var(--green); }
+.pre-training-brief.active-plan .eyebrow, .pre-training-brief.active-plan span { color: var(--green); }
 .pre-training-brief h2 { margin: 5px 0 8px; font-size: 19px; letter-spacing: -.035em; line-height: 1.2; }
 .pre-training-brief > p:not(.eyebrow) { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 15px; }
 .pre-training-brief > div { border-top: 1px solid var(--line-soft); padding-top: 12px; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; align-items: center; }

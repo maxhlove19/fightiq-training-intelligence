@@ -16,7 +16,7 @@ type SpeechRecognitionLike = {
 export type ProductData = {
   profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues; athleteSetup: AthleteSetup };
   onboarding: { status: "required" | "legacy" | "complete" };
-  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[] };
+  memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[]; recentTraining: Array<{ discipline: string; sessionType: string; note: string; takeaway: string | null; focus: string | null; createdAt: string }> };
   insight: { title: string; body: string; currentFocus: string };
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };

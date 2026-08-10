@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- this is a third-party YouTube thumbnail, not an app-owned image asset. */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleUserRound,
   Dumbbell, Home, Mic, RefreshCw, Send, Sparkles, Utensils, X,
@@ -128,25 +128,41 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const firstVideo = product?.videos[0];
   const brief = product?.preTrainingBrief;
   const activeExperiment = product?.activeExperiment;
+  const weeklyTarget = product?.profile.athleteSetup.sessionsPerWeek ?? 0;
+  const startOfWeek = new Date();
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+  const weeklySessions = (product?.memory.recentTraining ?? []).filter((entry) => new Date(entry.createdAt) >= startOfWeek).length;
+  const completedSessions = weeklyTarget ? Math.min(weeklySessions, weeklyTarget) : weeklySessions;
+  const focusProgress = weeklyTarget ? Math.min(100, Math.round((weeklySessions / weeklyTarget) * 100)) : 0;
+  const focusMeterStyle = { "--focus-progress": `${focusProgress}%` } as CSSProperties;
+  const briefLabel = activeExperiment ? "TRAINING NOW" : "BEFORE YOUR NEXT SESSION";
+  const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
   return (
     <main className="page home-page native-page">
-      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p><span className="app-status">TRAINING INTELLIGENCE</span></div><div className="home-header-tools"><span aria-label="FightIQ is ready" className="home-ready-dot" /><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></div></header>
+      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p><span className="app-status">TRAINING INTELLIGENCE</span></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "—"}</span><small>FOCUS</small></button></div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
-      <p className="subgreeting">Here’s the one thing to carry into training.</p>
+      <p className="subgreeting">Let’s keep building your game.</p>
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
-      <section className="home-game-snapshot" aria-label="Your current game">
-        <div className="home-snapshot-top"><div><p className="eyebrow">YOUR GAME</p><h2>{insight.title}</h2></div><button className="home-game-link" onClick={onGame}>MY GAME <ChevronRight size={13} /></button></div>
-        <div className="home-focus-line"><span>FOCUS</span><strong>{insight.currentFocus}</strong></div>
-        {activeExperiment ? <div className="home-training-line active"><span>TRAINING NOW</span><strong>{activeExperiment.mission}</strong><em>{activeExperiment.cue}</em><button onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG RESULT <ChevronRight size={13} /></button></div>
-          : brief && <div className="home-training-line"><span>BEFORE TRAINING</span><strong>{brief.mission}</strong><em>{brief.cue}</em><button onClick={() => setBriefOpen(true)}>START BRIEF <ChevronRight size={13} /></button></div>}
+      <section className="home-reference-insight" aria-label="FightIQ insight">
+        <div className="home-insight-copy">
+          <p className="eyebrow">FIGHTIQ INSIGHT <span aria-hidden="true">↗</span></p>
+          <h2>{insight.title}</h2>
+          <p className="home-insight-body">{insight.body}</p>
+          <div className="home-card-focus"><span>CURRENT FOCUS</span><strong>{insight.currentFocus}</strong><p>{product?.memory.focusReason || "The most useful detail to test in your next session."}</p></div>
+          <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
+        </div>
+        <div className="home-insight-plate" aria-hidden="true"><i /><i /><i /><b /></div>
       </section>
+
+      {brief && <button className={`home-brief-rail ${activeExperiment ? "active" : ""}`} onClick={() => activeExperiment ? onLog(activeExperiment.reason, activeExperiment.id) : setBriefOpen(true)}><span>{briefLabel}</span><strong>{briefDetail}</strong><em>{activeExperiment ? "LOG THE RESULT" : "START BRIEF"}</em><ChevronRight size={15} /></button>}
 
       <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
       <p className="primary-support">TALK OR TYPE · FIGHTIQ REMEMBERS THE DETAIL</p>
 
-      {firstVideo ? <button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><span>TODAY’S PERSONAL PLAN</span><strong>{firstVideo.title}</strong><small>Study the detail your training is asking for.</small></div><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with training.</strong></span><ChevronRight size={17} /></button>}
+      {firstVideo ? <section className="home-plan-section" aria-label="Today’s personal plan"><div className="home-plan-heading"><span>TODAY’S PERSONAL PLAN</span><button onClick={onLearn}>SEE ALL</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><span>VIDEO</span><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with training.</strong></span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
     </main>
   );

@@ -100,6 +100,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .video-type { color: var(--blue-bright); font-size: 10px; letter-spacing: .15em; font-weight: 800; }
 .video-copy h3 { margin: 8px 0 7px; font-size: 18px; }
 .video-copy p { color: var(--muted); margin: 0 0 13px; font-size: 13px; line-height: 1.5; }
+.refresh-note { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.35; }
 
 .bottom-nav {
   position: fixed; z-index: 30; left: 50%; bottom: 0; transform: translateX(-50%); width: min(100%, 700px);
@@ -208,6 +209,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .real-video-thumb::after { content: ""; display: block; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
 .video-source { position: absolute; z-index: 2; right: 13px; bottom: 13px; color: white; background: rgba(3,7,12,.8); border-radius: 6px; padding: 5px 7px; font-size: 9px; }
 .learn-video .play { z-index: 2; }
+.explore-link { display: inline-flex; margin: 4px 0 18px; }
 .creator-line { color: #8190a4 !important; font-size: 11px !important; margin-top: -2px !important; }
 .why-detail { border-top: 1px solid var(--line-soft); margin-top: 12px; padding-top: 10px; }
 .why-detail summary { list-style: none; color: var(--blue-bright); display: flex; align-items: center; gap: 3px; cursor: pointer; font-size: 12px; font-weight: 650; }

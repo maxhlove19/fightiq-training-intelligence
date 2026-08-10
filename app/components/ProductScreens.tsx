@@ -17,7 +17,8 @@ export type ProductData = {
   profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues };
   memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[] };
   insight: { title: string; body: string; currentFocus: string };
-  videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string }>;
+  videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
+  learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
@@ -89,22 +90,26 @@ function LoadingState({ label = "Reading your FightIQ memory…" }: { label?: st
 export function LearnScreen() {
   const { data, error, reload } = useProductData();
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshCursor, setRefreshCursor] = useState(0);
   async function refreshRecommendations() {
     setRefreshing(true);
-    await reload(`/api/product?recommendations=next`);
+    const nextCursor = refreshCursor + 1;
+    await reload(`/api/product?recommendations=next&cursor=${nextCursor}`);
+    setRefreshCursor(nextCursor);
     setRefreshing(false);
   }
   return <main className="page product-page"><ScreenHeader title="Learn" kicker="PERSONALIZED FOR YOUR GAME" />
     {!data && !error && <LoadingState />}
-    {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={reload}><RefreshCw size={15} /> Retry</button></div>}
+    {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
       <section className="focus-banner"><span>CURRENT STUDY FOCUS</span><h2>{data.memory.currentFocus}</h2><p>{data.memory.focusReason}</p></section>
-      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2></div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> Refresh recommendations</button></div>
+      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2>{data.learn.refreshed && <p className="refresh-note" role="status">Fresh set for: {data.learn.studyTopic}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding videos…" : "Refresh recommendations"}</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
-        <div className="video-copy"><span className="video-type">{video.discipline}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
+        <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH ON YOUTUBE" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
       </article>)}</div>
       <p className="content-note">FightIQ prioritizes study topics from your training—not generic popularity. Technique videos support, but never replace, your coach.</p>
+      <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">Explore this exact topic on YouTube <ExternalLink size={14} /></a>
     </>}
   </main>;
 }
@@ -178,7 +183,7 @@ export function GameScreen() {
     if (response.ok) { setEditing(false); setSaved(true); await reload(); }
   }
   return <main className="page product-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
-    {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={reload}>Retry</button></div>}
+    {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && <>
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">

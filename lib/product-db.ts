@@ -37,8 +37,8 @@ export async function getProductOwnerId() {
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
-  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
+  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
 }
 
 export async function ensureProductSchema(db: D1) {
@@ -117,6 +117,14 @@ export async function ensureProductSchema(db: D1) {
       completed_at TEXT
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS video_recommendation_history (
+      owner_id TEXT NOT NULL,
+      video_id TEXT NOT NULL,
+      study_topic TEXT NOT NULL,
+      served_at TEXT NOT NULL,
+      PRIMARY KEY (owner_id, video_id)
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)"),
   ]);
   await db.prepare("PRAGMA optimize").run();
 }

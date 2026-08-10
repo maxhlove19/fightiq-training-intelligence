@@ -1,4 +1,4 @@
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const profiles = sqliteTable("profiles", {
   id: text("id").primaryKey(),
@@ -129,3 +129,13 @@ export const trainingExperiments = sqliteTable("training_experiments", {
   createdAt: text("created_at").notNull(),
   completedAt: text("completed_at"),
 }, (table) => [index("idx_training_experiments_owner_status").on(table.ownerId, table.status, table.createdAt)]);
+
+export const videoRecommendationHistory = sqliteTable("video_recommendation_history", {
+  ownerId: text("owner_id").notNull(),
+  videoId: text("video_id").notNull(),
+  studyTopic: text("study_topic").notNull(),
+  servedAt: text("served_at").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.ownerId, table.videoId] }),
+  index("idx_video_recommendation_history_owner_served").on(table.ownerId, table.servedAt),
+]);

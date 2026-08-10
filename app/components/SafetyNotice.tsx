@@ -5,19 +5,17 @@ import { AlertTriangle } from "lucide-react";
 
 export type SafetySignal = {
   level: "head_impact" | "acute_injury" | "illness_or_load" | "none";
+  language: "en" | "pt";
   matched: string[];
+  eyebrow: string;
   title: string;
   body: string;
   advice: string[];
+  redFlagsTitle: string;
   redFlags: string[];
+  sourceNote: string;
+  dismissLabel: string;
   holdTraining: boolean;
-};
-
-const EYEBROW: Record<SafetySignal["level"], string> = {
-  head_impact: "STOP — READ THIS FIRST",
-  acute_injury: "INJURY REPORTED",
-  illness_or_load: "LOAD WARNING",
-  none: "",
 };
 
 /**
@@ -27,7 +25,10 @@ const EYEBROW: Record<SafetySignal["level"], string> = {
  * "got rocked" should read this before they read anything about technique.
  *
  * It never diagnoses. It shows which of the athlete's own words triggered it,
- * so a wrong call is obvious and can be dismissed.
+ * so a wrong call is obvious and can be dismissed. Every string comes from the
+ * signal rather than from here, because the scan answers in the language the
+ * athlete wrote in — nothing on this card should be in a language they might
+ * not read.
  */
 export function SafetyNotice({ signal, storageKey }: { signal: SafetySignal; storageKey: string }) {
   // Only rendered after a fetch resolves on the client, so reading storage in
@@ -38,19 +39,19 @@ export function SafetyNotice({ signal, storageKey }: { signal: SafetySignal; sto
   });
   if (signal.level === "none" || dismissed) return null;
   const urgent = signal.level === "head_impact";
-  return <section className={`safety-notice ${signal.level}`} role={urgent ? "alert" : "status"}>
-    <p className="eyebrow"><AlertTriangle size={13} /> {EYEBROW[signal.level]}</p>
+  return <section className={`safety-notice ${signal.level}`} role={urgent ? "alert" : "status"} lang={signal.language}>
+    <p className="eyebrow"><AlertTriangle size={13} /> {signal.eyebrow}</p>
     <h2>{signal.title}</h2>
     <p className="safety-body">{signal.body}</p>
     <ul className="safety-advice">{signal.advice.map((line) => <li key={line}>{line}</li>)}</ul>
     {signal.redFlags.length > 0 && <div className="safety-redflags">
-      <span>GO TO EMERGENCY CARE NOW IF ANY OF THIS HAPPENS</span>
+      <span>{signal.redFlagsTitle}</span>
       <ul>{signal.redFlags.map((flag) => <li key={flag}>{flag}</li>)}</ul>
     </div>}
-    <p className="safety-source">FightIQ is not a medical service and cannot assess you. This is general safety guidance, triggered by your own words: {signal.matched.join(", ")}.</p>
+    <p className="safety-source">{signal.sourceNote}</p>
     <button className="safety-dismiss" onClick={() => {
       try { window.localStorage.setItem(storageKey, "1"); } catch { /* private mode */ }
       setDismissed(true);
-    }}>That is not what I meant — hide this</button>
+    }}>{signal.dismissLabel}</button>
   </section>;
 }

@@ -13,8 +13,9 @@ Open it directly in a browser; there is no build step.
   honest list of what is and isn't real in the demo.
 - **Demo** — the phone: welcome screen, Home, Train (log → analysis), Learn,
   Performance, Profile.
-- **The safety scan** — a miniature of `lib/safety-signals.ts`. Logging a note
-  that describes a head knock shows the stop-training notice and holds the
+- **The safety scan** — a miniature of `lib/safety-signals.ts`, in English and
+  Brazilian Portuguese. Logging a note that describes a head knock shows the
+  stop-training notice, in the language the note was written in, and holds the
   next-session recommendation, exactly as the app does. Keep the two in step:
   if the real scanner changes, this demo should change with it.
 - **3D technique breakdowns** — a looping, step-through player for four

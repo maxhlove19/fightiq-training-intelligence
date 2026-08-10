@@ -195,6 +195,7 @@
   .vid-body h3{font-size:14px;font-weight:620;line-height:1.35}
   .vid-body .by{color:var(--t2);font-size:12px}
   .vid-body em{color:var(--t3);font-size:11.5px;font-style:italic;line-height:1.45}
+  .flag{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;border:1px solid rgba(76,126,255,.35);background:var(--signal-mut);color:#BFD0FF;border-radius:99px;padding:4px 9px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
   .bm{color:var(--t3);flex:0 0 auto;padding:0}
   .bm.on{color:var(--gold)}
   .vid-acts{display:flex;gap:8px;margin-top:3px}
@@ -256,6 +257,17 @@
   .w-step h3{font-size:17px;font-weight:640;letter-spacing:-.01em;line-height:1.3}
   .w-step p{color:var(--t2);font-size:13.5px;line-height:1.55}
   .w-cue{border-left:2px solid var(--gold);padding-left:12px;color:#F0DFBB;font-size:13.5px;line-height:1.5}
+  .w-cue.bad{border-left-color:var(--coral);color:#F0CDBC}
+  .w-view{color:var(--t3);font-size:11.5px;line-height:1.5;padding:0 2px}
+  .w-tog{width:100%;border:1px solid rgba(217,119,87,.4);border-radius:12px;padding:12px;text-align:center;font-size:13px;font-weight:650;color:#F0CDBC;transition:background .15s}
+  .w-tog[aria-pressed="true"]{background:rgba(217,119,87,.16)}
+  .w-drill{display:flex;flex-direction:column;gap:9px}
+  .drow{display:flex;align-items:flex-start;gap:11px;border:1px solid rgba(63,190,122,.22);background:rgba(63,190,122,.07);border-radius:13px;padding:12px 13px;width:100%}
+  .drow .box{flex:0 0 auto;width:20px;height:20px;border-radius:6px;border:1px solid rgba(63,190,122,.5);display:grid;place-items:center;color:transparent;margin-top:1px}
+  .drow[aria-pressed="true"] .box{background:var(--success);border-color:var(--success);color:#08130C}
+  .drow[aria-pressed="true"] strong{color:var(--t3);text-decoration:line-through}
+  .drow strong{display:block;font-size:13px;font-weight:600;line-height:1.42;color:#CFEBDB}
+  .drow small{color:var(--t3);font-size:11px;display:block;margin-top:3px}
   .w-miss{border:1px solid rgba(217,119,87,.28);background:rgba(217,119,87,.09);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:7px}
   .w-miss p{color:#F0CDBC;font-size:13.5px;line-height:1.5}
   .w-note{color:var(--t3);font-size:11.5px;line-height:1.55}
@@ -311,7 +323,7 @@
       <article class="beat">
         <span class="n">STEP 03</span>
         <h3>See it</h3>
-        <p>Can't picture the correction? FightIQ animates the movement step by step, then links the footage worth watching.</p>
+        <p>Can't picture the correction? Step through the movement, flip to the version most people get wrong, then watch the real footage.</p>
       </article>
     </div>
   </section>
@@ -321,6 +333,7 @@
     <div class="prose">
       <p>"Turn the corner with your hips" is a sentence. It isn't a picture, and a sentence is a bad way to learn a movement you've never felt. So a correction doesn't stop at text — it opens into a <b>motion breakdown</b> you can pause and step through inside the app, and a shortlist of <b>real footage on YouTube</b> where someone does it properly at full speed.</p>
       <p>The two do different jobs. The breakdown is slow, labelled and specific to your mistake. The footage shows you the real thing, with timing and resistance the diagram can't fake.</p>
+      <p>Inside the breakdown you can also flip to <b>the version most people actually do</b> — same position, same leg, one detail missing — because seeing the two next to each other teaches faster than either alone. It ends where it should: a short list of reps to take to the gym tonight.</p>
     </div>
     <figure class="mech">
       <div class="scroller">
@@ -408,7 +421,7 @@
 
   <section class="blk stage" id="demo">
     <div class="kicker"><h2>The demo</h2><hr class="rule"/></div>
-    <p class="hint">Start on the welcome screen, open <b>Train</b>, tap the sample note, then <b>Analyze session</b>. When the read lands, tap <b>Show me the technique</b>.</p>
+    <p class="hint">Start on the welcome screen, open <b>Train</b>, tap the sample note, then <b>Analyze session</b>. When the read lands, tap <b>Show me the technique</b> — then try <b>Show the common mistake</b>.</p>
     <div class="phone">
       <div class="device" id="device">
         <div class="view" id="view"></div>
@@ -475,6 +488,14 @@
         {id:'osimrhg-n3U',t:'Arm Drag to Back Take',by:'JiuJitsu FLO'}
       ],
       search:'BJJ arm drag take back control',
+      drill:[
+        {t:'Arm drag to the angle only — stop the moment your hips are past theirs.',n:'20 each side'},
+        {t:'Full drag to back take, slow, no resistance. Chase the hip step.',n:'10 minutes'},
+        {t:'Same entry from a partner giving 50% resistance.',n:'3 × 2 min'}
+      ],
+      wrong:{h:'The stall',cap:'The drag lands, but your hips never leave the front. From here they square back up and the position resets — it feels like they defended well.',cue:'Pulling harder from square is the most common way this dies.',
+        you:{x:112,y:100,r:90},them:{x:186,y:104,r:276},
+        arrows:[{d:'M170 94C158 96 148 98 142 99',c:'coral',lab:{x:178,y:84,t:'still square, still pulling',a:'end'}}]},
       steps:[
         {h:'Set the grip',cap:'Both of you square, hands fighting. Nothing has happened yet — this is where the technique is decided.',cue:'Grip behind the armpit, not on the tricep. Behind the armpit turns their shoulder; the tricep just slides.',
          you:{x:104,y:100,r:90},them:{x:214,y:100,r:270},
@@ -506,15 +527,23 @@
         {id:'WZnT87UqcDA',t:'A Technical Mount Escape',by:'Chewjitsu'}
       ],
       search:'BJJ half guard underhook stop getting flattened',
+      drill:[
+        {t:'Start flat on the bottom. Only goal: get back on your side.',n:'3 × 2 min'},
+        {t:'Underhook battle from half guard, no submissions allowed.',n:'3 rounds'},
+        {t:'Underhook to dogfight, coming up to your knee every rep.',n:'15 each side'}
+      ],
+      wrong:{h:'Too late',cap:'You started fighting after your shoulders hit the mat. The underhook was gone several seconds before this picture.',cue:'From flat, every option costs energy you could have spent staying on your side.',
+        you:{x:150,y:120,r:0,sx:1.55,sy:.68},them:{x:150,y:80,r:180,top:true},
+        arrows:[{d:'M150 96C150 104 150 110 150 113',c:'coral',lab:{x:168,y:106,t:'flat, and late',a:'start'}}]},
       steps:[
         {h:'Flat is already losing',cap:'Both shoulders on the mat, their chest across yours. Everything from here costs energy.',cue:'Half guard is a side-on position, not a flat one. If your back is flat, you\'re behind.',
-         you:{x:150,y:118,r:0,sx:1.5,sy:.72},them:{x:150,y:76,r:180},
+         you:{x:150,y:118,r:0,sx:1.5,sy:.72},them:{x:150,y:76,r:180,top:true},
          arrows:[{d:'M150 90C150 98 150 104 150 108',c:'coral',lab:{x:164,y:100,t:'shoulders pinned',a:'start'}}]},
         {h:'Get on your side',cap:'Before anything else, turn your shoulders toward them and get an elbow under you.',cue:'Turn to your side first. You can\'t underhook anything while you\'re lying on your own arm.',
-         you:{x:150,y:118,r:22,sx:1.08,sy:.95},them:{x:150,y:76,r:180},
+         you:{x:150,y:118,r:22,sx:1.08,sy:.95},them:{x:150,y:76,r:180,top:true},
          arrows:[{d:'M124 128C134 118 142 112 148 108',c:'sig',lab:{x:112,y:136,t:'turn in',a:'start'}}]},
         {h:'Win the underhook',cap:'Your arm goes under theirs and your head comes to the same side. This is the position, not a step toward it.',cue:'Underhook deep, ear to their ribs. Shallow underhooks get whizzered and put you right back flat.',
-         you:{x:154,y:112,r:38,sx:1,sy:1},them:{x:150,y:76,r:186},
+         you:{x:154,y:112,r:38,sx:1,sy:1},them:{x:150,y:76,r:186,top:true},
          arrows:[{d:'M136 106C144 98 152 92 158 88',c:'gold',lab:{x:120,y:112,t:'underhook',a:'start'}}]},
         {h:'Come up to the dogfight',cap:'With the underhook and your head inside, you climb up onto your knee — level with them instead of under them.',cue:'Chest to chest, then move. Two people on their knees is a fight you can win; one person flat isn\'t.',
          you:{x:172,y:100,r:52,sx:1,sy:1},them:{x:150,y:76,r:196},
@@ -523,30 +552,38 @@
     },
     kick:{
       cat:'MUAY THAI · ROUND KICK', title:'The support foot turns first',
-      sub:'Where power and balance actually come from',
-      mistake:'Throwing the kick with the leg and letting the support foot catch up afterwards. That\'s the version that lands soft and spins you off balance.',
+      sub:'Where the power and the balance actually come from',
+      view:'side',
+      mistake:'Throwing the kick with the leg while the support foot stays pointed at the bag. That\'s the version that lands soft, stings your own shin, and spins you off balance.',
       videos:[
         {id:'FypzZG6xTtc',t:'Master the Roundhouse Kick with This Drill',by:'Namsaknoi Muay Thai'},
         {id:'Hl4xhjTzT08',t:'How to Switch Kick: Lead-Leg Roundhouse',by:'Muay Thai Scholar'},
         {id:'L8ulYlpzWNc',t:'Basic Muay Thai Teep Tutorial',by:'Muay Thai PROS'}
       ],
       search:'Muay Thai round kick support foot pivot hip rotation',
+      drill:[
+        {t:'Slow pivots, no kick. Turn the support foot and let the hip follow it.',n:'20 each side'},
+        {t:'Half-power kicks on the bag, eyes on your own support foot.',n:'3 × 20'},
+        {t:'Full kicks, resetting to stance between each one.',n:'50 each side'}
+      ],
+      wrong:{h:'The version that lands soft',cap:'Same leg, same bag — but the support foot never turned. Watch the inset: the toes are still pointing at the bag when the shin arrives.',cue:'No pivot means no hip. You end up slapping with the shin and spinning off balance afterwards.',
+        fig:{x:190,lean:-4,kick:-78,shin:-6,foot:12},
+        arrows:[{d:'M110 116C96 104 84 84 76 68',c:'coral',lab:{x:30,y:126,t:'foot never turned',a:'start'}}]},
       steps:[
-        {h:'Stance',cap:'Weight even, hands up, target in front of you. The kick starts before the leg moves.',cue:'Look at the target, not at your own kick.',
-         you:{x:110,y:130,r:52,foot:0},them:{x:236,y:82,r:0,bag:true},
-         arrows:[]},
-        {h:'Step out, not in',cap:'Your plant step goes slightly wide of the target line. That angle is what gives the hip room to come through.',cue:'Plant beside them, not underneath yourself.',
-         you:{x:120,y:138,r:52,foot:0},them:{x:236,y:82,r:0,bag:true},
-         arrows:[{d:'M100 148C108 146 114 142 118 140',c:'sig',lab:{x:76,y:156,t:'plant wide',a:'start'}}]},
-        {h:'Support foot turns',cap:'The heel spins toward the target and the toes point away from it — before the kicking leg has arrived anywhere.',cue:'If your support foot is still pointing at them when the shin lands, the kick is arm-strength with a leg attached.',
-         you:{x:120,y:138,r:110,foot:132},them:{x:236,y:82,r:0,bag:true},
-         arrows:[{d:'M96 128C104 118 114 114 122 114',c:'gold',lab:{x:70,y:126,t:'heel turns',a:'start'}}]},
-        {h:'Hip drives through',cap:'The hip rotates over the support foot and the shin follows it. You are kicking through the target, not at its surface.',cue:'The shin is the end of the rotation, not the start of it.',
-         you:{x:126,y:132,r:150,foot:150},them:{x:236,y:82,r:0,bag:true},
-         arrows:[{d:'M146 126C176 112 202 98 218 90',c:'sig',lab:{x:158,y:146,t:'hip through the target',a:'start'}}]},
-        {h:'Land back in stance',cap:'Recover to a fighting stance, hands still up. The return is part of the technique — it\'s where counters get taken.',cue:'Finish where you can throw again.',
-         you:{x:112,y:132,r:52,foot:0},them:{x:236,y:82,r:0,bag:true},
-         arrows:[{d:'M140 148C130 144 120 138 116 134',c:'sig',lab:{x:150,y:160,t:'back to stance',a:'start'}}]}
+        {h:'Stance',cap:'Weight even, hands up, bag in front of you. The kick starts long before the leg moves.',cue:'Look at the target, not at your own kick.',
+         fig:{x:178,lean:0,kick:0,shin:0,foot:0},arrows:[]},
+        {h:'Plant, and start the turn',cap:'The plant foot lands beside the bag rather than under you — and it has already begun to turn as it lands.',cue:'The turn starts on the plant. If you wait, you\'re late for the rest of the kick.',
+         fig:{x:184,lean:-8,kick:-16,shin:-8,foot:55},
+         arrows:[{d:'M62 26C74 22 86 30 88 42',c:'gold',lab:{x:60,y:20,t:'foot starts turning',a:'start'}}]},
+        {h:'Heel to the bag, toes away',cap:'The heel spins toward the bag and the toes point away from it — before the shin has arrived anywhere.',cue:'If your support foot still points at the bag when the shin lands, the kick is arm-strength with a leg attached.',
+         fig:{x:186,lean:-16,kick:-40,shin:-14,foot:125},
+         arrows:[{d:'M88 44C92 60 84 76 68 82',c:'gold',lab:{x:92,y:40,t:'heel turns through',a:'start'}}]},
+        {h:'Hip drives through',cap:'The hip rotates over that turned foot and the shin follows it into the bag. You\'re kicking through the target, not at its surface.',cue:'The shin is the end of the rotation, not the start of it.',
+         fig:{x:190,lean:-26,kick:-80,shin:-6,foot:145},
+         arrows:[{d:'M206 108C222 100 232 96 240 92',c:'sig',lab:{x:242,y:74,t:'hip through the target',a:'end'}}]},
+        {h:'Land back in stance',cap:'Recover to a fighting stance with your hands still up. The return is part of the technique — it\'s where counters get taken.',cue:'Finish where you can throw again.',
+         fig:{x:178,lean:0,kick:0,shin:0,foot:0},
+         arrows:[{d:'M232 150C216 154 200 156 194 156',c:'sig',lab:{x:236,y:148,t:'back to stance',a:'start'}}]}
       ]
     },
     singleleg:{
@@ -555,6 +592,14 @@
       mistake:'Letting your head drop as you stand into the finish. Your posture folds, their hips get free, and you\'re holding a leg that no longer controls anything.',
       videos:[],
       search:'wrestling single leg finish head position posture',
+      drill:[
+        {t:'Single leg finishes against a wall, head glued to their hip.',n:'20 reps'},
+        {t:'Partner defends at 50%. Stop the rep the moment your head drops.',n:'3 × 2 min'},
+        {t:'Finish on the angle, running the corner instead of driving straight.',n:'15 each side'}
+      ],
+      wrong:{h:'The leak',cap:'Head down, back rounded, their hips sliding away. You still have the leg — you just no longer have control of anything.',cue:'It feels like they defended well. It was your posture.',
+        you:{x:132,y:146,r:28,sx:1,sy:.78},them:{x:196,y:92,r:240},
+        arrows:[{d:'M126 122C128 132 130 140 131 144',c:'coral',lab:{x:94,y:118,t:'posture folds',a:'start'}}]},
       steps:[
         {h:'The entry lands',cap:'You\'re in on the leg with your head on the inside. Nothing is wrong yet.',cue:'Level change before the step, not during it.',
          you:{x:130,y:126,r:44},them:{x:186,y:92,r:230},
@@ -567,7 +612,7 @@
          arrows:[{d:'M142 118C152 110 160 104 166 100',c:'gold',lab:{x:106,y:112,t:'head into the hip',a:'start'}}]},
         {h:'Drive on an angle',cap:'Finish across their body rather than straight forward, taking their base away instead of pushing into it.',cue:'Run the corner. Straight ahead is a wrestling match; the angle is a takedown.',
          you:{x:170,y:126,r:16},them:{x:190,y:96,r:250},
-         arrows:[{d:'M152 138C166 130 178 118 186 108',c:'sig',lab:{x:140,y:154,t:'across, not through',a:'start'}}]}
+         arrows:[{d:'M152 138C166 130 178 118 186 108',c:'sig',lab:{x:152,y:100,t:'across, not through',a:'end'}}]}
       ]
     }
   };
@@ -653,7 +698,7 @@
       <ul>
         <li><i>${s('train',17)}</i><div><b>Log it in 30 seconds</b>Type or talk, in your own words. No forms.</div></li>
         <li><i>${s('spark',17)}</i><div><b>Get one thing to work on</b>What broke down, why, and the drill that fixes it.</div></li>
-        <li><i>${s('frames',17)}</i><div><b>See the movement</b>Step through the technique, then watch the real footage.</div></li>
+        <li><i>${s('frames',17)}</i><div><b>See the movement</b>Step through it, see the common mistake, then watch the real footage.</div></li>
       </ul>
       <div class="wel-foot">
         <button class="btn" data-tab="home">Show me how it works</button>
@@ -758,33 +803,40 @@
   };
 
   V.learn=()=>{
-    const empty=st.learnTab!=='For You';
+    // the study that matches your last session leads the feed
+    const feed=LEARN.slice();
+    const i=feed.findIndex(v=>v.topic===st.studyTopic);
+    if(i>0) feed.unshift(feed.splice(i,1)[0]);
+    const list=st.learnTab==='Saved'?LEARN.filter(v=>st.saved[v.topic]):feed;
+    const empty=st.learnTab==='Influences'?'Add fighters you want to build your game around, and FightIQ will pick studies to match.'
+      :(!list.length?'Nothing saved yet. Tap the bookmark on any study to keep it here.':'');
+    const card=v=>`
+      <article class="vid">
+        <div class="vid-thumb">${motif(v.topic)}<span class="vid-src">${v.id?'Breakdown + YouTube':'Breakdown only'}</span><span class="vid-dur">${v.dur}</span></div>
+        <div class="vid-body">
+          ${v.topic===st.studyTopic?`<span class="flag">${s('spark',11)} From your last session</span>`:''}
+          <div class="vid-top">
+            <div><span class="lbl dim">${v.tag}</span><h3 style="margin-top:5px">${esc(v.t)}</h3></div>
+            <button class="bm ${st.saved[v.topic]?'on':''}" data-bm="${v.topic}" aria-label="${st.saved[v.topic]?'Remove bookmark':'Save study'}" aria-pressed="${st.saved[v.topic]?'true':'false'}">${s('bm',17)}</button>
+          </div>
+          <p class="by">${esc(v.by)}</p>
+          <em>${esc(v.tie)}</em>
+          <div class="vid-acts">
+            <button class="chip-act pri" data-watch="${v.topic}">${s('frames',14)} Breakdown</button>
+            ${v.id
+              ? `<a class="chip-act yt" href="${yt(v.id)}" target="_blank" rel="noopener noreferrer">${s('ext',14)} YouTube</a>`
+              : `<a class="chip-act yt" href="${ytSearch(TECH[v.topic].search)}" target="_blank" rel="noopener noreferrer">${s('ext',14)} Search</a>`}
+          </div>
+        </div>
+      </article>`;
     return `
       <div><h1 class="h-title">Learn</h1><p class="h-sub">Picked for how you're actually training.</p></div>
       <div class="tabs">${['For You','Saved','Influences'].map(t=>`<button data-learntab="${t}" aria-selected="${st.learnTab===t}">${t}</button>`).join('')}</div>
       ${empty?`
         <div class="card" style="align-items:center;text-align:center;padding:34px 18px">
           <span style="color:var(--t3)">${s(st.learnTab==='Saved'?'bm':'spark',26)}</span>
-          <p class="body">${st.learnTab==='Saved'?'Nothing saved yet. Tap the bookmark on any study.':'Add fighters you want to build your game around, and FightIQ will pick studies to match.'}</p>
-        </div>`
-      :LEARN.map((v,i)=>`
-        <article class="vid">
-          <div class="vid-thumb">${motif(v.topic)}<span class="vid-src">${v.id?'Breakdown + YouTube':'Breakdown only'}</span><span class="vid-dur">${v.dur}</span></div>
-          <div class="vid-body">
-            <div class="vid-top">
-              <div><span class="lbl dim">${v.tag}</span><h3 style="margin-top:5px">${esc(v.t)}</h3></div>
-              <button class="bm ${st.saved[i]?'on':''}" data-bm="${i}" aria-label="${st.saved[i]?'Remove bookmark':'Save study'}" aria-pressed="${st.saved[i]?'true':'false'}">${s('bm',17)}</button>
-            </div>
-            <p class="by">${esc(v.by)}</p>
-            <em>${esc(v.tie)}</em>
-            <div class="vid-acts">
-              <button class="chip-act pri" data-watch="${v.topic}">${s('frames',14)} Breakdown</button>
-              ${v.id
-                ? `<a class="chip-act yt" href="${yt(v.id)}" target="_blank" rel="noopener noreferrer">${s('ext',14)} YouTube</a>`
-                : `<a class="chip-act yt" href="${ytSearch(TECH[v.topic].search)}" target="_blank" rel="noopener noreferrer">${s('ext',14)} Search</a>`}
-            </div>
-          </div>
-        </article>`).join('')}`;
+          <p class="body">${empty}</p>
+        </div>`:list.map(card).join('')}`;
   };
 
   V.perf=()=>{
@@ -852,76 +904,176 @@
     </div>`;
 
   /* ---------- technique player ---------- */
-  const W={el:null,tech:null,step:0,playing:false,slow:false,done:false,timer:0,start:0,remain:0};
-  const DUR=()=>W.slow?5400:3200;
+  const W={el:null,tech:null,step:0,playing:false,slow:false,bad:false,prev:null,checks:{},timer:0,start:0,remain:0};
+  const DUR=()=>W.slow?6000:3600;
   const COL={sig:'#4C7EFF',gold:'#D9A544',coral:'#D97757'};
 
+  const FF='-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
+  const EASE='cubic-bezier(.4,0,.2,1)';
+
   function matSvg(){
-    return `<svg viewBox="0 0 320 200" role="img" aria-label="Top-down motion breakdown" id="matSvg">
+    const mk=(id,col)=>`<marker id="m-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="${col}"/></marker>`;
+    return `<svg viewBox="0 0 320 200" role="img" aria-label="Motion breakdown of the technique, drawn step by step" id="matSvg">
       <defs>
-        <marker id="m-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="${COL.sig}"/></marker>
-        <marker id="m-gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="${COL.gold}"/></marker>
-        <marker id="m-coral" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="${COL.coral}"/></marker>
+        ${mk('sig',COL.sig)}${mk('gold',COL.gold)}${mk('coral',COL.coral)}${mk('dim','#6A6E76')}
+        <filter id="lift" x="-60%" y="-60%" width="220%" height="220%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".6"/></filter>
+        <g id="figBody">
+          <ellipse rx="15" ry="10.5"/>
+          <circle cy="-12.5" r="6.4"/>
+          <path d="M-12 -5L-17.5 -15M12 -5L17.5 -15" fill="none" stroke-linecap="round"/>
+        </g>
       </defs>
       <rect x="10" y="10" width="300" height="180" rx="12" fill="none" stroke="rgba(255,255,255,.07)"/>
-      <circle cx="160" cy="100" r="62" fill="none" stroke="rgba(255,255,255,.05)"/>
-      <g id="mThem" class="actor">
-        <circle r="17" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.28)" stroke-width="1.4"/>
-        <path d="M-6 -12 0 -19 6 -12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.6" stroke-linecap="round"/>
+
+      <g id="topLayer">
+        <circle cx="160" cy="102" r="64" fill="none" stroke="rgba(255,255,255,.05)"/>
+        <g id="mTrail"></g>
+        <g id="gThem" opacity="0"><use href="#figBody" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="1.1" stroke-dasharray="3 3"/></g>
+        <g id="gYou" opacity="0"><use href="#figBody" fill="none" stroke="${COL.sig}" stroke-width="1.1" stroke-dasharray="3 3"/></g>
+        <g id="mThem" fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.5)" stroke-width="1.5"><use href="#figBody"/></g>
+        <g id="mYou" fill="rgba(76,126,255,.24)" stroke="${COL.sig}" stroke-width="1.7"><use href="#figBody"/></g>
       </g>
-      <g id="mYou" class="actor">
-        <circle r="17" fill="rgba(76,126,255,.18)" stroke="${COL.sig}" stroke-width="1.6"/>
-        <path d="M-6 -12 0 -19 6 -12" fill="none" stroke="${COL.sig}" stroke-width="1.8" stroke-linecap="round"/>
-        <g id="mFoot"><rect x="-4" y="16" width="8" height="13" rx="3" fill="none" stroke="${COL.gold}" stroke-width="1.5"/></g>
+
+      <g id="sideLayer" style="display:none">
+        <line x1="16" y1="176" x2="304" y2="176" stroke="rgba(255,255,255,.16)" stroke-width="1.4"/>
+        <line x1="265" y1="12" x2="265" y2="40" stroke="rgba(255,255,255,.2)" stroke-width="1.2"/>
+        <rect x="248" y="40" width="34" height="112" rx="17" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.32)" stroke-width="1.4"/>
+        <text x="265" y="168" text-anchor="middle" font-size="9" letter-spacing="1.2" font-family="${FF}" font-weight="700" fill="#6A6E76">BAG</text>
+        <g id="sFig" stroke="${COL.sig}" stroke-width="2.4" stroke-linecap="round" fill="none">
+          <g id="sKick"><path d="M0 0V30"/><g id="sShin"><path d="M0 0V30"/><path d="M0 30l8 2.5"/></g></g>
+          <g id="sSupport"><path d="M0 0V56"/><ellipse cx="3" cy="57.5" rx="8" ry="3.4" fill="rgba(76,126,255,.24)"/></g>
+          <g id="sTorso"><path d="M0 0V-40"/><circle cy="-50" r="9" fill="rgba(76,126,255,.24)"/><path d="M0 -32l15 5M0 -32l13-9"/></g>
+        </g>
+        <g id="sInset">
+          <circle cx="52" cy="52" r="30" fill="rgba(255,255,255,.045)" stroke="rgba(255,255,255,.14)"/>
+          <g id="sFoot"><path d="M-9 -4.5H3q7 0 7 4.5t-7 4.5H-9z" fill="rgba(217,165,68,.28)" stroke="${COL.gold}" stroke-width="1.4"/></g>
+          <path d="M85 52h9" stroke="#6A6E76" stroke-width="1.2" marker-end="url(#m-dim)"/>
+          <text x="99" y="55" font-size="8" letter-spacing=".9" font-family="${FF}" font-weight="700" fill="#6A6E76">TARGET</text>
+          <text x="52" y="94" text-anchor="middle" font-size="8" letter-spacing=".9" font-family="${FF}" font-weight="700" fill="#6A6E76">SUPPORT FOOT</text>
+        </g>
       </g>
+
       <g id="mArrows"></g>
       <g id="mLabels"></g>
     </svg>`;
   }
 
-  function actorTf(a){
-    return `translate(${a.x} ${a.y}) rotate(${a.r||0}) scale(${a.sx||1} ${a.sy||1})`;
+  const actorTf=a=>`translate(${a.x} ${a.y}) rotate(${a.r||0}) scale(${a.sx||1} ${a.sy||1})`;
+  const moved=(a,b)=>a&&b&&Math.hypot(a.x-b.x,a.y-b.y)>7;
+
+  function paintTop(svg,step,prev,dur){
+    const you=svg.querySelector('#mYou'), them=svg.querySelector('#mThem');
+    const gYou=svg.querySelector('#gYou'), gThem=svg.querySelector('#gThem');
+    [you,them].forEach(n=>{n.style.transition='transform '+dur+' '+EASE;});
+    you.setAttribute('transform',actorTf(step.you));
+    them.setAttribute('transform',actorTf(step.them));
+    // whoever is on top of the pile is drawn last and casts a shadow
+    you.setAttribute('filter',step.you.top?'url(#lift)':'none');
+    them.setAttribute('filter',step.them.top?'url(#lift)':'none');
+    if(step.them.top) you.parentNode.insertBefore(you,them);
+    else you.parentNode.appendChild(you);
+
+    // a dashed ghost of where the body just was, so the movement is visible
+    const trail=[];
+    [['you',gYou,you],['them',gThem,them]].forEach(([k,ghost])=>{
+      const from=prev&&prev[k], to=step[k];
+      if(moved(from,to)){
+        ghost.setAttribute('transform',actorTf(from));
+        ghost.setAttribute('opacity','.5');
+        trail.push(`<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${k==='you'?COL.sig:'rgba(255,255,255,.4)'}" stroke-width="1" stroke-dasharray="2 4" opacity=".55"/>`);
+      }else ghost.setAttribute('opacity','0');
+    });
+    svg.querySelector('#mTrail').innerHTML=trail.join('');
+  }
+
+  function paintSide(svg,step,dur){
+    const f=step.fig, set=(id,tf)=>{
+      const n=svg.querySelector(id);
+      n.style.transition='transform '+dur+' '+EASE;
+      n.setAttribute('transform',tf);
+    };
+    set('#sFig',`translate(${f.x} 120)`);
+    set('#sTorso',`rotate(${f.lean||0})`);
+    set('#sKick',`rotate(${f.kick||0})`);
+    set('#sShin',`translate(0 30) rotate(${f.shin||0})`);
+    set('#sFoot',`translate(52 52) rotate(${f.foot||0})`);
+  }
+
+  function tint(svg,bad){
+    const you=svg.querySelector('#mYou'), fig=svg.querySelector('#sFig');
+    you.setAttribute('stroke',bad?COL.coral:COL.sig);
+    you.setAttribute('fill',bad?'rgba(217,119,87,.22)':'rgba(76,126,255,.24)');
+    fig.setAttribute('stroke',bad?COL.coral:COL.sig);
+    fig.querySelectorAll('circle,ellipse').forEach(n=>n.setAttribute('fill',bad?'rgba(217,119,87,.22)':'rgba(76,126,255,.24)'));
+  }
+
+  function paintScene(sc,animate,bad){
+    const t=W.tech,side=t.view==='side';
+    const svg=W.el.querySelector('#matSvg');
+    const dur=(animate&&!reduced)?'.7s':'0s';
+    svg.querySelector('#topLayer').style.display=side?'none':'';
+    svg.querySelector('#sideLayer').style.display=side?'':'none';
+    if(side) paintSide(svg,sc,dur);
+    else paintTop(svg,sc,(animate&&!bad)?W.prev:null,dur);
+    W.prev=bad?null:sc;
+    tint(svg,bad);
+    paintMarks(svg,sc,side);
+  }
+
+  // a name sits under its body, and moves above it only when the two are
+  // stacked and the other body is in the way
+  function nameTags(step){
+    const tag=(x,y,txt,fill)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="9" letter-spacing="1.2" font-family="${FF}" font-weight="700" fill="${fill}">${txt}</text>`;
+    const stack=Math.abs(step.you.x-step.them.x)<45;
+    const yy=stack&&step.you.y<step.them.y?step.you.y-24:step.you.y+32;
+    const ty=stack&&step.them.y<step.you.y?step.them.y-24:step.them.y+32;
+    return tag(step.you.x,yy,'YOU',W.bad?'#E08A66':'#7E9CFF')+tag(step.them.x,ty,'THEM','#6A6E76');
+  }
+
+  function paintMarks(svg,step,side){
+    svg.querySelector('#mArrows').innerHTML=(step.arrows||[]).map(a=>
+      `<path d="${a.d}" fill="none" stroke="${COL[a.c]}" stroke-width="2" stroke-linecap="round" marker-end="url(#m-${a.c})"/>`).join('');
+    const tag=(x,y,txt,fill)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="9" letter-spacing="1.2" font-family="${FF}" font-weight="700" fill="${fill}">${txt}</text>`;
+    svg.querySelector('#mLabels').innerHTML=(step.arrows||[]).filter(a=>a.lab).map(a=>
+      `<text x="${a.lab.x}" y="${a.lab.y}" text-anchor="${a.lab.a==='end'?'end':'start'}" font-size="10.5" font-family="${FF}" font-weight="600" fill="${COL[a.c]}">${esc(a.lab.t)}</text>`).join('')
+      // each name sits on the far side of its body, clear of the other one
+      +(side?'':nameTags(step))
+      +(step.badge?tag(step.badge.x,step.badge.y,esc(step.badge.t),'#6A6E76'):'');
   }
 
   function paintStep(i,animate){
     const t=W.tech,step=t.steps[i];
-    const svg=W.el.querySelector('#matSvg');
-    const you=svg.querySelector('#mYou'), them=svg.querySelector('#mThem'), foot=svg.querySelector('#mFoot');
-    const dur=(animate&&!reduced)?'.6s':'0s';
-    [you,them].forEach(n=>{n.style.transition='transform '+dur+' cubic-bezier(.4,0,.2,1)';});
-    foot.style.transition='transform '+dur+' cubic-bezier(.4,0,.2,1)';
-    you.setAttribute('transform',actorTf(step.you));
-    them.setAttribute('transform',actorTf(step.them));
-    foot.setAttribute('transform','rotate('+(step.you.foot||0)+')');
-    foot.style.opacity=step.you.foot===undefined?0:1;
-    them.querySelector('path').style.opacity=step.them.bag?0:1;
-    them.querySelector('circle').setAttribute('r',step.them.bag?20:17);
-
-    svg.querySelector('#mArrows').innerHTML=(step.arrows||[]).map(a=>
-      `<path d="${a.d}" fill="none" stroke="${COL[a.c]}" stroke-width="2" stroke-linecap="round" marker-end="url(#m-${a.c})"/>`).join('');
-    const FF='-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif';
-    const tag=(x,y,t,fill)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="9" letter-spacing="1.2" font-family="${FF}" font-weight="700" fill="${fill}">${t}</text>`;
-    svg.querySelector('#mLabels').innerHTML=(step.arrows||[]).filter(a=>a.lab).map(a=>
-      `<text x="${a.lab.x}" y="${a.lab.y}" text-anchor="${a.lab.a==='end'?'end':'start'}" font-size="10.5" font-family="${FF}" font-weight="600" fill="${COL[a.c]}">${esc(a.lab.t)}</text>`).join('')
-      // keep each name clear of the other body: it sits on the far side
-      +tag(step.you.x,step.you.y<step.them.y?step.you.y-24:step.you.y+(step.you.foot===undefined?32:38),'YOU','#7E9CFF')
-      +(step.them.bag?tag(step.them.x,step.them.y+4,'BAG','#6A6E76')
-        :tag(step.them.x,step.them.y<step.you.y?step.them.y-24:step.them.y+32,'THEM','#6A6E76'))
-      +(step.badge?tag(step.badge.x,step.badge.y,esc(step.badge.t),'#6A6E76'):'');
-
-    const box=W.el.querySelector('#wStep');
-    box.innerHTML=`
+    W.bad=false;
+    paintScene(step,animate,false);
+    W.el.querySelector('#wStep').innerHTML=`
       <span class="no">Step ${i+1} of ${t.steps.length}</span>
       <h3>${esc(step.h)}</h3>
       <p>${esc(step.cap)}</p>
       <p class="w-cue">${esc(step.cue)}</p>`;
     W.el.querySelector('#wCount').textContent=(i+1)+' / '+t.steps.length;
-
-    const segs=W.el.querySelectorAll('.seg i');
-    segs.forEach((f,n)=>{
+    const tog=W.el.querySelector('#wWrong');
+    if(tog){ tog.setAttribute('aria-pressed','false'); tog.textContent='Show the common mistake'; }
+    W.el.querySelectorAll('.seg i').forEach((f,n)=>{
       f.style.transition='none';
       f.style.width=n<i?'100%':'0%';
     });
+  }
+
+  // The same position, done the way most people actually do it. Seeing the two
+  // side by side teaches more than either one alone.
+  function showWrong(){
+    const sc=W.tech.wrong; if(!sc) return;
+    setPlaying(false);
+    W.bad=true;
+    paintScene(sc,true,true);
+    W.el.querySelector('#wStep').innerHTML=`
+      <span class="no" style="color:var(--coral)">The common mistake</span>
+      <h3>${esc(sc.h)}</h3>
+      <p>${esc(sc.cap)}</p>
+      <p class="w-cue bad">${esc(sc.cue)}</p>`;
+    const tog=W.el.querySelector('#wWrong');
+    tog.setAttribute('aria-pressed','true');
+    tog.textContent='Back to the right way';
   }
 
   function segFill(){ return W.el.querySelectorAll('.seg i')[W.step]; }
@@ -944,17 +1096,17 @@
 
   function icon(){
     const b=W.el.querySelector('#wPlay');
-    const label=W.playing?'Pause':(W.done?'Play again from the first step':'Play');
-    b.innerHTML=W.playing?s('pause',18):(W.done?s('replay',18):s('play',18));
-    b.setAttribute('aria-label',label);
+    b.innerHTML=W.playing?s('pause',18):s('play',18);
+    b.setAttribute('aria-label',W.playing?'Pause':'Play');
   }
 
   function schedule(ms){
     clearTimeout(W.timer);
     W.start=Date.now(); W.remain=ms;
     W.timer=setTimeout(()=>{
+      // loops like a coach replaying the same clip until you've got it
       if(W.step<W.tech.steps.length-1) return goStep(W.step+1,true);
-      W.done=true; setPlaying(false);
+      goStep(0,false);
     },ms);
   }
 
@@ -965,14 +1117,13 @@
       runSeg(ms); schedule(ms);
     }else{
       clearTimeout(W.timer); freezeSeg();
-      W.remain=W.done?DUR():Math.max(0,W.remain-(Date.now()-W.start));
+      W.remain=Math.max(0,W.remain-(Date.now()-W.start));
     }
     icon();
   }
 
   function goStep(i,animate){
     W.step=Math.max(0,Math.min(i,W.tech.steps.length-1));
-    W.done=false;
     paintStep(W.step,animate);
     W.remain=DUR();
     if(W.playing){ runSeg(DUR()); schedule(DUR()); }
@@ -982,7 +1133,7 @@
   function openWatch(key){
     const t=TECH[key]; if(!t) return;
     closeWatch();
-    W.tech=t; W.step=0; W.done=false; W.remain=DUR();
+    W.tech=t; W.step=0; W.bad=false; W.prev=null; W.checks={}; W.remain=DUR();
     const el=document.createElement('div');
     el.className='watch'; el.id='watch';
     el.innerHTML=`
@@ -1000,14 +1151,27 @@
             <button class="rnd pri" id="wPlay" data-play="1" aria-label="Play">${s('play',18)}</button>
             <button class="rnd" data-next="1" aria-label="Next step">${s('next',15)}</button>
             <span class="stepn" id="wCount">1 / ${t.steps.length}</span>
-            <button class="slow" data-slow="1" aria-pressed="false">SLOW</button>
+            <button class="slow" data-slow="1" aria-pressed="false" title="Half speed">SLOW</button>
           </div>
         </div>
+        <p class="w-view">${t.view==='side'
+          ? 'Side view. The circle on the left is your support foot seen from above — watch it turn before the shin arrives.'
+          : 'Top-down view, like watching the mat from the ceiling. Blue is you, grey is your partner, dashed is where you just were.'}</p>
         <div class="w-step" id="wStep"></div>
+        ${t.wrong?`<button class="w-tog" id="wWrong" data-wrong="1" aria-pressed="false">Show the common mistake</button>`:''}
         <div class="w-miss">
           <span class="lbl" style="color:var(--coral)">Where it usually goes wrong</span>
           <p>${esc(t.mistake)}</p>
         </div>
+        ${t.drill?`
+        <div class="w-drill">
+          <span class="lbl" style="color:var(--success)">Drill it tonight</span>
+          ${t.drill.map((d,i)=>`
+            <button class="drow" data-check="${i}" aria-pressed="false">
+              <span class="box">${s('check',12)}</span>
+              <div><strong>${esc(d.t)}</strong><small>${esc(d.n)}</small></div>
+            </button>`).join('')}
+        </div>`:''}
         <span class="lbl dim" style="margin-top:4px">Watch it at full speed</span>
         <div class="w-list">
           ${t.videos.map(v=>`
@@ -1056,7 +1220,7 @@
   }
 
   device.addEventListener('click',e=>{
-    const t=e.target.closest('[data-tab],[data-why],[data-mic],[data-sample],[data-analyze],[data-save],[data-newlog],[data-learntab],[data-perftab],[data-bm],[data-toast],[data-watch],[data-close],[data-play],[data-prev],[data-next],[data-slow]');
+    const t=e.target.closest('[data-tab],[data-why],[data-mic],[data-sample],[data-analyze],[data-save],[data-newlog],[data-learntab],[data-perftab],[data-bm],[data-toast],[data-watch],[data-close],[data-play],[data-prev],[data-next],[data-slow],[data-wrong],[data-check]');
     if(!t) return;
     const d=t.dataset;
 
@@ -1070,6 +1234,12 @@
     if(d.next){ setPlaying(false); return goStep(W.step+1,true); }
     if(d.slow){ W.slow=!W.slow; t.setAttribute('aria-pressed',W.slow?'true':'false'); W.remain=DUR();
       if(W.playing){ runSeg(DUR()); schedule(DUR()); } return; }
+    if(d.wrong){ return W.bad?goStep(W.step,true):showWrong(); }
+    if(d.check!==undefined){
+      W.checks[d.check]=!W.checks[d.check];
+      t.setAttribute('aria-pressed',W.checks[d.check]?'true':'false');
+      return;
+    }
     if(d.watch){ return openWatch(d.watch); }
 
     if(d.tab){ st.tab=d.tab; return render(); }

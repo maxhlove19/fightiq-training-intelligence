@@ -15,10 +15,11 @@ Open it directly in a browser; there is no build step.
   Performance, Profile.
 - **3D technique breakdowns** — a looping, step-through player for four
   techniques (arm drag to back take, half guard underhook, round kick pivot,
-  single leg finish). Bodies are jointed figures built from angles and drawn as
-  shaded capsules with a directional light, depth-sorted per part, with feet
-  that point where the pose says and contact shadows that fade as a foot
-  leaves the mat. Steps interpolate through optional intermediate poses so a
+  single leg finish). Bodies are built from joint angles and rendered as
+  polygon meshes — limbs are tubes carried along the joint chain, the torso is
+  an oval cross-section, the head an ellipsoid with a hair mask — lit with a
+  key, a fill and a rim light, backface-culled and depth-sorted per face, in
+  skin and kit colours with soft mat shadows. Steps interpolate through optional intermediate poses so a
   limb travels its real arc. The camera orbits: drag, or jump to Corner /
   Front / Side / Top / Behind. Each breakdown also carries a half-speed
   toggle, a wrong-versus-right toggle, a checkable drill list, and links to
@@ -42,8 +43,8 @@ Open it directly in a browser; there is no build step.
   centimetre space. Adding a technique means adding
   data, not touching the renderer.
 - **No 3D library.** The renderer is a couple of hundred lines: forward
-  kinematics, a lookAt camera, screen-space capsules with a gradient across
-  the limb axis for cylindrical shading, and painter's-algorithm depth
+  kinematics, a lookAt camera, tube and ellipsoid mesh builders, per-face
+  Lambert plus rim lighting, backface culling and painter's-algorithm depth
   sorting. Keep it that way — a CDN import would be blocked by the artifact
   CSP anyway. It holds 60fps on a phone; if that changes, cut part count
   before reaching for WebGL.

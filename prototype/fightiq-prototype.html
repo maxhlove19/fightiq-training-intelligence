@@ -339,7 +339,7 @@
     <div class="prose">
       <p>"Turn the corner with your hips" is a sentence. It isn't a picture, and a sentence is a bad way to learn a movement you've never felt. So a correction doesn't stop at text — it opens into a <b>motion breakdown</b> you can pause and step through inside the app, and a shortlist of <b>real footage on YouTube</b> where someone does it properly at full speed.</p>
       <p>The two do different jobs. The breakdown is slow, labelled and specific to your mistake. The footage shows you the real thing, with timing and resistance the diagram can't fake.</p>
-      <p>The breakdown is a pair of <b>3D figures you can walk around</b> — shaded, jointed, posed like the action figures a coach would move through a position by hand. Drag them with a finger, or jump to the angle a coach would film from: side on for a kick, straight down for the mat. The angle you can't get in class is usually the one that makes it obvious.</p>
+      <p>The breakdown is a pair of <b>3D bodies you can walk around</b> — lit, jointed, dressed for the mat, moving through the position the way a training partner would. Drag them with a finger, or jump to the angle a coach would film from: side on for a kick, straight down for the mat. The angle you can't get in class is usually the one that makes it obvious.</p>
       <p>You can also flip to <b>the version most people actually do</b> — same position, same leg, one detail missing — because seeing the two next to each other teaches faster than either alone. It ends where it should: a short list of reps to take to the gym tonight.</p>
     </div>
     <figure class="mech">
@@ -417,7 +417,7 @@
       <h3>What's real in this demo</h3>
       <ul>
         <li><b>The analysis is pre-written.</b> Your note is matched to one of five prepared reads by keyword — there's no model running on this page.</li>
-        <li><b>The 3D breakdowns are hand-built models</b> of four techniques — jointed figures posed to hit real coaching points, not motion capture and not footage of a real athlete.</li>
+        <li><b>The 3D breakdowns are hand-built models</b> of four techniques — bodies posed by hand to hit real coaching points. Not motion capture, and not footage of a real athlete.</li>
         <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with.</li>
         <li><b>Nothing is saved.</b> Reload and the demo starts clean.</li>
         <li>Performance detail, settings and anything with a price on it are stubs — they'll tell you so when you tap them.</li>
@@ -638,24 +638,24 @@
       ],
       wrong:{h:'The leak',cap:'Head down, back rounded, their hips sliding away. You still have the leg — you just no longer have control of anything.',cue:'It feels like they defended well. It was your posture.',
         you:P(CROUCH,{x:-4,z:-44,yaw:4,spineEl:118,neckEl:104,hipH:52,armL:[-38,96,-30,104],armR:[38,96,30,104]}),
-        them:P({z:0,yaw:180,legR:[8,62,2,56],spineEl:186}),
+        them:P({z:0,yaw:180,legR:[8,60,2,26],spineEl:186,armL:[-32,78,-26,94],armR:[26,64,18,110]}),
         arrows:[{p:[[-30,96,-52],[-18,66,-46]],c:'coral',lab:'posture folds'}]},
       steps:[
         {h:'The entry lands',cap:'You\'re in on the leg with your head on the inside. Nothing is wrong yet.',cue:'Level change before the step, not during it.',
          you:P(CROUCH,{x:-2,z:-46,yaw:4,armL:[-36,94,-28,108],armR:[36,94,28,108]}),
-         them:P({z:0,yaw:180,legR:[8,58,2,52]}),
+         them:P({z:0,yaw:180,legR:[8,56,2,24],armL:[-30,72,-22,98],armR:[26,62,18,112]}),
          arrows:[{p:[[-34,86,-58],[-16,80,-42]],c:'sig',lab:'in on the leg'}]},
         {h:'Where it leaks',cap:'Under fatigue the head drops toward the mat. Your back rounds, their hips slide back, and the leg stops being control.',cue:'A dropped head is a dropped finish. Feel for it before you feel the leg slipping.',
          you:P(CROUCH,{x:-4,z:-44,yaw:4,spineEl:120,neckEl:106,hipH:52,armL:[-38,96,-30,104],armR:[38,96,30,104]}),
-         them:P({z:4,yaw:180,legR:[8,62,2,56],spineEl:186}),
+         them:P({z:4,yaw:180,legR:[8,60,2,26],spineEl:186,armL:[-32,76,-26,96],armR:[26,64,18,110]}),
          arrows:[{p:[[-32,96,-52],[-20,66,-46]],c:'coral',lab:'head drops'}]},
         {h:'Head up, into the hip',cap:'Post your head against them and stand your posture back up. The head is a structural piece, not a passenger.',cue:'Head up and into them. Posture is the finish.',
          you:P(CROUCH,{x:-2,z:-44,yaw:6,spineEl:156,neckEl:178,hipH:70,armL:[-34,92,-26,110],armR:[34,92,26,110]}),
-         them:P({z:0,yaw:180,legR:[8,64,2,58]}),
+         them:P({z:0,yaw:180,legR:[8,62,2,28],armL:[-34,80,-28,94],armR:[24,66,16,108]}),
          arrows:[{p:[[-30,60,-56],[-14,92,-40]],c:'gold',lab:'head into the hip'}]},
         {h:'Drive on an angle',cap:'Finish across their body rather than straight forward, taking their base away instead of pushing into it.',cue:'Run the corner. Straight ahead is a wrestling match; the angle is a takedown.',
          you:P(CROUCH,{x:22,z:-32,yaw:44,spineEl:158,neckEl:176,hipH:70,armL:[-34,92,-26,110],armR:[34,92,26,110]}),
-         them:P({x:6,z:6,yaw:196,pitch:-16,legR:[8,76,2,66]}),
+         them:P({x:6,z:6,yaw:196,pitch:-16,legR:[8,74,2,34],armL:[-38,86,-32,90],armR:[22,70,14,104]}),
          arrows:[{p:[[-14,6,-52],[10,6,-40],[26,6,-24]],c:'sig',lab:'across, not through'}]}
       ]
     }
@@ -1053,6 +1053,93 @@
     return {eye,fwd,right,up};
   }
 
+  /* ---- bodies as geometry -------------------------------------------------
+     Limbs are tubes of quads carried along the joint chain, the head is an
+     ellipsoid, and every face is lit and depth-sorted. It is a small software
+     renderer, so a body has a silhouette, a lit side and a shaded side. */
+  const rgb=hex=>{const n=parseInt(hex.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};};
+  const SKIN=rgb('#C08258'), HAIR=rgb('#211A17');
+  const KIT={
+    you:{shirt:rgb('#2F5CE0'),shorts:rgb('#15204A')},
+    them:{shirt:rgb('#B4B9C2'),shorts:rgb('#373C46')},
+    bad:{shirt:rgb('#C2543A'),shorts:rgb('#421B14')}
+  };
+  const mid=(a,b,t)=>vadd(a,vmul(vsub(b,a),t));
+
+  // rings are carried along the chain so the tube never twists at a joint
+  function tube(out,pts,radii,seg,cols,squash,fixedU){
+    const rings=[];
+    let u=null;
+    for(let i=0;i<pts.length;i++){
+      const a=pts[Math.max(0,i-1)], b=pts[Math.min(pts.length-1,i+1)];
+      let t=vsub(b,a);
+      if(Math.hypot(t.x,t.y,t.z)<0.001) t=v3(0,1,0);
+      t=vnorm(t);
+      if(fixedU) u=fixedU; else if(!u) u=Math.abs(t.y)>0.9?v3(1,0,0):v3(0,1,0);
+      u=vnorm(vsub(u,vmul(t,vdot(u,t))));
+      const v=vcross(t,u);
+      const ring=[];
+      for(let k=0;k<seg;k++){
+        const ang=k/seg*Math.PI*2, sq=squash||1;
+        ring.push(vadd(pts[i],vadd(vmul(u,Math.cos(ang)*radii[i]),vmul(v,Math.sin(ang)*radii[i]*sq))));
+      }
+      rings.push(ring);
+    }
+    for(let i=0;i<rings.length-1;i++){
+      const col=cols[Math.min(i,cols.length-1)];
+      for(let k=0;k<seg;k++){
+        const k2=(k+1)%seg;
+        out.push({q:[rings[i][k],rings[i][k2],rings[i+1][k2],rings[i+1][k]],col});
+      }
+    }
+  }
+
+  function ellipsoid(out,c,rad,axes,segU,segV,colFn){
+    const [ax,ay,az]=axes;
+    const at=(u,v)=>{
+      const su=Math.sin(u), cu=Math.cos(u), sv=Math.sin(v), cv=Math.cos(v);
+      const d=vadd(vadd(vmul(ax,su*cv*rad.x),vmul(ay,cu*rad.y)),vmul(az,su*sv*rad.z));
+      return vadd(c,d);
+    };
+    for(let i=0;i<segV;i++){
+      for(let k=0;k<segU;k++){
+        const u1=i/segV*Math.PI, u2=(i+1)/segV*Math.PI;
+        const v1=k/segU*Math.PI*2, v2=(k+1)/segU*Math.PI*2;
+        const q=[at(u1,v1),at(u1,v2),at(u2,v2),at(u2,v1)];
+        const ctr=vmul(q.reduce(vadd,v3(0,0,0)),.25);
+        out.push({q,col:colFn(vnorm(vsub(ctr,c)))});
+      }
+    }
+  }
+
+  function bodyFaces(pose,kit,phase){
+    const br=Math.sin((W.clock||0)*1.7+(phase||0));
+    pose=Object.assign({},pose,{hipH:pose.hipH+br*.5,spineEl:pose.spineEl+br*.5});
+    const j=joints(pose), out=[];
+    const up=vnorm(vsub(j.chest,j.hips));
+    const fwd=j.fwd;
+    const right=vnorm(vcross(fwd,up));
+    const shMid=mid(j.shL,j.shR,.5);
+    // a torso is wider than it is deep, so its rings key off the body's own
+    // right axis rather than drifting with the tube
+    tube(out,[mid(j.hpL,j.hpR,.5),mid(j.hips,j.chest,.42),mid(j.hips,j.chest,.8),shMid],
+         [11.5,10.4,13,12.4],12,[kit.shorts,kit.shirt,kit.shirt],.66,right);
+    tube(out,[j.shL,j.shR],[7.6,7.6],10,[kit.shirt],.8,up);
+    // arms and legs run as one chain each so the joints stay closed
+    tube(out,[j.shL,mid(j.shL,j.elL,.5),j.elL,mid(j.elL,j.haL,.5),j.haL],[6.6,5.2,4.7,4.3,3.6],10,[SKIN]);
+    tube(out,[j.shR,mid(j.shR,j.elR,.5),j.elR,mid(j.elR,j.haR,.5),j.haR],[6.6,5.2,4.7,4.3,3.6],10,[SKIN]);
+    tube(out,[j.hpL,mid(j.hpL,j.knL,.45),j.knL,mid(j.knL,j.ftL,.42),j.ftL],[9.8,8.8,6.5,6.2,4.4],10,[kit.shorts,SKIN,SKIN,SKIN]);
+    tube(out,[j.hpR,mid(j.hpR,j.knR,.45),j.knR,mid(j.knR,j.ftR,.42),j.ftR],[9.8,8.8,6.5,6.2,4.4],10,[kit.shorts,SKIN,SKIN,SKIN]);
+    tube(out,[j.ftL,j.toeL],[4.8,3.4],8,[rgb('#242932')],.58);
+    tube(out,[j.ftR,j.toeR],[4.8,3.4],8,[rgb('#242932')],.58);
+    tube(out,[shMid,j.neck],[6.4,4.8],8,[SKIN]);
+    ellipsoid(out,j.head,{x:8.6,y:10.4,z:9.4},[right,vnorm(vsub(j.head,j.neck)),fwd],9,6,
+      n=>(vdot(n,vnorm(vsub(j.head,j.neck)))>.34||vdot(n,fwd)<-.3)?HAIR:SKIN);
+    ellipsoid(out,j.haL,{x:4,y:4.4,z:3.4},[right,up,fwd],6,4,()=>SKIN);
+    ellipsoid(out,j.haR,{x:4,y:4.4,z:3.4},[right,up,fwd],6,4,()=>SKIN);
+    return {faces:out,j};
+  }
+
   function draw(){
     const cv=W.cv, c=W.ctx; if(!cv) return;
     const w=cv.width, h=cv.height, f=w*0.82;
@@ -1072,131 +1159,113 @@
       c.globalAlpha=1;
     };
 
-    // floor
-    c.save();
-    for(let i=-3;i<=3;i++){
-      const t=i*55;
-      seg(v3(t,0,-170),v3(t,0,170),'#ffffff',1,.08);
-      seg(v3(-170,0,t),v3(170,0,t),'#ffffff',1,.08);
+    // the mat
+    const matPts=[v3(-200,0,-200),v3(200,0,-200),v3(200,0,200),v3(-200,0,200)].map(pr);
+    if(matPts.every(Boolean)){
+      c.beginPath(); matPts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.closePath();
+      const g=c.createLinearGradient(0,h*0.2,0,h);
+      g.addColorStop(0,'#20262f'); g.addColorStop(1,'#12161c');
+      c.fillStyle=g; c.fill();
     }
-    c.restore();
+    for(let i=-4;i<=4;i++){
+      const t=i*50;
+      seg(v3(t,0,-200),v3(t,0,200),'#ffffff',1,.05);
+      seg(v3(-200,0,t),v3(200,0,t),'#ffffff',1,.05);
+    }
+    const ring=[];
+    for(let i=0;i<=36;i++){const a=i/36*Math.PI*2;const q=pr(v3(Math.cos(a)*120,0.4,Math.sin(a)*120));if(q)ring.push(q);}
+    if(ring.length>30){
+      c.beginPath(); ring.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));
+      c.strokeStyle='rgba(255,255,255,.09)'; c.lineWidth=2; c.stroke();
+    }
 
     const sc=sceneOf(W.step), poses=W.cur||posesOf(sc);
     const bag=W.tech.bag;
+    const bodies=[];
+    if(poses.them) bodies.push(bodyFaces(poses.them,KIT.them,1.9));
+    if(poses.you) bodies.push(bodyFaces(poses.you,W.bad?KIT.bad:KIT.you,0));
 
-    // ground shadows
-    const shadow=(p)=>{
-      const pts=[];
-      for(let i=0;i<14;i++){const a=i/14*Math.PI*2;const q=pr(v3(p.x+Math.cos(a)*26,0.5,p.z+Math.sin(a)*20));if(!q)return;pts.push(q);}
-      c.fillStyle='rgba(0,0,0,.45)'; c.beginPath();
-      pts.forEach((q,i)=>i?c.lineTo(q.x,q.y):c.moveTo(q.x,q.y)); c.closePath(); c.fill();
-    };
-    if(poses.you) shadow(poses.you);
-    if(poses.them) shadow(poses.them);
-    if(bag) shadow({x:bag.x,z:bag.z});
+    // soft shadows: the body dropped onto the mat, blurred in three passes
+    c.save();
+    bodies.forEach(({j})=>{
+      [[j.hips,j.chest,15],[j.hpL,j.ftL,9],[j.hpR,j.ftR,9],[j.shL,j.haL,7],[j.shR,j.haR,7],[j.head,j.head,10]]
+      .forEach(([a,b,r])=>{
+        const A=pr(v3(a.x,0.5,a.z)), B=pr(v3(b.x,0.5,b.z)); if(!A||!B) return;
+        const lift=Math.max(0,1-Math.max(a.y,b.y)/150);
+        for(let k=0;k<3;k++){
+          c.globalAlpha=.09*lift;
+          c.strokeStyle='#000'; c.lineCap='round';
+          c.lineWidth=Math.max(2,r*A.s*(1+k*0.9));
+          c.beginPath(); c.moveTo(A.x,A.y); c.lineTo(B.x,B.y); c.stroke();
+        }
+      });
+    });
+    c.globalAlpha=1; c.restore();
 
-    // the support-foot direction, drawn flat on the mat
+    // the pivot cue, painted on the mat
     if(sc.foot){
       const fo=sc.foot, a=fo.az*RAD;
-      const tip=v3(fo.x+Math.sin(a)*34,1,fo.z+Math.cos(a)*34);
-      seg(v3(fo.x,1,fo.z),tip,COL[fo.c],3,.95);
-      const l=v3(fo.x+Math.sin(a-.5)*22,1,fo.z+Math.cos(a-.5)*22);
-      const r=v3(fo.x+Math.sin(a+.5)*22,1,fo.z+Math.cos(a+.5)*22);
-      seg(tip,l,COL[fo.c],3,.95); seg(tip,r,COL[fo.c],3,.95);
+      const tip=v3(fo.x+Math.sin(a)*36,1,fo.z+Math.cos(a)*36);
+      seg(v3(fo.x,1,fo.z),tip,COL[fo.c],3.5,.95);
+      seg(tip,v3(fo.x+Math.sin(a-.5)*23,1,fo.z+Math.cos(a-.5)*23),COL[fo.c],3.5,.95);
+      seg(tip,v3(fo.x+Math.sin(a+.5)*23,1,fo.z+Math.cos(a+.5)*23),COL[fo.c],3.5,.95);
     }
 
-    // bag
+    // faces: cull what points away, paint far to near
+    const faces=[];
+    bodies.forEach(b=>{ for(const fc of b.faces) faces.push(fc); });
     if(bag){
-      const top=pr(v3(bag.x,bag.top,bag.z)), bot=pr(v3(bag.x,bag.bot,bag.z));
-      if(top&&bot){
-        c.strokeStyle='rgba(255,255,255,.34)'; c.fillStyle='rgba(255,255,255,.07)'; c.lineWidth=1.6;
-        const rr=bag.r*top.s;
-        c.beginPath(); c.roundRect(top.x-rr,top.y,rr*2,bot.y-top.y,rr*0.9); c.fill(); c.stroke();
-        seg(v3(bag.x,bag.top,bag.z),v3(bag.x,bag.top+34,bag.z),'rgba(255,255,255,.24)',1.4);
-      }
+      const bcol=rgb('#4A5058');
+      tube(faces,[v3(bag.x,bag.top,bag.z),v3(bag.x,(bag.top+bag.bot)/2,bag.z),v3(bag.x,bag.bot,bag.z)],
+        [bag.r*.92,bag.r,bag.r*.88],10,[bcol,bcol]);
+      seg(v3(bag.x,bag.top,bag.z),v3(bag.x,bag.top+40,bag.z),'rgba(255,255,255,.22)',2);
     }
-
-    // bodies: shaded capsules, far parts first
-    const LIGHT=vnorm(v3(-0.45,0.82,0.36));
-    const lx=vdot(LIGHT,V.right), ly=-vdot(LIGHT,V.up);
-    const skin=(base)=>({base,hi:shade(base,.42),lo:shade(base,-.5)});
-
-    function capsule(A,B,ra,rb,col){
-      const p1=pr(A),p2=pr(B); if(!p1||!p2) return;
-      const r1=Math.max(1.2,ra*p1.s), r2=Math.max(1,rb*p2.s);
-      let dx=p2.x-p1.x, dy=p2.y-p1.y;
-      const len=Math.hypot(dx,dy)||1; dx/=len; dy/=len;
-      const nx=-dy, ny=dx;                       // screen-space normal
-      const ang=Math.atan2(dy,dx);
+    const KEY=vnorm(v3(-0.42,0.80,0.44)), FILL=vnorm(v3(0.72,0.22,-0.34));
+    const drawn=[];
+    for(const fc of faces){
+      const q=fc.q;
+      const ctr=vmul(q.reduce(vadd,v3(0,0,0)),.25);
+      const n=vnorm(vcross(vsub(q[1],q[0]),vsub(q[3],q[0])));
+      const toEye=vnorm(vsub(V.eye,ctr));
+      if(vdot(n,toEye)<=0.02) continue;
+      drawn.push({q,col:fc.col,n,ctr,toEye,d:vdot(vsub(ctr,V.eye),V.fwd)});
+    }
+    drawn.sort((a,b)=>b.d-a.d);
+    for(const fc of drawn){
+      const pts=fc.q.map(pr);
+      if(pts.some(p=>!p)) continue;
+      const dif=Math.max(0,vdot(fc.n,KEY)), fil=Math.max(0,vdot(fc.n,FILL));
+      const rim=Math.pow(1-Math.max(0,vdot(fc.n,fc.toEye)),3.2);
+      const l=0.30+0.80*dif+0.22*fil;
+      const col=fc.col;
+      const r=Math.min(255,col.r*l+rim*64+dif*dif*26);
+      const g2=Math.min(255,col.g*l+rim*74+dif*dif*26);
+      const b2=Math.min(255,col.b*l+rim*96+dif*dif*26);
+      c.fillStyle='rgb('+(r|0)+','+(g2|0)+','+(b2|0)+')';
       c.beginPath();
-      c.arc(p1.x,p1.y,r1,ang+Math.PI/2,ang-Math.PI/2);
-      c.arc(p2.x,p2.y,r2,ang-Math.PI/2,ang+Math.PI/2);
+      c.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<4;i++) c.lineTo(pts[i].x,pts[i].y);
       c.closePath();
-      const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2, rr=Math.max(r1,r2);
-      const s=nx*lx+ny*ly;                       // which side faces the light
-      const g=c.createLinearGradient(mx+nx*rr,my+ny*rr,mx-nx*rr,my-ny*rr);
-      if(s>=0){ g.addColorStop(0,col.hi); g.addColorStop(.5,col.base); g.addColorStop(1,col.lo); }
-      else    { g.addColorStop(0,col.lo); g.addColorStop(.5,col.base); g.addColorStop(1,col.hi); }
-      c.fillStyle=g; c.fill();
-      c.strokeStyle='rgba(0,0,0,.42)'; c.lineWidth=1; c.stroke();
+      c.fill();
+      c.strokeStyle=c.fillStyle; c.lineWidth=.7; c.stroke();
     }
-
-    function sphere(P,rad,col,face){
-      const q=pr(P); if(!q) return;
-      const r=Math.max(2,rad*q.s);
-      const g=c.createRadialGradient(q.x+lx*r*.42,q.y+ly*r*.42,r*.15,q.x,q.y,r);
-      g.addColorStop(0,col.hi); g.addColorStop(.55,col.base); g.addColorStop(1,col.lo);
-      c.fillStyle=g; c.beginPath(); c.arc(q.x,q.y,r,0,7); c.fill();
-      c.strokeStyle='rgba(0,0,0,.42)'; c.lineWidth=1; c.stroke();
-      if(face) capsule(P,vadd(P,vmul(face,8.5)),4.2,2.6,col);
-    }
-
-    const parts=[];
-    const collect=(pose,base)=>{
-      if(!pose) return;
-      const j=joints(pose), col=skin(base);
-      const depth=p=>vdot(vsub(p,V.eye),V.fwd);
-      LIMBS.forEach(([a,b,ra,rb])=>{
-        parts.push({kind:'cap',a:j[a],b:j[b],ra,rb,col,d:depth(vmul(vadd(j[a],j[b]),.5))});
-      });
-      parts.push({kind:'ball',p:j.haL,r:4.2,col,d:depth(j.haL)});
-      parts.push({kind:'ball',p:j.haR,r:4.2,col,d:depth(j.haR)});
-      parts.push({kind:'ball',p:j.head,r:10,col,d:depth(j.head),face:j.fwd});
-      // contact shadows fade as a foot leaves the mat
-      [j.ftL,j.ftR].forEach(ft=>{
-        const a=Math.max(0,1-ft.y/34); if(a<=0.02) return;
-        parts.push({kind:'contact',p:ft,alpha:a*.5,d:1e9});
-      });
-    };
-    collect(poses.them,'#9BA1AB');
-    collect(poses.you,W.bad?'#D97757':'#3E6BFF');
-    parts.sort((a,b)=>b.d-a.d);
-    parts.forEach(p=>{
-      if(p.kind==='cap') capsule(p.a,p.b,p.ra,p.rb,p.col);
-      else if(p.kind==='ball') sphere(p.p,p.r,p.col,p.face);
-      else{
-        const q=pr(v3(p.p.x,.6,p.p.z)); if(!q) return;
-        c.fillStyle='rgba(0,0,0,'+p.alpha+')';
-        c.beginPath(); c.ellipse(q.x,q.y,16*q.s,7*q.s,0,0,7); c.fill();
-      }
-    });
 
     // names above the heads
     c.font='700 11px '+FF; c.textAlign='center';
     const name=(pose,txt,col)=>{
       if(!pose) return;
-      const j=joints(pose), q=pr(vadd(j.head,v3(0,30,0))); if(!q) return;
+      const q=pr(vadd(joints(pose).head,v3(0,32,0))); if(!q) return;
       c.fillStyle=col; c.fillText(txt,q.x,q.y);
     };
-    name(poses.you,'YOU',W.bad?'#E79877':'#8FA9FF');
-    name(poses.them,'THEM','#9AA0A8');
-    if(bag){const q=pr(v3(bag.x,bag.top+22,bag.z)); if(q){c.fillStyle='#9AA0A8';c.fillText('BAG',q.x,q.y);}}
+    name(poses.you,'YOU',W.bad?'#EC9C7C':'#9DB4FF');
+    name(poses.them,'THEM','#AAB0B8');
+    if(bag){const q=pr(v3(bag.x,bag.top+26,bag.z)); if(q){c.fillStyle='#AAB0B8';c.fillText('BAG',q.x,q.y);}}
 
     // coaching arrows, drawn over the bodies so they stay readable
     (sc.arrows||[]).forEach(ar=>{
       const pts=ar.p.map(q=>pr(v3(q[0],q[1],q[2])));
       if(pts.some(q=>!q)) return;
-      c.strokeStyle=COL[ar.c]; c.lineWidth=2.4; c.lineJoin='round'; c.lineCap='round';
+      c.strokeStyle=COL[ar.c]; c.lineWidth=2.6; c.lineJoin='round'; c.lineCap='round';
       c.beginPath(); c.moveTo(pts[0].x,pts[0].y);
       for(let i=1;i<pts.length;i++) c.lineTo(pts[i].x,pts[i].y);
       c.stroke();
@@ -1204,14 +1273,12 @@
       const ang=Math.atan2(b.y-a.y,b.x-a.x);
       c.fillStyle=COL[ar.c]; c.beginPath();
       c.moveTo(b.x,b.y);
-      c.lineTo(b.x-Math.cos(ang-.42)*11,b.y-Math.sin(ang-.42)*11);
-      c.lineTo(b.x-Math.cos(ang+.42)*11,b.y-Math.sin(ang+.42)*11);
+      c.lineTo(b.x-Math.cos(ang-.42)*12,b.y-Math.sin(ang-.42)*12);
+      c.lineTo(b.x-Math.cos(ang+.42)*12,b.y-Math.sin(ang+.42)*12);
       c.closePath(); c.fill();
       if(ar.lab){
         c.font='600 11.5px '+FF;
         const tw=c.measureText(ar.lab).width;
-        // hang the label off whichever end of the arrow points away from the
-        // middle of the frame, where the bodies are
         const p0=pts[0], pN=pts[pts.length-1];
         const anc=Math.hypot(p0.x-w/2,p0.y-h/2)>Math.hypot(pN.x-w/2,pN.y-h/2)?p0:pN;
         let lx=anc.x+(anc.x>w/2?1:-1)*(tw/2+14), ly=anc.y-14;
@@ -1222,12 +1289,18 @@
         c.fillStyle=COL[ar.c]; c.textAlign='center'; c.fillText(ar.lab,lx,ly+1);
       }
     });
+
+    // a little lens: darkened corners so the eye stays on the technique
+    const vg=c.createRadialGradient(w/2,h*.46,h*.2,w/2,h*.5,h*.92);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.5)');
+    c.fillStyle=vg; c.fillRect(0,0,w,h);
   }
 
   /* ---- playback ---- */
   function frame(now){
     W.raf=requestAnimationFrame(frame);
     const dt=Math.min(.05,(now-(W.last||now))/1000); W.last=now;
+    W.clock=(W.clock||0)+dt;
     if(W.anim<1){
       W.anim=Math.min(1,W.anim+dt/MOVE());
       const u=ease(W.anim);

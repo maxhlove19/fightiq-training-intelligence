@@ -244,7 +244,7 @@
   .stage3d{position:relative;aspect-ratio:16/11;width:100%;background:radial-gradient(120% 90% at 50% 0%,#182231,#0a0d12)}
   .stage3d canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
   .stage3d canvas:active{cursor:grabbing}
-  .grab{position:absolute;left:10px;top:10px;transition:opacity .3s;display:inline-flex;align-items:center;gap:5px;background:rgba(8,9,11,.6);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);pointer-events:none}
+  .grab{position:absolute;left:10px;bottom:10px;transition:opacity .3s;display:inline-flex;align-items:center;gap:5px;background:rgba(8,9,11,.6);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);pointer-events:none}
   .cams{display:flex;gap:5px;padding:0 10px 12px}
   .cams button{flex:1;border:1px solid var(--line);border-radius:9px;padding:7px 4px;text-align:center;font-size:10.5px;font-weight:650;color:var(--t2);transition:background .15s,color .15s}
   .cams button[aria-pressed="true"]{background:var(--pop);border-color:var(--line-2);color:var(--fg)}
@@ -339,7 +339,7 @@
     <div class="prose">
       <p>"Turn the corner with your hips" is a sentence. It isn't a picture, and a sentence is a bad way to learn a movement you've never felt. So a correction doesn't stop at text — it opens into a <b>motion breakdown</b> you can pause and step through inside the app, and a shortlist of <b>real footage on YouTube</b> where someone does it properly at full speed.</p>
       <p>The two do different jobs. The breakdown is slow, labelled and specific to your mistake. The footage shows you the real thing, with timing and resistance the diagram can't fake.</p>
-      <p>The breakdown is a <b>3D model you can walk around</b>. Drag it with a finger, or jump to the angle a coach would film from — side on for a kick, straight down for the mat. The camera angle you can't get in class is usually the one that makes it obvious.</p>
+      <p>The breakdown is a pair of <b>3D figures you can walk around</b> — shaded, jointed, posed like the action figures a coach would move through a position by hand. Drag them with a finger, or jump to the angle a coach would film from: side on for a kick, straight down for the mat. The angle you can't get in class is usually the one that makes it obvious.</p>
       <p>You can also flip to <b>the version most people actually do</b> — same position, same leg, one detail missing — because seeing the two next to each other teaches faster than either alone. It ends where it should: a short list of reps to take to the gym tonight.</p>
     </div>
     <figure class="mech">
@@ -417,7 +417,7 @@
       <h3>What's real in this demo</h3>
       <ul>
         <li><b>The analysis is pre-written.</b> Your note is matched to one of five prepared reads by keyword — there's no model running on this page.</li>
-        <li><b>The 3D breakdowns are hand-built models</b> of four techniques — a rigged skeleton animating real coaching points, not motion capture and not footage of a real athlete.</li>
+        <li><b>The 3D breakdowns are hand-built models</b> of four techniques — jointed figures posed to hit real coaching points, not motion capture and not footage of a real athlete.</li>
         <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with.</li>
         <li><b>Nothing is saved.</b> Reload and the demo starts clean.</li>
         <li>Performance detail, settings and anything with a price on it are stubs — they'll tell you so when you tap them.</li>
@@ -529,10 +529,12 @@
          arrows:[{p:[[20,86,-16],[4,82,-34],[-10,80,-50]],c:'sig',lab:'drag across your centre'}]},
         {h:'Move your hips, not your arms',cap:'This is the step people skip. Your hands hold what you already have while your hips travel to their blind side.',cue:'Hips travel. The arms hold. If you feel yourself pulling, you\'ve stopped moving.',
          you:P(KNEES,{x:58,z:-48,yaw:52,armR:[-18,84,-32,88],armL:[-12,66,-4,108]}),
+         via:[P(KNEES,{x:30,z:-70,yaw:26,armR:[-24,88,-38,86],armL:[-14,70,-6,106]})],
          them:P(KNEES,{yaw:210,armL:[-38,94,-28,88]}),
          arrows:[{p:[[0,5,-80],[32,5,-70],[58,5,-50]],c:'sig',lab:'hips travel'}]},
         {h:'Chest to the shoulder blade',cap:'You arrive behind them before you go hunting for anything. Contact first, control second.',cue:'Chest on the shoulder blade, head on the same side as your chest. Now they can\'t turn back in.',
          you:P(KNEES,{x:40,z:24,yaw:150,armR:[20,88,10,92],armL:[-20,84,-12,96]}),
+         via:[P(KNEES,{x:62,z:-8,yaw:104,armR:[6,88,-4,92],armL:[-18,80,-10,100]})],
          them:P(KNEES,{yaw:214}),
          arrows:[{p:[[46,92,18],[18,88,6]],c:'gold',lab:'chest first'}]},
         {h:'Seatbelt, then hooks',cap:'Only now do the legs come in. Reversing that order is how you end up riding a turtle with no control.',cue:'Seatbelt first, hooks second. Hooks without the seatbelt is a ride, not the back.',
@@ -545,7 +547,7 @@
     halfguard:{
       cat:'BJJ · HALF GUARD', title:'Getting off your back in half guard',
       sub:'Why you keep getting flattened, and the moment it happens',
-      cam:{yaw:22,pitch:44,r:350,tx:0,ty:32,tz:-4},
+      cam:{yaw:18,pitch:40,r:410,tx:2,ty:34,tz:-8},
       mistake:'Waiting until your shoulders are already on the mat to start fighting. By then you\'re recovering, not attacking — the underhook was lost several seconds earlier.',
       videos:[
         {id:'LXrXe9JUKsE',t:'8 Reasons Your Guard Retention Breaks Down',by:'Chewjitsu'},
@@ -559,24 +561,24 @@
       ],
       wrong:{h:'Too late',cap:'You started fighting after your shoulders hit the mat. The underhook was gone several seconds before this.',cue:'From flat, every option costs energy you could have spent staying on your side.',
         you:P(SUPINE,{twist:0,armL:[-80,96,-74,120],armR:[80,96,74,120]}),
-        them:P(PRONE,{y:42,z:-10,yaw:96}),
+        them:P(PRONE,{y:44,x:4,z:-16,yaw:112}),
         arrows:[{p:[[-34,74,-16],[-14,50,-14]],c:'coral',lab:'flat, and late'}]},
       steps:[
         {h:'Flat is already losing',cap:'Both shoulders on the mat, their chest across yours. Everything from here costs energy.',cue:'Half guard is a side-on position, not a flat one. If your back is flat, you\'re behind.',
          you:P(SUPINE,{twist:0}),
-         them:P(PRONE,{y:42,z:-10,yaw:96}),
+         them:P(PRONE,{y:44,x:4,z:-16,yaw:112}),
          arrows:[{p:[[-32,72,-14],[-12,50,-12]],c:'coral',lab:'shoulders pinned'}]},
         {h:'Get on your side',cap:'Before anything else, turn your shoulders toward them and get an elbow under you.',cue:'Turn to your side first. You can\'t underhook anything while you\'re lying on your own arm.',
          you:P(SUPINE,{twist:52,armL:[-54,92,-44,120],armR:[40,96,30,116]}),
-         them:P(PRONE,{y:42,z:-10,yaw:98}),
+         them:P(PRONE,{y:44,x:4,z:-14,yaw:114}),
          arrows:[{p:[[-30,26,-6],[-14,34,-8]],c:'sig',lab:'turn in'}]},
         {h:'Win the underhook',cap:'Your arm goes under theirs and your head comes to the same side. This is the position, not a step toward it.',cue:'Underhook deep, ear to their ribs. Shallow underhooks get whizzered and put you right back flat.',
          you:P(SUPINE,{twist:68,armL:[-46,108,-40,132],armR:[38,96,28,118]}),
-         them:P(PRONE,{y:44,z:-4,yaw:104}),
+         them:P(PRONE,{y:46,x:8,z:-8,yaw:120}),
          arrows:[{p:[[-24,34,-14],[-6,54,-10]],c:'gold',lab:'underhook'}]},
         {h:'Come up to the dogfight',cap:'With the underhook and your head inside, you climb up onto your knee — level with them instead of under them.',cue:'Chest to chest, then move. Two people on their knees is a fight you can win; one person flat isn\'t.',
          you:P(SUPINE,{pitch:-38,twist:56,y:34,hipH:16,armL:[-44,112,-40,134],armR:[36,94,26,116],legL:[-18,60,182,44],legR:[18,60,178,44]}),
-         them:P(PRONE,{pitch:56,y:50,z:6,yaw:112}),
+         them:P(PRONE,{pitch:56,y:52,x:10,z:2,yaw:126}),
          arrows:[{p:[[-16,20,-4],[-4,52,0]],c:'sig',lab:'climb up'}]}
       ]
     },
@@ -598,26 +600,27 @@
         {t:'Full kicks, resetting to stance between each one.',n:'50 each side'}
       ],
       wrong:{h:'The version that lands soft',cap:'Same leg, same bag — but the support foot never turned. Look at the arrow under the standing foot: the toes are still pointing straight at the bag.',cue:'No pivot means no hip. You end up slapping with the shin, and the recovery spins you off balance.',
-        you:P({x:-14,z:-24,yaw:12,spineEl:172,legR:[-4,96,-12,94],legL:[182,12,182,8],armL:[-40,60,-30,120],armR:[30,50,20,130]}),
+        you:P({x:-14,z:-24,yaw:12,footAzL:4,spineEl:172,legR:[-4,96,-12,94],legL:[182,12,182,8],armL:[-40,60,-30,120],armR:[30,50,20,130]}),
         foot:{x:-24,z:-26,az:4,c:'coral'},
         arrows:[{p:[[-62,6,-34],[-34,6,-28]],c:'coral',lab:'foot never turned'}]},
       steps:[
         {h:'Stance',cap:'Weight even, hands up, bag in front of you. The kick starts long before the leg moves.',cue:'Look at the target, not at your own kick.',
-         you:P({x:-6,z:-32,yaw:6}),foot:{x:-14,z:-34,az:6,c:'gold'},arrows:[]},
+         you:P({x:-6,z:-32,yaw:6,footAzL:6}),foot:{x:-14,z:-34,az:6,c:'gold'},arrows:[]},
         {h:'Plant, and start the turn',cap:'The plant foot lands beside the bag rather than under you — and it has already begun to turn as it lands.',cue:'The turn starts on the plant. If you wait, you\'re late for the rest of the kick.',
-         you:P({x:-12,z:-28,yaw:20,legL:[184,18,184,12],legR:[6,26,4,18]}),
+         you:P({x:-12,z:-28,yaw:20,footAzL:48,legL:[184,18,184,12],legR:[6,26,4,18]}),
          foot:{x:-22,z:-30,az:48,c:'gold'},
          arrows:[{p:[[-62,6,-40],[-36,6,-32]],c:'gold',lab:'plant beside them'}]},
         {h:'Heel to the bag, toes away',cap:'The heel spins toward the bag and the toes point away from it — before the shin has arrived anywhere.',cue:'If your support foot still points at the bag when the shin lands, the kick is arm-strength with a leg attached.',
-         you:P({x:-14,z:-26,yaw:46,spineEl:164,legR:[-6,66,-30,84],legL:[182,12,182,8],armL:[-46,54,-36,124],armR:[28,44,18,134]}),
+         you:P({x:-14,z:-26,yaw:46,footAzL:122,spineEl:164,legR:[-6,66,-30,84],legL:[182,12,182,8],armL:[-46,54,-36,124],armR:[28,44,18,134]}),
          foot:{x:-24,z:-28,az:122,c:'gold'},
          arrows:[{p:[[-64,6,-24],[-38,6,-26]],c:'gold',lab:'heel turns through'}]},
         {h:'Hip drives through',cap:'The hip rotates over that turned foot and the shin follows it into the bag. You\'re kicking through the target, not at its surface.',cue:'The shin is the end of the rotation, not the start of it.',
-         you:P({x:-16,z:-24,yaw:64,spineEl:152,spineAz:-34,legR:[-52,98,-64,96],legL:[182,10,182,6],armL:[-52,58,-44,120],armR:[24,40,14,138]}),
+         you:P({x:-16,z:-24,yaw:64,footAzL:150,spineEl:152,spineAz:-34,legR:[-52,98,-64,96],legL:[182,10,182,6],armL:[-52,58,-44,120],armR:[24,40,14,138]}),
          foot:{x:-26,z:-26,az:150,c:'gold'},
          arrows:[{p:[[-14,118,-14],[4,112,8],[18,106,28]],c:'sig',lab:'hip through the target'}]},
         {h:'Land back in stance',cap:'Recover to a fighting stance with your hands still up. The return is part of the technique — it\'s where counters get taken.',cue:'Finish where you can throw again.',
-         you:P({x:-6,z:-32,yaw:10}),foot:{x:-14,z:-34,az:10,c:'gold'},
+         you:P({x:-6,z:-32,yaw:10,footAzL:10}),foot:{x:-14,z:-34,az:10,c:'gold'},
+         via:[P({x:-12,z:-26,yaw:40,footAzL:96,spineEl:162,legR:[-10,64,-34,86],legL:[182,12,182,8],armL:[-48,56,-40,122],armR:[26,42,16,136]})],
          arrows:[{p:[[40,6,0],[6,6,-24]],c:'sig',lab:'back to stance'}]}
       ]
     },
@@ -968,21 +971,39 @@
   const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
   const lerp=(a,b,t)=>a+(b-a)*t;
 
-  const BONES=[['hips','chest',4.4],['chest','head',3.6],['chest','shL',3],['chest','shR',3],
-    ['shL','elL',2.6],['elL','haL',2.2],['shR','elR',2.6],['elR','haR',2.2],
-    ['hips','hpL',3],['hips','hpR',3],['hpL','knL',3.6],['knL','ftL',3],['hpR','knR',3.6],['knR','ftR',3]];
+  // Limbs are capsules: two joints and a radius at each end, in centimetres.
+  const LIMBS=[
+    ['hpL','hpR',8.5,8.5,'core'],['hips','chest',11.5,12.5,'core'],['shL','shR',7.5,7.5,'core'],
+    ['chest','neck',5.4,4.6,'core'],
+    ['shL','elL',5.6,4.4,'limb'],['elL','haL',4.4,3.4,'limb'],
+    ['shR','elR',5.6,4.4,'limb'],['elR','haR',4.4,3.4,'limb'],
+    ['hpL','knL',8,6,'limb'],['knL','ftL',6,4.4,'limb'],
+    ['hpR','knR',8,6,'limb'],['knR','ftR',6,4.4,'limb'],
+    ['ftL','toeL',4.6,3.2,'foot'],['ftR','toeR',4.6,3.2,'foot']
+  ];
+  const azVec=az=>v3(Math.sin(az*RAD),0,Math.cos(az*RAD));
+
+  // #rrggbb lightened (amt>0) or darkened (amt<0)
+  function shade(hex,amt){
+    const n=parseInt(hex.slice(1),16);
+    let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+    if(amt>=0){r+=(255-r)*amt;g+=(255-g)*amt;b+=(255-b)*amt;}
+    else{const k=1+amt;r*=k;g*=k;b*=k;}
+    return 'rgb('+(r|0)+','+(g|0)+','+(b|0)+')';
+  }
 
   function joints(p){
     const hips=v3(0,p.hipH,0);
     const chest=vadd(hips,vmul(aim(p.spineAz,p.spineEl),42));
-    const head=vadd(chest,vmul(aim(p.neckAz,p.neckEl),24));
+    const head=vadd(chest,vmul(aim(p.neckAz,p.neckEl),31));
     const shL=vadd(chest,v3(-17,0,0)), shR=vadd(chest,v3(17,0,0));
     const hpL=vadd(hips,v3(-10,0,0)), hpR=vadd(hips,v3(10,0,0));
     const elL=vadd(shL,vmul(aim(p.armL[0],p.armL[1]),27)), haL=vadd(elL,vmul(aim(p.armL[2],p.armL[3]),26));
     const elR=vadd(shR,vmul(aim(p.armR[0],p.armR[1]),27)), haR=vadd(elR,vmul(aim(p.armR[2],p.armR[3]),26));
     const knL=vadd(hpL,vmul(aim(p.legL[0],p.legL[1]),44)), ftL=vadd(knL,vmul(aim(p.legL[2],p.legL[3]),44));
     const knR=vadd(hpR,vmul(aim(p.legR[0],p.legR[1]),44)), ftR=vadd(knR,vmul(aim(p.legR[2],p.legR[3]),44));
-    const raw={hips,chest,head,shL,shR,elL,haL,elR,haR,hpL,hpR,knL,ftL,knR,ftR};
+    const neck=vadd(chest,vmul(aim(p.neckAz,p.neckEl),15));
+    const raw={hips,chest,neck,head,shL,shR,elL,haL,elR,haR,hpL,hpR,knL,ftL,knR,ftR};
     // spin on the body's own axis, tip it over, turn it on the mat, then place it
     const ct=Math.cos(p.twist*RAD), stw=Math.sin(p.twist*RAD);
     const cp=Math.cos(p.pitch*RAD), sp=Math.sin(p.pitch*RAD);
@@ -994,6 +1015,18 @@
       const y2=y*cp-z*sp, z2=y*sp+z*cp;
       out[k]=v3((x*cy+z2*sy)+p.x, y2+p.y, (-x*sy+z2*cy)+p.z);
     }
+    // toes follow the shin along the ground unless the pose pins them, which is
+    // how the round kick shows its pivot on the model itself
+    const toe=(ankle,knee,fixed)=>{
+      if(fixed!==undefined) return vadd(ankle,vmul(azVec(fixed),15));
+      const d=vsub(ankle,knee), len=Math.hypot(d.x,d.z);
+      const dir=len>6?v3(d.x/len,0,d.z/len):azVec(p.yaw);
+      return vadd(ankle,vmul(dir,15));
+    };
+    const fx=0*ct+1*stw, fz=-0*stw+1*ct, fy=0;
+    out.fwd=vnorm(v3(fx*cy+(fy*sp+fz*cp)*sy, fy*cp-fz*sp, -fx*sy+(fy*sp+fz*cp)*cy));
+    out.toeL=toe(out.ftL,out.knL,p.footAzL);
+    out.toeR=toe(out.ftR,out.knR,p.footAzR);
     return out;
   }
 
@@ -1083,35 +1116,76 @@
       }
     }
 
-    // bodies, far bones first
+    // bodies: shaded capsules, far parts first
+    const LIGHT=vnorm(v3(-0.45,0.82,0.36));
+    const lx=vdot(LIGHT,V.right), ly=-vdot(LIGHT,V.up);
+    const skin=(base)=>({base,hi:shade(base,.42),lo:shade(base,-.5)});
+
+    function capsule(A,B,ra,rb,col){
+      const p1=pr(A),p2=pr(B); if(!p1||!p2) return;
+      const r1=Math.max(1.2,ra*p1.s), r2=Math.max(1,rb*p2.s);
+      let dx=p2.x-p1.x, dy=p2.y-p1.y;
+      const len=Math.hypot(dx,dy)||1; dx/=len; dy/=len;
+      const nx=-dy, ny=dx;                       // screen-space normal
+      const ang=Math.atan2(dy,dx);
+      c.beginPath();
+      c.arc(p1.x,p1.y,r1,ang+Math.PI/2,ang-Math.PI/2);
+      c.arc(p2.x,p2.y,r2,ang-Math.PI/2,ang+Math.PI/2);
+      c.closePath();
+      const mx=(p1.x+p2.x)/2, my=(p1.y+p2.y)/2, rr=Math.max(r1,r2);
+      const s=nx*lx+ny*ly;                       // which side faces the light
+      const g=c.createLinearGradient(mx+nx*rr,my+ny*rr,mx-nx*rr,my-ny*rr);
+      if(s>=0){ g.addColorStop(0,col.hi); g.addColorStop(.5,col.base); g.addColorStop(1,col.lo); }
+      else    { g.addColorStop(0,col.lo); g.addColorStop(.5,col.base); g.addColorStop(1,col.hi); }
+      c.fillStyle=g; c.fill();
+      c.strokeStyle='rgba(0,0,0,.42)'; c.lineWidth=1; c.stroke();
+    }
+
+    function sphere(P,rad,col,face){
+      const q=pr(P); if(!q) return;
+      const r=Math.max(2,rad*q.s);
+      const g=c.createRadialGradient(q.x+lx*r*.42,q.y+ly*r*.42,r*.15,q.x,q.y,r);
+      g.addColorStop(0,col.hi); g.addColorStop(.55,col.base); g.addColorStop(1,col.lo);
+      c.fillStyle=g; c.beginPath(); c.arc(q.x,q.y,r,0,7); c.fill();
+      c.strokeStyle='rgba(0,0,0,.42)'; c.lineWidth=1; c.stroke();
+      if(face) capsule(P,vadd(P,vmul(face,8.5)),4.2,2.6,col);
+    }
+
     const parts=[];
-    const push=(pose,col,ghost)=>{
+    const collect=(pose,base)=>{
       if(!pose) return;
-      const j=joints(pose);
-      BONES.forEach(([a,b,r])=>{
-        const mid=vmul(vadd(j[a],j[b]),.5);
-        parts.push({d:vdot(vsub(mid,V.eye),V.fwd),a:j[a],b:j[b],col,r,ghost});
+      const j=joints(pose), col=skin(base);
+      const depth=p=>vdot(vsub(p,V.eye),V.fwd);
+      LIMBS.forEach(([a,b,ra,rb])=>{
+        parts.push({kind:'cap',a:j[a],b:j[b],ra,rb,col,d:depth(vmul(vadd(j[a],j[b]),.5))});
       });
-      parts.push({head:j.head,d:vdot(vsub(j.head,V.eye),V.fwd),col,ghost,pose});
+      parts.push({kind:'ball',p:j.haL,r:4.2,col,d:depth(j.haL)});
+      parts.push({kind:'ball',p:j.haR,r:4.2,col,d:depth(j.haR)});
+      parts.push({kind:'ball',p:j.head,r:10,col,d:depth(j.head),face:j.fwd});
+      // contact shadows fade as a foot leaves the mat
+      [j.ftL,j.ftR].forEach(ft=>{
+        const a=Math.max(0,1-ft.y/34); if(a<=0.02) return;
+        parts.push({kind:'contact',p:ft,alpha:a*.5,d:1e9});
+      });
     };
-    push(poses.them,'#A8ADB6');
-    push(poses.you,W.bad?COL.coral:COL.sig);
+    collect(poses.them,'#9BA1AB');
+    collect(poses.you,W.bad?'#D97757':'#3E6BFF');
     parts.sort((a,b)=>b.d-a.d);
     parts.forEach(p=>{
-      const s=f/Math.max(30,p.d);
-      if(p.head){
-        const q=pr(p.head); if(!q) return;
-        c.fillStyle=p.col; c.globalAlpha=.9;
-        c.beginPath(); c.arc(q.x,q.y,9.5*q.s,0,7); c.fill();
-        c.globalAlpha=1;
-      } else seg(p.a,p.b,p.col,p.r*s,.95);
+      if(p.kind==='cap') capsule(p.a,p.b,p.ra,p.rb,p.col);
+      else if(p.kind==='ball') sphere(p.p,p.r,p.col,p.face);
+      else{
+        const q=pr(v3(p.p.x,.6,p.p.z)); if(!q) return;
+        c.fillStyle='rgba(0,0,0,'+p.alpha+')';
+        c.beginPath(); c.ellipse(q.x,q.y,16*q.s,7*q.s,0,0,7); c.fill();
+      }
     });
 
     // names above the heads
     c.font='700 11px '+FF; c.textAlign='center';
     const name=(pose,txt,col)=>{
       if(!pose) return;
-      const j=joints(pose), q=pr(vadd(j.head,v3(0,26,0))); if(!q) return;
+      const j=joints(pose), q=pr(vadd(j.head,v3(0,30,0))); if(!q) return;
       c.fillStyle=col; c.fillText(txt,q.x,q.y);
     };
     name(poses.you,'YOU',W.bad?'#E79877':'#8FA9FF');
@@ -1156,8 +1230,8 @@
     const dt=Math.min(.05,(now-(W.last||now))/1000); W.last=now;
     if(W.anim<1){
       W.anim=Math.min(1,W.anim+dt/MOVE());
-      W.cur={you:lerpPose(W.from.you,W.to.you,ease(W.anim)),
-             them:W.from.them&&W.to.them?lerpPose(W.from.them,W.to.them,ease(W.anim)):W.to.them};
+      const u=ease(W.anim);
+      W.cur={you:poseAt(W.chainYou,u),them:W.chainThem?poseAt(W.chainThem,u):W.to.them};
     }else W.cur=W.to;
     if(W.camTo){
       const k=Math.min(1,dt*4.5);
@@ -1173,11 +1247,23 @@
     draw();
   }
 
+  // A step can pass through intermediate poses on the way to its end position,
+  // so a limb travels its real arc instead of sliding straight there.
   function setScene(sc,animate){
-    W.from=W.cur||posesOf(sc);
+    const start=W.cur||posesOf(sc);
+    W.chainYou=[start.you,...(sc.via||[]),sc.you];
+    W.chainThem=(start.them&&sc.them)?[start.them,...(sc.viaThem||[]),sc.them]:null;
     W.to=posesOf(sc);
     W.anim=animate?0:1;
     if(!animate) W.cur=W.to;
+  }
+
+  function poseAt(chain,u){
+    if(!chain) return null;
+    if(chain.length<2) return chain[0];
+    const n=chain.length-1;
+    const i=Math.min(n-1,Math.floor(u*n));
+    return lerpPose(chain[i],chain[i+1],u*n-i);
   }
 
   function icon(){

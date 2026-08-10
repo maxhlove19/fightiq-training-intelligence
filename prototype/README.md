@@ -15,11 +15,14 @@ Open it directly in a browser; there is no build step.
   Performance, Profile.
 - **3D technique breakdowns** — a looping, step-through player for four
   techniques (arm drag to back take, half guard underhook, round kick pivot,
-  single leg finish). Bodies are rigged skeletons posed from joint angles and
-  interpolated between steps, drawn on a canvas with an orbitable perspective
-  camera: drag to rotate, or jump to Corner / Front / Side / Top / Behind.
-  Every breakdown carries a half-speed toggle, a wrong-versus-right toggle, a
-  checkable drill list, and links to real footage.
+  single leg finish). Bodies are jointed figures built from angles and drawn as
+  shaded capsules with a directional light, depth-sorted per part, with feet
+  that point where the pose says and contact shadows that fade as a foot
+  leaves the mat. Steps interpolate through optional intermediate poses so a
+  limb travels its real arc. The camera orbits: drag, or jump to Corner /
+  Front / Side / Top / Behind. Each breakdown also carries a half-speed
+  toggle, a wrong-versus-right toggle, a checkable drill list, and links to
+  real footage.
 
 ## Conventions worth keeping
 
@@ -32,12 +35,18 @@ Open it directly in a browser; there is no build step.
 - **Scenes are data, not drawings.** A step is `{h, cap, cue, arrows}` plus a
   pose per actor. A pose is joint angles — `az` turns around the body's
   vertical (0 = the way it faces), `el` runs 0 straight down, 90 level, 180
-  straight up — over a base (`KNEES`, `SUPINE`, `PRONE`, `CROUCH`). Arrows are
-  3D polylines in the same centimetre space. Adding a technique means adding
+  straight up — over a base (`KNEES`, `SUPINE`, `PRONE`, `CROUCH`). `footAzL`
+  and `footAzR` pin a foot's direction when the pose depends on it, which is
+  how the round kick shows its pivot on the model. A step may carry `via`
+  poses for the movement to pass through. Arrows are 3D polylines in the same
+  centimetre space. Adding a technique means adding
   data, not touching the renderer.
-- **No 3D library.** The renderer is ~150 lines: forward kinematics, a lookAt
-  camera, painter's-algorithm depth sorting. Keep it that way — a CDN import
-  would be blocked by the artifact CSP anyway.
+- **No 3D library.** The renderer is a couple of hundred lines: forward
+  kinematics, a lookAt camera, screen-space capsules with a gradient across
+  the limb axis for cylindrical shading, and painter's-algorithm depth
+  sorting. Keep it that way — a CDN import would be blocked by the artifact
+  CSP anyway. It holds 60fps on a phone; if that changes, cut part count
+  before reaching for WebGL.
 - **The breakdowns are schematics and say so.** The page states plainly that the
   animation is drawn by FightIQ rather than footage of an athlete. Keep that
   line if you extend the player.

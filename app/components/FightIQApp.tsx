@@ -128,25 +128,25 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const brief = product?.preTrainingBrief;
   const activeExperiment = product?.activeExperiment;
   return (
-    <main className="page home-page">
-      <header className="app-header"><p className="wordmark">FIGHT<span>IQ</span></p><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
+    <main className="page home-page native-page">
+      <header className="app-header"><div><p className="wordmark">FIGHT<span>IQ</span></p><span className="app-status">TRAINING INTELLIGENCE</span></div><a className="avatar" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a></header>
       <p className="date-line">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
-      <p className="subgreeting">Let’s keep building your game.</p>
+      <p className="subgreeting">Your game is taking shape.</p>
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
       {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">YOUR TRAINING PLAN IS ACTIVE</p><h2>{activeExperiment.mission}</h2><p><b>Today:</b> {sessionPlanLabel(activeExperiment.reason)}<br />{activeExperiment.reason.replace(/^For\s+.+?:\s*/i, "")}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG HOW IT WENT <ChevronRight size={14} /></button><button className="text-link plan-change-link" onClick={() => setBriefOpen(true)}>CHANGE TODAY’S SESSION <ChevronRight size={14} /></button></div></section>
         : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
 
-      <section className="insight-card">
+      <section className="insight-card home-intelligence-card">
         <p className="eyebrow">FIGHTIQ INSIGHT</p>
         <h2>{insight.title}</h2>
         <p>{insight.body}</p>
         <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
 
-      <button className="primary-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={20} strokeWidth={2.2} /> {activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</button>
-      <p className="primary-support">Talk or type. FightIQ learns your game.</p>
+      <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
+      <p className="primary-support">Talk or type · FightIQ remembers the detail.</p>
 
       {firstVideo ? <button className="home-study" onClick={onLearn}><span>STUDY NEXT</span><strong>{firstVideo.title}</strong><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
@@ -332,21 +332,21 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   }
 
   if (debriefPhase === "loading") return (
-    <main className="page">
+    <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training debrief</h1></header>
       <section className="debrief-loading" aria-live="polite"><span className="thinking-mark"><Sparkles size={25} /></span><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ is finding the useful detail.</h2><p>You can leave at any time. Your training entry is already saved.</p></section>
     </main>
   );
 
   if (debriefPhase === "error") return (
-    <main className="page">
+    <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training saved</h1></header>
       <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ needs another try.</h2><p>{error || "The debrief couldn’t be prepared right now."}</p><button className="primary-button" onClick={() => entryId && startDebrief(entryId)}><RefreshCw size={18} /> RETRY DEBRIEF</button><button className="quiet-button" onClick={() => respond("finish")}>Finish for now</button></div>
     </main>
   );
 
   if (debriefPhase === "question" && debrief?.question) return (
-    <main className="page">
+    <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">A QUICK FOLLOW-UP</p><h1 className="page-title">Training debrief</h1></div></header>
       <section className="takeaway-card"><p className="eyebrow">KEY TAKEAWAY</p><p>{debrief.takeaway}</p>{debrief.coachDetail && <p className="logged-coach-cue"><span>COACH CUE YOU LOGGED</span>{debrief.coachDetail}</p>}</section>
       <section className="question-card">
@@ -362,14 +362,14 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   );
 
   if (debriefPhase === "complete") return (
-    <main className="page">
+    <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Debrief complete</h1></header>
       <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">{debrief?.memoryUpdated ? "MEMORY UPDATED" : "SESSION SAVED"}</p><h2>{debrief?.memoryUpdated ? "Got it." : "Your note is safe."}</h2>{debrief?.summary && <div className="result-block"><span>SUMMARY</span><p>{debrief.summary}</p></div>}<div className="result-block"><span>{debrief?.memoryUpdated ? "KEY INSIGHT" : "SAVED NOTE"}</span><p>{debrief?.takeaway ?? "Your training note has been saved."}</p></div>{debrief?.nextSessionFocus && <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
     </main>
   );
 
   return (
-    <main className="page">
+    <main className="page log-page native-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Tell FightIQ about training</h1></header>
       <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>{activePlan ? `You planned: ${sessionPlanLabel(activePlan)}` : "Just talk naturally. I’ll organize it for you."}</p></div>
       <div className="mic-stage"><button className={`mic-button ${listening ? "listening" : ""}`} onClick={toggleListening} aria-label={listening ? "Stop listening" : "Start voice entry"}>{listening ? <X size={34} /> : <Mic size={38} />}</button><span className="record-status">{listening ? "Listening… tap to stop" : speechAvailable ? "Tap to start talking" : "Voice isn’t available in this browser"}</span></div>

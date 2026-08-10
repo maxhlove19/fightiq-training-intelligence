@@ -112,7 +112,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     }
     setRefreshing(false);
   }
-  return <main className="page product-page"><ScreenHeader title="Learn" kicker="PERSONALIZED FOR YOUR GAME" />
+  return <main className="page product-page native-page learn-page"><ScreenHeader title="Learn" kicker="PERSONALIZED FOR YOUR GAME" />
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
@@ -190,7 +190,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const failureText = failure?.message.toLowerCase().includes("preserved")
     ? failure.message
     : failure ? `${failure.message} Your message was preserved.` : "";
-  return <main className="page product-page coach-page"><ScreenHeader title="Ask FightIQ" kicker="YOUR TRAINING-AWARE COACH" />
+  return <main className="page product-page native-page coach-page"><ScreenHeader title="Ask FightIQ" kicker="YOUR TRAINING-AWARE COACH" />
     {currentFocus && <div className="context-pill"><Target size={14} /><span>Current focus: {currentFocus}</span></div>}
     <section className="coach-thread">
       {loading && <LoadingState label="Loading your conversation…" />}
@@ -225,7 +225,7 @@ export function GameScreen() {
     setSaving(false);
     if (response.ok) { setEditing(false); setSaved(true); await reload(); }
   }
-  return <main className="page product-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
+  return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && <>
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
@@ -264,7 +264,7 @@ export function WorkoutScreen({ onBack }: { onBack: () => void }) {
     catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t build this workout."); }
     finally { setLoading(false); }
   }
-  return <main className="page product-page"><ScreenHeader title="Workout" kicker="MARTIAL-ART-SPECIFIC" onBack={onBack} />
+  return <main className="page product-page native-page workout-page"><ScreenHeader title="Workout" kicker="MARTIAL-ART-SPECIFIC" onBack={onBack} />
     {!workout && <>
       <section className="focus-banner workout-intro"><Dumbbell size={22} /><h2>Support your skill training.</h2><p>Build strength and conditioning around your martial art—and around the fatigue you already carry from practice.</p></section>
       <span className="field-label">MARTIAL ART</span><div className="chip-row">{["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai"].map((item) => <button className={`chip ${discipline === item ? "selected" : ""}`} key={item} onClick={() => setDiscipline(item)}>{item}</button>)}</div>
@@ -316,7 +316,7 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
     const response = await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ primaryGoal: goal, targets }) });
     if (response.ok) { setSettingsSaved(true); await load(); } else { const data = await response.json() as { error?: { message?: string } }; setError(data.error?.message ?? "Your nutrition targets couldn’t be saved."); }
   }
-  return <main className="page product-page"><ScreenHeader title="Food" kicker="SIMPLE FUEL TRACKING" onBack={onBack} />
+  return <main className="page product-page native-page food-page"><ScreenHeader title="Food" kicker="SIMPLE FUEL TRACKING" onBack={onBack} />
     {nutrition && <section className="macro-summary"><div><span>TODAY · {nutrition.goal.toUpperCase()}</span><strong>{nutrition.totals.calories}<small> / {nutrition.targets.calories} kcal</small></strong></div><div className="macro-mini"><span>P <b>{Math.round(nutrition.totals.protein)}g</b></span><span>C <b>{Math.round(nutrition.totals.carbs)}g</b></span><span>F <b>{Math.round(nutrition.totals.fat)}g</b></span></div></section>}
     <details className="macro-settings"><summary><span><Target size={15} /> Goal & macro targets</span><ChevronRight size={15} /></summary><div className="settings-body"><label htmlFor="nutrition-goal">GOAL</label><select id="nutrition-goal" value={goal} onChange={(event) => { setGoal(event.target.value); setSettingsSaved(false); }}><option value="cut">Cut</option><option value="maintain">Maintain</option><option value="gain muscle">Gain muscle</option><option value="performance">Performance</option></select><div className="macro-edit-grid">{(["calories", "protein", "carbs", "fat"] as const).map((key) => <label key={key}><span>{key === "calories" ? "KCAL" : key.toUpperCase()}</span><input type="number" min="0" value={targets[key]} onChange={(event) => { setTargets((current) => ({ ...current, [key]: Number(event.target.value) })); setSettingsSaved(false); }} /><small>{key === "calories" ? "" : "g"}</small></label>)}</div><button className="secondary-button" onClick={saveTargets}><Save size={15} /> SAVE TARGETS</button>{settingsSaved && <p className="saved-note"><Check size={13} /> Targets updated.</p>}</div></details>
     <section className="food-log-card"><p className="eyebrow">LOG A MEAL</p><h2>Talk, type, or add a photo.</h2><div className="answer-compose food-compose"><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Chicken, rice, avocado, and salsa…" aria-label="Describe your meal" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label="Describe meal by voice">{voice.listening ? <X size={19} /> : <Mic size={19} />}</button></div>

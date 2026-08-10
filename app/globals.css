@@ -472,3 +472,140 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Screen-first mobile composition: compact, native-feeling, and deliberately
+   different per destination instead of one generic dashboard card system. */
+:root { --nav-height: 72px; --canvas: #010308; --surface: #070c15; --surface-2: #0a1220; --line: #142238; --line-soft: rgba(115, 151, 192, .16); }
+.app-frame { background: var(--canvas); padding-bottom: calc(var(--nav-height) + 18px); }
+.page { width: min(100%, 460px); padding: 16px 14px 28px; }
+.native-page, .analysis-page, .log-page { min-height: calc(100dvh - var(--nav-height)); }
+.app-header { min-height: 34px; margin-bottom: 15px; }
+.wordmark { font-size: 12px; letter-spacing: .15em; }
+.app-status { display: block; margin-top: 3px; color: var(--muted-2); font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 700; letter-spacing: .12em; }
+.avatar { width: 28px; height: 28px; border-radius: 8px; background: #0b1523; font-size: 10px; }
+.page-header { min-height: 32px; gap: 10px; margin-bottom: 19px; padding-bottom: 11px; border-bottom: 1px solid var(--line-soft); }
+.page-title { font-size: 19px; letter-spacing: -.04em; }
+.question-progress, .eyebrow, .field-label { font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .13em; }
+.icon-button { width: 31px; height: 31px; border-radius: 8px; }
+.home-page { padding-top: 14px; }
+.home-page .date-line { margin: 0 0 3px; font-size: 8px; }
+.home-page .greeting { font-size: 24px; letter-spacing: -.052em; }
+.home-page .subgreeting { margin: 3px 0 13px; font-size: 11px; }
+.pre-training-brief, .insight-card, .focus-banner, .game-hero, .macro-summary { border-radius: 10px; box-shadow: none; }
+.home-page .pre-training-brief { padding: 13px; border-color: #1d4472; background: #071424; margin-bottom: 9px; }
+.home-page .pre-training-brief::before { width: 2px; }
+.home-page .pre-training-brief h2 { font-size: 14px; letter-spacing: -.025em; }
+.home-page .pre-training-brief > p:not(.eyebrow) { font-size: 10px; line-height: 1.4; }
+.home-page .pre-training-brief strong { font-size: 11px; }
+.home-intelligence-card { padding: 14px !important; background: #070e19; border-color: #172941; }
+.insight-card::after { display: none; }
+.home-page .insight-card h2 { width: 100%; font-size: 16px; }
+.home-page .insight-card > p { font-size: 11px; line-height: 1.42; }
+.focus-row { padding-top: 9px; }
+.focus-label { margin-bottom: 3px; font-family: var(--font-geist-mono), monospace; font-size: 7px; }
+.focus-row strong { font-size: 11px; }
+.home-log-button { min-height: 47px !important; justify-content: flex-start; padding: 0 14px; border-radius: 10px; box-shadow: none; font-size: 11px; }
+.home-log-button span { flex: 1; text-align: left; }
+.home-log-button svg:last-child { opacity: .9; }
+.home-page .primary-support { margin: 5px 0 9px; font-family: var(--font-geist-mono), monospace; font-size: 8px; }
+.home-study { min-height: 46px; border-radius: 9px; background: #060b13; padding: 8px 10px; }
+.home-study span { font-size: 7px; }
+.home-study strong { font-size: 11px; }
+.finish-profile-banner { border-radius: 9px; padding: 10px; }
+.bottom-nav { height: var(--nav-height); width: min(100%, 460px); padding: 7px 8px max(7px, env(safe-area-inset-bottom)); background: rgba(1,3,8,.98); border-color: #142034; backdrop-filter: none; }
+.nav-button { gap: 3px; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .04em; }
+.nav-button svg { width: 18px; height: 18px; }
+.nav-button.center { top: -19px; gap: 3px; }
+.nav-center-icon { width: 45px; height: 45px; border: 4px solid var(--canvas); box-shadow: 0 7px 20px rgba(8,124,255,.25); }
+.nav-center-icon svg { width: 21px; height: 21px; }
+
+/* Training is a dedicated capture utility, not a large landing page. */
+.log-page .page-header { margin-bottom: 12px; }
+.log-page .record-intro { max-width: none; text-align: left; border-bottom: 1px solid var(--line-soft); padding-bottom: 12px; }
+.log-page .record-intro p { margin-top: 5px; font-size: 11px; }
+.log-page .mic-stage { min-height: 176px; border: 1px solid #15263f; border-radius: 12px; background: #050c16; margin: 15px 0 8px; }
+.log-page .mic-button { width: 76px; height: 76px; box-shadow: 0 0 0 8px rgba(8,124,255,.07); }
+.log-page .record-status { bottom: 14px; font-size: 10px; }
+.log-page .type-toggle { margin: 5px auto 18px; font-size: 11px; }
+.log-page .chip-row { gap: 6px; margin-bottom: 15px; }
+.log-page .chip { border-radius: 7px; padding: 7px 10px; font-size: 10px; }
+.log-page .transcript { min-height: 122px; border-radius: 10px; padding: 12px; font-size: 12px; }
+.log-page .save-row { position: sticky; bottom: 0; margin: 10px -14px -28px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: rgba(1,3,8,.97); }
+.log-page .save-row .primary-button { min-height: 45px; border-radius: 9px; font-size: 11px; }
+
+/* Debrief borrows an analysis layout: short state bars, not report cards. */
+.analysis-page .page-header { margin-bottom: 16px; }
+.analysis-page .takeaway-card { border: 1px solid #1b3554; border-left: 2px solid var(--blue); border-radius: 8px; background: #071320; padding: 13px; margin-bottom: 17px; }
+.analysis-page .takeaway-card > p:last-child { font-size: 12px; line-height: 1.45; }
+.analysis-page .question-card h2 { font-size: 21px; letter-spacing: -.04em; margin-bottom: 16px; }
+.analysis-page .answer-choices { gap: 6px; }
+.analysis-page .answer-choices button { min-height: 45px; border-radius: 8px; padding: 0 12px; font-size: 11px; }
+.analysis-page .success-card { border-radius: 10px; padding: 16px; }
+.analysis-page .success-card h2 { font-size: 19px; }
+
+/* Each information destination has its own compact screen grammar. */
+.product-page { padding-bottom: 94px; }
+.focus-banner { padding: 14px; margin-bottom: 18px; background: #07111f; border-color: #1b3554; }
+.focus-banner h2 { font-size: 18px; margin: 6px 0; }
+.focus-banner p { font-size: 11px; line-height: 1.45; }
+.feed-heading { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+.feed-heading h2 { margin: -4px 0 0; font-size: 16px; }
+.feed-heading .text-link { font-size: 10px; }
+.video-feed { gap: 8px; }
+.learn-video { display: grid; grid-template-columns: 116px 1fr; min-height: 104px; border-radius: 9px; background: #060b13; }
+.learn-video .real-video-thumb { min-height: 104px; }
+.learn-video .video-copy { padding: 10px 10px 8px; }
+.learn-video .video-type { font-size: 7px; }
+.learn-video .video-copy h3 { margin: 4px 0 2px; font-size: 12px; line-height: 1.22; }
+.learn-video .creator-line, .learn-video .video-copy > p:not(.creator-line) { display: none; }
+.learn-video .why-detail { margin-top: 5px; }
+.learn-video .why-detail summary, .learn-video .watch-link { font-size: 9px; }
+.learn-video .why-detail p { font-size: 9px; line-height: 1.35; }
+.learn-video .play { width: 31px; height: 31px; }
+.content-note, .explore-link { font-size: 10px; }
+.coach-page { display: flex; flex-direction: column; min-height: calc(100dvh - var(--nav-height)); padding-bottom: 0; }
+.coach-page .page-header { margin-bottom: 11px; }
+.context-pill { border-radius: 7px; font-size: 10px; padding: 7px 8px; }
+.coach-thread { min-height: 0; padding-bottom: 10px; }
+.coach-empty { padding: 23px 4px; }
+.coach-empty h2 { font-size: 19px; }
+.chat-message { margin-bottom: 11px; }
+.chat-message > span, .coach-suggestions > span { font-family: var(--font-geist-mono), monospace; font-size: 7px; }
+.chat-bubble { border-radius: 8px; padding: 10px 11px; font-size: 11px; line-height: 1.45; }
+.coach-suggestions { margin-top: 4px; }
+.prompt-list { gap: 5px; }
+.prompt-list button { min-height: 39px; border-radius: 7px; font-size: 10px; }
+.coach-compose { bottom: 0; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); background: rgba(1,3,8,.99); }
+.coach-compose textarea { min-height: 48px; border-radius: 8px; padding: 10px 76px 10px 10px; font-size: 11px; }
+.coach-compose .answer-mic { right: 43px; bottom: 10px; }
+.compose-send { right: 8px; bottom: 9px; width: 31px; height: 31px; }
+.game-hero { padding: 14px; border-radius: 9px; background: #071321; margin-bottom: 8px; }
+.game-hero h2 { font-size: 19px; }
+.game-hero p:last-child { font-size: 10px; }
+.game-grid { gap: 7px; }
+.game-card { min-height: 100px; border-radius: 8px; padding: 11px; gap: 6px; }
+.game-card.wide { min-height: 72px; }
+.game-card strong, .game-card p { font-size: 10px; line-height: 1.4; }
+.build-next { border-radius: 0 8px 8px 0; padding: 12px; margin: 8px 0 14px; }
+.build-next h3 { margin-top: 4px; font-size: 13px; }
+.workout-page .focus-banner { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; }
+.workout-page .focus-banner svg { grid-row: 1 / span 2; color: var(--blue-bright); }
+.workout-page .focus-banner h2 { margin: 0 0 3px; }
+.workout-page .focus-banner p { grid-column: 2; }
+.select-field, .choice-stack button { border-radius: 8px; font-size: 11px; }
+.select-field { min-height: 43px; margin-bottom: 15px; }
+.choice-stack { gap: 6px; margin-bottom: 16px; }
+.choice-stack button { min-height: 49px; padding: 9px 11px; }
+.choice-stack button span { font-size: 11px; }
+.choice-stack button small { font-size: 9px; }
+.workout-plan > h2 { font-size: 21px; }
+.exercise-card { border-radius: 8px; padding: 12px; }
+.macro-summary { padding: 14px; border-radius: 9px; background: #071321; }
+.macro-summary strong { font-size: 21px; }
+.macro-settings { border-radius: 8px; }
+.food-log-card, .estimate-card { border-radius: 9px; padding: 14px; background: #060b13; }
+.food-log-card h2, .estimate-card h2 { font-size: 17px; }
+.food-page .photo-picker, .food-page .answer-compose textarea { border-radius: 8px; }
+.today-food article { padding: 9px 0; }
+
+@media (min-width: 640px) { .page { padding-inline: 18px; } .learn-video { display: grid; grid-template-columns: 132px 1fr; } .learn-video .real-video-thumb { min-height: 112px; } }

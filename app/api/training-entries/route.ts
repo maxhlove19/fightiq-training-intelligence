@@ -23,21 +23,9 @@ export async function POST(request: Request) {
   }
   if (!env.DB) return Response.json({ error: "Training storage is not configured" }, { status: 503 });
 
-  await env.DB.batch([
-    env.DB.prepare(`CREATE TABLE IF NOT EXISTS training_entries (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      discipline TEXT NOT NULL,
-      session_type TEXT NOT NULL,
-      raw_entry TEXT NOT NULL,
-      input_method TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`),
-    env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_training_entries_owner_created ON training_entries (owner_id, created_at)"),
-  ]);
-
-  const id = crypto.randomUUID();
+  // One place owns this schema now, and it runs on reads as well as writes.
   await ensureProductSchema(env.DB);
+  const id = crypto.randomUUID();
   await env.DB.prepare(
     "INSERT INTO training_entries (id, owner_id, discipline, session_type, raw_entry, input_method, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
   ).bind(id, ownerId, discipline, sessionType, rawEntry, "voice_or_text", new Date().toISOString()).run();

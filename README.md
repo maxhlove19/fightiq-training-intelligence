@@ -87,6 +87,57 @@ or enforce explicit server-side membership or allowlist checks.
 Use SIWC for account pages, user-specific dashboards, saved records, and write
 actions tied to the current ChatGPT user. Leave public content anonymous.
 
+## Going Live
+
+Read `/api/health` straight after a deploy. It answers the only question that
+matters at that moment — is this deployment actually configured — with booleans
+and no secrets:
+
+```bash
+curl -s https://<your-host>/api/health
+{"status":"ok","checks":{"database":true,"schema":true,"sessionAnalysis":true,
+ "photoUploads":true,"liveVideoSearch":false},"notes":["No YOUTUBE_API_KEY. ..."]}
+```
+
+`status` is one of:
+
+- **`ok`** (HTTP 200) — everything an athlete touches works.
+- **`degraded`** (HTTP 200) — sessions save, but the debrief and Coach will show
+  a retry instead of an answer. Almost always a missing or exhausted model key.
+- **`down`** (HTTP 503) — no database, or the schema could not be applied.
+  Nothing can be saved or read. Point a monitor at this.
+
+### What each setting does, and what happens without it
+
+| Setting | Required | Without it |
+| --- | --- | --- |
+| D1 binding `DB` | Yes | The app is down. Every screen fails. |
+| `OPENAI_API_KEY` | For analysis | Notes still save and are never lost; the debrief and Coach show "your note is safe" and a retry. |
+| R2 binding `UPLOADS` | For meal photos | Everything else works; photos cannot be stored. |
+| `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
+| `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
+
+The bindings themselves are declared in `.openai/hosting.json`.
+
+### The schema takes care of itself
+
+Every table and index lives in `lib/schema.ts`, and every request applies the
+whole list idempotently. A brand-new database needs no migration step before
+first use — the first request creates what it needs.
+
+Adding a table means adding it to `lib/schema.ts` and nowhere else.
+`tests/schema-boot.test.mjs` prepares every SQL statement in the codebase
+against a fresh in-memory database, so a query written against a table that
+does not exist fails in CI rather than on someone's first screen.
+
+### Before you point real athletes at it
+
+- `npm test` — build, then the unit and boot suites.
+- `curl /api/health` on the deployed host and confirm `status` is `ok`.
+- Open the app as a user who has never logged anything. You should land on
+  onboarding, not an error.
+- Log one session end to end and confirm the debrief returns.
+
 ## Useful Commands
 
 - `npm run dev`: start local development

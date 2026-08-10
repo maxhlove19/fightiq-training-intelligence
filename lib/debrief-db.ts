@@ -1,43 +1,9 @@
+import { APP_SCHEMA } from "./schema";
+
 export type D1 = D1Database;
 
 export async function ensureDebriefSchema(db: D1) {
-  await db.batch([
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_debriefs (
-      entry_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      summary TEXT,
-      takeaway TEXT,
-      coach_detail TEXT,
-      fightiq_explanation TEXT,
-      next_session_focus TEXT,
-      structured_memory_json TEXT,
-      status TEXT NOT NULL,
-      question_count INTEGER NOT NULL DEFAULT 0,
-      confidence REAL NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_debriefs_owner_status ON training_debriefs (owner_id, status)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_followups (
-      id TEXT PRIMARY KEY NOT NULL,
-      entry_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      sequence INTEGER NOT NULL,
-      question TEXT NOT NULL,
-      choices_json TEXT NOT NULL,
-      target_field TEXT NOT NULL,
-      why_asked TEXT NOT NULL,
-      answer TEXT,
-      answer_source TEXT,
-      status TEXT NOT NULL,
-      confidence_before REAL NOT NULL,
-      confidence_after REAL,
-      created_at TEXT NOT NULL,
-      answered_at TEXT
-    )`),
-    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_training_followups_entry_sequence ON training_followups (entry_id, sequence)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_followups_owner_status ON training_followups (owner_id, status)"),
-  ]);
+  await db.batch(APP_SCHEMA.map((statement) => db.prepare(statement)));
 }
 
 export async function getOwnedEntry(db: D1, entryId: string, ownerId: string) {

@@ -16,14 +16,17 @@ Open it directly in a browser; there is no build step.
 - **3D technique breakdowns** — a looping, step-through player for four
   techniques (arm drag to back take, half guard underhook, round kick pivot,
   single leg finish). Bodies are built from joint angles and rendered as
-  polygon meshes — limbs are tubes carried along the joint chain, the torso is
-  an oval cross-section, the head an ellipsoid with a hair mask — lit with a
-  key, a fill and a rim light, backface-culled and depth-sorted per face, in
-  skin and kit colours with soft mat shadows. Steps interpolate through optional intermediate poses so a
-  limb travels its real arc. The camera orbits: drag, or jump to Corner /
-  Front / Side / Top / Behind. Each breakdown also carries a half-speed
-  toggle, a wrong-versus-right toggle, a checkable drill list, and links to
-  real footage.
+  polygon meshes with smooth per-vertex normals — limbs are tubes carried
+  along the joint chain, the torso an oval cross-section, the head an
+  ellipsoid with hair and brow masked in by normal. Shading is a warm key, a
+  cool fill, a rim and a specular term per material (skin is glossier than
+  cloth), backface-culled and depth-sorted per face, over a lit mat with
+  light pools, soft contact shadows, film grain, a vignette and letterbox.
+  Steps direct their own camera, the camera pushes in slowly and drifts like
+  it's handheld, and each step can set its own speed and pass through
+  intermediate poses. Every breakdown carries a half-speed toggle, a
+  wrong-versus-right toggle, a promoted block of real footage with a
+  what-to-look-for line, and a checkable drill list.
 
 ## Conventions worth keeping
 
@@ -32,7 +35,13 @@ Open it directly in a browser; there is no build step.
   blocks font CDNs. Never add an external stylesheet, script, or image.
 - **Real video IDs only.** The YouTube links come from the curated catalog in
   `lib/video-recommendations.ts`. If you add a technique, either reuse an ID
-  from that catalog or ship a search link instead of inventing one.
+  from that catalog or ship a search link instead of inventing one. Never
+  invent a timestamp or describe what happens inside a clip you have not
+  watched — the `watchFor` line is coaching advice about the technique, not a
+  claim about any particular video.
+- **The page cannot embed a player.** A published artifact is sandboxed from
+  external media, so footage opens on YouTube in a new tab. The production app
+  has no such limit; if inline playback matters, it belongs there.
 - **Scenes are data, not drawings.** A step is `{h, cap, cue, arrows}` plus a
   pose per actor. A pose is joint angles — `az` turns around the body's
   vertical (0 = the way it faces), `el` runs 0 straight down, 90 level, 180

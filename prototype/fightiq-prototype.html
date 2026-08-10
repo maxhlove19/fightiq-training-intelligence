@@ -244,7 +244,8 @@
   .stage3d{position:relative;aspect-ratio:16/11;width:100%;background:radial-gradient(120% 90% at 50% 0%,#182231,#0a0d12)}
   .stage3d canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
   .stage3d canvas:active{cursor:grabbing}
-  .grab{position:absolute;left:10px;bottom:10px;transition:opacity .3s;display:inline-flex;align-items:center;gap:5px;background:rgba(8,9,11,.6);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);pointer-events:none}
+  .tc{position:absolute;right:12px;bottom:14px;font-size:10px;font-weight:650;letter-spacing:.08em;color:rgba(255,255,255,.5);font-variant-numeric:tabular-nums;pointer-events:none}
+  .grab{position:absolute;left:12px;bottom:12px;transition:opacity .3s;display:inline-flex;align-items:center;gap:5px;background:rgba(8,9,11,.6);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:9.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);pointer-events:none}
   .cams{display:flex;gap:5px;padding:0 10px 12px}
   .cams button{flex:1;border:1px solid var(--line);border-radius:9px;padding:7px 4px;text-align:center;font-size:10.5px;font-weight:650;color:var(--t2);transition:background .15s,color .15s}
   .cams button[aria-pressed="true"]{background:var(--pop);border-color:var(--line-2);color:var(--fg)}
@@ -278,6 +279,15 @@
   .w-miss p{color:#F0CDBC;font-size:13.5px;line-height:1.5}
   .w-note{color:var(--t3);font-size:11.5px;line-height:1.55}
   .w-list{display:flex;flex-direction:column;gap:9px}
+  .w-real{border:1px solid rgba(217,165,68,.28);background:linear-gradient(180deg,rgba(217,165,68,.10),rgba(217,165,68,.03));border-radius:16px;padding:15px;display:flex;flex-direction:column;gap:11px}
+  .w-real .lbl{display:flex;align-items:center;gap:6px}
+  .w-realnote{color:#E4D2AE;font-size:12.5px;line-height:1.5}
+  .vrow{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:13px;background:var(--card);padding:11px 13px;text-decoration:none}
+  .vrow div{flex:1;min-width:0}
+  .vrow strong{display:block;font-size:13.5px;font-weight:620;line-height:1.35}
+  .vrow small{color:var(--t3);font-size:11.5px}
+  .vthumb{flex:0 0 auto;width:46px;height:34px;border-radius:8px;background:linear-gradient(140deg,#2a3140,#12161d);border:1px solid var(--line);display:grid;place-items:center;color:#E8D3A6}
+  .vthumb.ghost{color:var(--t3)}
 </style>
 
 <div class="page">
@@ -339,8 +349,8 @@
     <div class="prose">
       <p>"Turn the corner with your hips" is a sentence. It isn't a picture, and a sentence is a bad way to learn a movement you've never felt. So a correction doesn't stop at text — it opens into a <b>motion breakdown</b> you can pause and step through inside the app, and a shortlist of <b>real footage on YouTube</b> where someone does it properly at full speed.</p>
       <p>The two do different jobs. The breakdown is slow, labelled and specific to your mistake. The footage shows you the real thing, with timing and resistance the diagram can't fake.</p>
-      <p>The breakdown is a pair of <b>3D bodies you can walk around</b> — lit, jointed, dressed for the mat, moving through the position the way a training partner would. Drag them with a finger, or jump to the angle a coach would film from: side on for a kick, straight down for the mat. The angle you can't get in class is usually the one that makes it obvious.</p>
-      <p>You can also flip to <b>the version most people actually do</b> — same position, same leg, one detail missing — because seeing the two next to each other teaches faster than either alone. It ends where it should: a short list of reps to take to the gym tonight.</p>
+      <p>The breakdown is a <b>lit 3D scene you can walk around</b> — two bodies on a mat, moving through the position the way a training partner would, with the camera cutting to the angle each step is actually about: down onto the mat when you're flat, low on the feet when the pivot is the point. Drag it with a finger to take the camera yourself.</p>
+      <p>You can also flip to <b>the version most people actually do</b> — same position, same leg, one detail missing — because seeing the two next to each other teaches faster than either alone. Then it hands you off to <b>real people doing it at full speed</b>, with a line about what to look for, and ends where it should: a short list of reps to take to the gym tonight.</p>
     </div>
     <figure class="mech">
       <div class="scroller">
@@ -418,7 +428,7 @@
       <ul>
         <li><b>The analysis is pre-written.</b> Your note is matched to one of five prepared reads by keyword — there's no model running on this page.</li>
         <li><b>The 3D breakdowns are hand-built models</b> of four techniques — bodies posed by hand to hit real coaching points. Not motion capture, and not footage of a real athlete.</li>
-        <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with.</li>
+        <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with. This page can't play them inline — a published page like this one is sandboxed away from external media — but the app itself has no such limit.</li>
         <li><b>Nothing is saved.</b> Reload and the demo starts clean.</li>
         <li>Performance detail, settings and anything with a price on it are stubs — they'll tell you so when you tap them.</li>
       </ul>
@@ -492,8 +502,8 @@
   const POSE={x:0,y:0,z:0,yaw:0,pitch:0,twist:0,hipH:92,spineAz:0,spineEl:172,neckAz:0,neckEl:176,
     armL:[-18,32,-8,140],armR:[18,32,8,140],legL:[182,16,182,10],legR:[2,14,2,8]};
   const KNEES={hipH:40,spineEl:168,armL:[-20,54,-10,112],armR:[20,54,10,112],legL:[-14,46,180,92],legR:[14,46,180,92]};
-  const SUPINE={pitch:-90,hipH:6,y:20,spineEl:178,armL:[-70,86,-58,104],armR:[70,86,58,104],legL:[-16,70,184,18],legR:[16,70,176,18]};
-  const PRONE={pitch:90,hipH:6,y:40,spineEl:172,armL:[-44,96,-30,116],armR:[44,96,30,116],legL:[-16,26,184,16],legR:[16,26,176,16]};
+  const SUPINE={pitch:-90,hipH:6,y:20,spineEl:178,armL:[-50,80,-38,116],armR:[50,80,38,116],legL:[-16,70,184,18],legR:[16,70,176,18]};
+  const PRONE={pitch:90,hipH:6,y:40,spineEl:172,armL:[-34,88,-24,110],armR:[34,88,24,110],legL:[-16,26,184,16],legR:[16,26,176,16]};
   const CROUCH={hipH:58,spineEl:146,armL:[-32,86,-22,112],armR:[32,86,22,112],legL:[-16,40,182,57],legR:[16,40,182,57]};
   const P=(...parts)=>Object.assign({},POSE,...parts);
 
@@ -509,6 +519,7 @@
         {id:'osimrhg-n3U',t:'Arm Drag to Back Take',by:'JiuJitsu FLO'}
       ],
       search:'BJJ arm drag take back control',
+      watchFor:'Watch the step to the angle straight after the drag, before they can square back up.',
       drill:[
         {t:'Arm drag to the angle only — stop the moment your hips are past theirs.',n:'20 each side'},
         {t:'Full drag to back take, slow, no resistance. Chase the hip step.',n:'10 minutes'},
@@ -523,11 +534,13 @@
          you:P(KNEES,{x:0,z:-80,yaw:0,armR:[16,84,8,86],armL:[-18,70,-10,104]}),
          them:P(KNEES,{yaw:180,armL:[-16,80,-8,96],armR:[16,70,8,104]}),
          arrows:[{p:[[44,98,-34],[20,86,-16]],c:'gold',lab:'behind the armpit'}]},
-        {h:'Drag across your centre',cap:'Their shoulder turns and their weight comes onto their lead hand. Their arm is only the handle.',cue:'Drag it across your own centreline. If their shoulders don\'t turn, you dragged the arm and left the body.',
+        {h:'Drag across your centre',move:.72,cap:'Their shoulder turns and their weight comes onto their lead hand. Their arm is only the handle.',cue:'Drag it across your own centreline. If their shoulders don\'t turn, you dragged the arm and left the body.',
          you:P(KNEES,{x:-8,z:-74,yaw:10,armR:[-26,90,-44,84],armL:[-18,74,-10,102]}),
+         via:[P(KNEES,{x:-3,z:-77,yaw:5,armR:[-4,88,-18,88],armL:[-18,72,-10,103]})],
+         viaThem:[P(KNEES,{yaw:192,armL:[-26,94,-16,94]})],
          them:P(KNEES,{yaw:204,armL:[-38,96,-28,90]}),
          arrows:[{p:[[20,86,-16],[4,82,-34],[-10,80,-50]],c:'sig',lab:'drag across your centre'}]},
-        {h:'Move your hips, not your arms',cap:'This is the step people skip. Your hands hold what you already have while your hips travel to their blind side.',cue:'Hips travel. The arms hold. If you feel yourself pulling, you\'ve stopped moving.',
+        {h:'Move your hips, not your arms',shot:{yaw:54,pitch:38,r:255,ty:44},cap:'This is the step people skip. Your hands hold what you already have while your hips travel to their blind side.',cue:'Hips travel. The arms hold. If you feel yourself pulling, you\'ve stopped moving.',
          you:P(KNEES,{x:58,z:-48,yaw:52,armR:[-18,84,-32,88],armL:[-12,66,-4,108]}),
          via:[P(KNEES,{x:30,z:-70,yaw:26,armR:[-24,88,-38,86],armL:[-14,70,-6,106]})],
          them:P(KNEES,{yaw:210,armL:[-38,94,-28,88]}),
@@ -537,8 +550,9 @@
          via:[P(KNEES,{x:62,z:-8,yaw:104,armR:[6,88,-4,92],armL:[-18,80,-10,100]})],
          them:P(KNEES,{yaw:214}),
          arrows:[{p:[[46,92,18],[18,88,6]],c:'gold',lab:'chest first'}]},
-        {h:'Seatbelt, then hooks',cap:'Only now do the legs come in. Reversing that order is how you end up riding a turtle with no control.',cue:'Seatbelt first, hooks second. Hooks without the seatbelt is a ride, not the back.',
+        {h:'Seatbelt, then hooks',shot:{yaw:98,pitch:18,r:240,ty:58},cap:'Only now do the legs come in. Reversing that order is how you end up riding a turtle with no control.',cue:'Seatbelt first, hooks second. Hooks without the seatbelt is a ride, not the back.',
          you:P(KNEES,{x:14,z:44,yaw:176,armL:[-30,94,-52,80],armR:[30,94,52,80],legL:[-18,54,178,84],legR:[18,54,182,84]}),
+         via:[P(KNEES,{x:20,z:38,yaw:170,armL:[-34,86,-40,96],armR:[34,86,40,96]})],
          them:P(KNEES,{yaw:214}),
          arrows:[{p:[[-26,94,38],[4,90,16]],c:'gold',lab:'seatbelt'},
                  {p:[[34,34,46],[12,30,22]],c:'sig',lab:'hooks'}]}
@@ -554,17 +568,18 @@
         {id:'WZnT87UqcDA',t:'A Technical Mount Escape',by:'Chewjitsu'}
       ],
       search:'BJJ half guard underhook stop getting flattened',
+      watchFor:'Watch which frame stays connected while the hips make space, and when the underhook arrives.',
       drill:[
         {t:'Start flat on the bottom. Only goal: get back on your side.',n:'3 × 2 min'},
         {t:'Underhook battle from half guard, no submissions allowed.',n:'3 rounds'},
         {t:'Underhook to dogfight, coming up to your knee every rep.',n:'15 each side'}
       ],
       wrong:{h:'Too late',cap:'You started fighting after your shoulders hit the mat. The underhook was gone several seconds before this.',cue:'From flat, every option costs energy you could have spent staying on your side.',
-        you:P(SUPINE,{twist:0,armL:[-80,96,-74,120],armR:[80,96,74,120]}),
+        you:P(SUPINE,{twist:0,armL:[-58,86,-46,112],armR:[58,86,46,112]}),
         them:P(PRONE,{y:44,x:4,z:-16,yaw:112}),
         arrows:[{p:[[-34,74,-16],[-14,50,-14]],c:'coral',lab:'flat, and late'}]},
       steps:[
-        {h:'Flat is already losing',cap:'Both shoulders on the mat, their chest across yours. Everything from here costs energy.',cue:'Half guard is a side-on position, not a flat one. If your back is flat, you\'re behind.',
+        {h:'Flat is already losing',shot:{yaw:14,pitch:60,r:330,ty:26},cap:'Both shoulders on the mat, their chest across yours. Everything from here costs energy.',cue:'Half guard is a side-on position, not a flat one. If your back is flat, you\'re behind.',
          you:P(SUPINE,{twist:0}),
          them:P(PRONE,{y:44,x:4,z:-16,yaw:112}),
          arrows:[{p:[[-32,72,-14],[-12,50,-12]],c:'coral',lab:'shoulders pinned'}]},
@@ -572,8 +587,9 @@
          you:P(SUPINE,{twist:52,armL:[-54,92,-44,120],armR:[40,96,30,116]}),
          them:P(PRONE,{y:44,x:4,z:-14,yaw:114}),
          arrows:[{p:[[-30,26,-6],[-14,34,-8]],c:'sig',lab:'turn in'}]},
-        {h:'Win the underhook',cap:'Your arm goes under theirs and your head comes to the same side. This is the position, not a step toward it.',cue:'Underhook deep, ear to their ribs. Shallow underhooks get whizzered and put you right back flat.',
+        {h:'Win the underhook',shot:{yaw:38,pitch:30,r:280,ty:36},cap:'Your arm goes under theirs and your head comes to the same side. This is the position, not a step toward it.',cue:'Underhook deep, ear to their ribs. Shallow underhooks get whizzered and put you right back flat.',
          you:P(SUPINE,{twist:68,armL:[-46,108,-40,132],armR:[38,96,28,118]}),
+         via:[P(SUPINE,{twist:60,armL:[-52,96,-46,120],armR:[40,94,30,116]})],
          them:P(PRONE,{y:46,x:8,z:-8,yaw:120}),
          arrows:[{p:[[-24,34,-14],[-6,54,-10]],c:'gold',lab:'underhook'}]},
         {h:'Come up to the dogfight',cap:'With the underhook and your head inside, you climb up onto your knee — level with them instead of under them.',cue:'Chest to chest, then move. Two people on their knees is a fight you can win; one person flat isn\'t.',
@@ -594,6 +610,7 @@
         {id:'L8ulYlpzWNc',t:'Basic Muay Thai Teep Tutorial',by:'Muay Thai PROS'}
       ],
       search:'Muay Thai round kick support foot pivot hip rotation',
+      watchFor:'Watch whether the support foot turns before the hip comes through — and where it points on contact.',
       drill:[
         {t:'Slow pivots, no kick. Turn the support foot and let the hip follow it.',n:'20 each side'},
         {t:'Half-power kicks on the bag, eyes on your own support foot.',n:'3 × 20'},
@@ -610,15 +627,15 @@
          you:P({x:-12,z:-28,yaw:20,footAzL:48,legL:[184,18,184,12],legR:[6,26,4,18]}),
          foot:{x:-22,z:-30,az:48,c:'gold'},
          arrows:[{p:[[-62,6,-40],[-36,6,-32]],c:'gold',lab:'plant beside them'}]},
-        {h:'Heel to the bag, toes away',cap:'The heel spins toward the bag and the toes point away from it — before the shin has arrived anywhere.',cue:'If your support foot still points at the bag when the shin lands, the kick is arm-strength with a leg attached.',
+        {h:'Heel to the bag, toes away',move:.85,shot:{yaw:112,pitch:6,r:210,ty:44,tz:-12},cap:'The heel spins toward the bag and the toes point away from it — before the shin has arrived anywhere.',cue:'If your support foot still points at the bag when the shin lands, the kick is arm-strength with a leg attached.',
          you:P({x:-14,z:-26,yaw:46,footAzL:122,spineEl:164,legR:[-6,66,-30,84],legL:[182,12,182,8],armL:[-46,54,-36,124],armR:[28,44,18,134]}),
          foot:{x:-24,z:-28,az:122,c:'gold'},
          arrows:[{p:[[-64,6,-24],[-38,6,-26]],c:'gold',lab:'heel turns through'}]},
-        {h:'Hip drives through',cap:'The hip rotates over that turned foot and the shin follows it into the bag. You\'re kicking through the target, not at its surface.',cue:'The shin is the end of the rotation, not the start of it.',
+        {h:'Hip drives through',move:.5,shot:{yaw:96,pitch:12,r:330,ty:94,tz:8},cap:'The hip rotates over that turned foot and the shin follows it into the bag. You\'re kicking through the target, not at its surface.',cue:'The shin is the end of the rotation, not the start of it.',
          you:P({x:-16,z:-24,yaw:64,footAzL:150,spineEl:152,spineAz:-34,legR:[-52,98,-64,96],legL:[182,10,182,6],armL:[-52,58,-44,120],armR:[24,40,14,138]}),
          foot:{x:-26,z:-26,az:150,c:'gold'},
          arrows:[{p:[[-14,118,-14],[4,112,8],[18,106,28]],c:'sig',lab:'hip through the target'}]},
-        {h:'Land back in stance',cap:'Recover to a fighting stance with your hands still up. The return is part of the technique — it\'s where counters get taken.',cue:'Finish where you can throw again.',
+        {h:'Land back in stance',move:.8,cap:'Recover to a fighting stance with your hands still up. The return is part of the technique — it\'s where counters get taken.',cue:'Finish where you can throw again.',
          you:P({x:-6,z:-32,yaw:10,footAzL:10}),foot:{x:-14,z:-34,az:10,c:'gold'},
          via:[P({x:-12,z:-26,yaw:40,footAzL:96,spineEl:162,legR:[-10,64,-34,86],legL:[182,12,182,8],armL:[-48,56,-40,122],armR:[26,42,16,136]})],
          arrows:[{p:[[40,6,0],[6,6,-24]],c:'sig',lab:'back to stance'}]}
@@ -631,6 +648,7 @@
       mistake:'Letting your head drop as you stand into the finish. Your posture folds, their hips get free, and you\'re holding a leg that no longer controls anything.',
       videos:[],
       search:'wrestling single leg finish head position posture',
+      watchFor:'Watch where the head and feet arrive before they try to finish.',
       drill:[
         {t:'Single leg finishes against a wall, head glued to their hip.',n:'20 reps'},
         {t:'Partner defends at 50%. Stop the rep the moment your head drops.',n:'3 × 2 min'},
@@ -645,15 +663,16 @@
          you:P(CROUCH,{x:-2,z:-46,yaw:4,armL:[-36,94,-28,108],armR:[36,94,28,108]}),
          them:P({z:0,yaw:180,legR:[8,56,2,24],armL:[-30,72,-22,98],armR:[26,62,18,112]}),
          arrows:[{p:[[-34,86,-58],[-16,80,-42]],c:'sig',lab:'in on the leg'}]},
-        {h:'Where it leaks',cap:'Under fatigue the head drops toward the mat. Your back rounds, their hips slide back, and the leg stops being control.',cue:'A dropped head is a dropped finish. Feel for it before you feel the leg slipping.',
+        {h:'Where it leaks',shot:{yaw:72,pitch:10,r:250,ty:92,tz:-26},cap:'Under fatigue the head drops toward the mat. Your back rounds, their hips slide back, and the leg stops being control.',cue:'A dropped head is a dropped finish. Feel for it before you feel the leg slipping.',
          you:P(CROUCH,{x:-4,z:-44,yaw:4,spineEl:120,neckEl:106,hipH:52,armL:[-38,96,-30,104],armR:[38,96,30,104]}),
          them:P({z:4,yaw:180,legR:[8,60,2,26],spineEl:186,armL:[-32,76,-26,96],armR:[26,64,18,110]}),
          arrows:[{p:[[-32,96,-52],[-20,66,-46]],c:'coral',lab:'head drops'}]},
         {h:'Head up, into the hip',cap:'Post your head against them and stand your posture back up. The head is a structural piece, not a passenger.',cue:'Head up and into them. Posture is the finish.',
          you:P(CROUCH,{x:-2,z:-44,yaw:6,spineEl:156,neckEl:178,hipH:70,armL:[-34,92,-26,110],armR:[34,92,26,110]}),
+         via:[P(CROUCH,{x:-3,z:-44,yaw:5,spineEl:136,neckEl:150,hipH:58,armL:[-36,94,-28,106],armR:[36,94,28,106]})],
          them:P({z:0,yaw:180,legR:[8,62,2,28],armL:[-34,80,-28,94],armR:[24,66,16,108]}),
          arrows:[{p:[[-30,60,-56],[-14,92,-40]],c:'gold',lab:'head into the hip'}]},
-        {h:'Drive on an angle',cap:'Finish across their body rather than straight forward, taking their base away instead of pushing into it.',cue:'Run the corner. Straight ahead is a wrestling match; the angle is a takedown.',
+        {h:'Drive on an angle',shot:{yaw:58,pitch:18,r:400,ty:74,tz:-14},cap:'Finish across their body rather than straight forward, taking their base away instead of pushing into it.',cue:'Run the corner. Straight ahead is a wrestling match; the angle is a takedown.',
          you:P(CROUCH,{x:22,z:-32,yaw:44,spineEl:158,neckEl:176,hipH:70,armL:[-34,92,-26,110],armR:[34,92,26,110]}),
          them:P({x:6,z:6,yaw:196,pitch:-16,legR:[8,74,2,34],armL:[-38,86,-32,90],armR:[22,70,14,104]}),
          arrows:[{p:[[-14,6,-52],[10,6,-40],[26,6,-24]],c:'sig',lab:'across, not through'}]}
@@ -958,7 +977,7 @@
     cam:{yaw:36,pitch:24,r:300,tx:0,ty:60,tz:0},camTo:null,drag:null,spin:true,
     from:null,to:null,cur:null,anim:1,prog:0,last:0,raf:0,cv:null,ctx:null};
   const DUR=()=>W.slow?6.2:3.8;
-  const MOVE=()=>reduced?.001:(W.slow?2.2:1.25);
+  const MOVE=()=>{const s=(W.tech&&!W.bad&&W.tech.steps[W.step]&&W.tech.steps[W.step].move)||1;return reduced?.001:(W.slow?2.2:1.25)*s;};
 
   const v3=(x,y,z)=>({x,y,z});
   const vadd=(a,b)=>v3(a.x+b.x,a.y+b.y,a.z+b.z);
@@ -996,8 +1015,8 @@
     const hips=v3(0,p.hipH,0);
     const chest=vadd(hips,vmul(aim(p.spineAz,p.spineEl),42));
     const head=vadd(chest,vmul(aim(p.neckAz,p.neckEl),31));
-    const shL=vadd(chest,v3(-17,0,0)), shR=vadd(chest,v3(17,0,0));
-    const hpL=vadd(hips,v3(-10,0,0)), hpR=vadd(hips,v3(10,0,0));
+    const shL=vadd(chest,v3(-20,-3.5,0)), shR=vadd(chest,v3(20,-3.5,0));
+    const hpL=vadd(hips,v3(-13,0,0)), hpR=vadd(hips,v3(13,0,0));
     const elL=vadd(shL,vmul(aim(p.armL[0],p.armL[1]),27)), haL=vadd(elL,vmul(aim(p.armL[2],p.armL[3]),26));
     const elR=vadd(shR,vmul(aim(p.armR[0],p.armR[1]),27)), haR=vadd(elR,vmul(aim(p.armR[2],p.armR[3]),26));
     const knL=vadd(hpL,vmul(aim(p.legL[0],p.legL[1]),44)), ftL=vadd(knL,vmul(aim(p.legL[2],p.legL[3]),44));
@@ -1044,7 +1063,11 @@
 
   /* ---- camera + drawing ---- */
   function camBasis(){
-    const c=W.cam, pit=c.pitch*RAD, yaw=c.yaw*RAD;
+    const c=W.cam, t=W.clock||0;
+    // a operator's hands are never perfectly still
+    const hy=reduced?0:Math.sin(t*.53)*.5+Math.sin(t*1.31)*.2;
+    const hp=reduced?0:Math.sin(t*.71)*.3+Math.sin(t*1.7)*.11;
+    const pit=(c.pitch+hp)*RAD, yaw=(c.yaw+hy)*RAD;
     const target=v3(c.tx,c.ty,c.tz);
     const eye=vadd(target,v3(c.r*Math.cos(pit)*Math.sin(yaw),c.r*Math.sin(pit),c.r*Math.cos(pit)*Math.cos(yaw)));
     const fwd=vnorm(vsub(target,eye));
@@ -1053,22 +1076,25 @@
     return {eye,fwd,right,up};
   }
 
-  /* ---- bodies as geometry -------------------------------------------------
-     Limbs are tubes of quads carried along the joint chain, the head is an
-     ellipsoid, and every face is lit and depth-sorted. It is a small software
-     renderer, so a body has a silhouette, a lit side and a shaded side. */
-  const rgb=hex=>{const n=parseInt(hex.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255};};
-  const SKIN=rgb('#C08258'), HAIR=rgb('#211A17');
+  /* ---- materials, meshes, light -------------------------------------------
+     A body is real geometry: tubes carried along the joint chain with smooth
+     per-vertex normals, shaded by a warm key, a cool fill, a rim and a
+     specular term, then graded and grained like a shot. */
+  const TAU=Math.PI*2;
+  const mat=(hex,sh,sp)=>{const n=parseInt(hex.slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255,sh,sp};};
+  const SKIN_A=mat('#C08256',26,.34), SKIN_B=mat('#A26B44',26,.30);
+  const BROW_A=mat('#8A5B3C',20,.22), BROW_B=mat('#75492E',20,.20);
+  const HAIR_A=mat('#1D1714',14,.18), HAIR_B=mat('#2C2320',14,.16);
+  const SHOE=mat('#1E222A',18,.22);
   const KIT={
-    you:{shirt:rgb('#2F5CE0'),shorts:rgb('#15204A')},
-    them:{shirt:rgb('#B4B9C2'),shorts:rgb('#373C46')},
-    bad:{shirt:rgb('#C2543A'),shorts:rgb('#421B14')}
+    you:{shirt:mat('#2B57DB',9,.09),shorts:mat('#131B3C',9,.08),skin:SKIN_A,hair:HAIR_A,brow:BROW_A},
+    them:{shirt:mat('#AEB4BE',9,.09),shorts:mat('#31363F',9,.08),skin:SKIN_B,hair:HAIR_B,brow:BROW_B},
+    bad:{shirt:mat('#BE4F35',9,.09),shorts:mat('#3C1811',9,.08),skin:SKIN_A,hair:HAIR_A,brow:BROW_A}
   };
   const mid=(a,b,t)=>vadd(a,vmul(vsub(b,a),t));
 
-  // rings are carried along the chain so the tube never twists at a joint
-  function tube(out,pts,radii,seg,cols,squash,fixedU){
-    const rings=[];
+  function tube(out,pts,radii,seg,mats,squash,fixedU){
+    const rings=[],norms=[],sq=squash||1;
     let u=null;
     for(let i=0;i<pts.length;i++){
       const a=pts[Math.max(0,i-1)], b=pts[Math.min(pts.length-1,i+1)];
@@ -1077,73 +1103,103 @@
       t=vnorm(t);
       if(fixedU) u=fixedU; else if(!u) u=Math.abs(t.y)>0.9?v3(1,0,0):v3(0,1,0);
       u=vnorm(vsub(u,vmul(t,vdot(u,t))));
-      const v=vcross(t,u);
-      const ring=[];
+      const v=vcross(t,u), ring=[], nrm=[];
       for(let k=0;k<seg;k++){
-        const ang=k/seg*Math.PI*2, sq=squash||1;
-        ring.push(vadd(pts[i],vadd(vmul(u,Math.cos(ang)*radii[i]),vmul(v,Math.sin(ang)*radii[i]*sq))));
+        const ang=k/seg*TAU, ca=Math.cos(ang), sa=Math.sin(ang);
+        ring.push(vadd(pts[i],vadd(vmul(u,ca*radii[i]),vmul(v,sa*radii[i]*sq))));
+        nrm.push(vnorm(vadd(vmul(u,ca/sq),vmul(v,sa))));
       }
-      rings.push(ring);
+      rings.push(ring); norms.push(nrm);
     }
     for(let i=0;i<rings.length-1;i++){
-      const col=cols[Math.min(i,cols.length-1)];
+      const m=mats[Math.min(i,mats.length-1)];
       for(let k=0;k<seg;k++){
         const k2=(k+1)%seg;
-        out.push({q:[rings[i][k],rings[i][k2],rings[i+1][k2],rings[i+1][k]],col});
+        out.push({q:[rings[i][k],rings[i][k2],rings[i+1][k2],rings[i+1][k]],
+                  n:[norms[i][k],norms[i][k2],norms[i+1][k2],norms[i+1][k]],m});
       }
     }
   }
 
-  function ellipsoid(out,c,rad,axes,segU,segV,colFn){
+  function ellipsoid(out,c,rad,axes,segU,segV,matFn){
     const [ax,ay,az]=axes;
     const at=(u,v)=>{
-      const su=Math.sin(u), cu=Math.cos(u), sv=Math.sin(v), cv=Math.cos(v);
-      const d=vadd(vadd(vmul(ax,su*cv*rad.x),vmul(ay,cu*rad.y)),vmul(az,su*sv*rad.z));
-      return vadd(c,d);
+      const su=Math.sin(u),cu=Math.cos(u),sv=Math.sin(v),cv=Math.cos(v);
+      const du=su*cv*rad.x, dv=cu*rad.y, dw=su*sv*rad.z;
+      const p=vadd(c,vadd(vadd(vmul(ax,du),vmul(ay,dv)),vmul(az,dw)));
+      const n=vnorm(vadd(vadd(vmul(ax,du/(rad.x*rad.x)),vmul(ay,dv/(rad.y*rad.y))),vmul(az,dw/(rad.z*rad.z))));
+      return {p,n};
     };
-    for(let i=0;i<segV;i++){
-      for(let k=0;k<segU;k++){
-        const u1=i/segV*Math.PI, u2=(i+1)/segV*Math.PI;
-        const v1=k/segU*Math.PI*2, v2=(k+1)/segU*Math.PI*2;
-        const q=[at(u1,v1),at(u1,v2),at(u2,v2),at(u2,v1)];
-        const ctr=vmul(q.reduce(vadd,v3(0,0,0)),.25);
-        out.push({q,col:colFn(vnorm(vsub(ctr,c)))});
-      }
+    for(let i=0;i<segV;i++) for(let k=0;k<segU;k++){
+      const u1=i/segV*Math.PI,u2=(i+1)/segV*Math.PI,v1=k/segU*TAU,v2=(k+1)/segU*TAU;
+      const a=at(u1,v1),b=at(u1,v2),d=at(u2,v2),e=at(u2,v1);
+      const nAvg=vnorm(vadd(vadd(a.n,b.n),vadd(d.n,e.n)));
+      out.push({q:[a.p,b.p,d.p,e.p],n:[a.n,b.n,d.n,e.n],m:matFn(nAvg)});
     }
   }
 
   function bodyFaces(pose,kit,phase){
-    const br=Math.sin((W.clock||0)*1.7+(phase||0));
-    pose=Object.assign({},pose,{hipH:pose.hipH+br*.5,spineEl:pose.spineEl+br*.5});
+    const br=reduced?0:Math.sin((W.clock||0)*1.6+(phase||0));
+    const sway=reduced?0:Math.sin((W.clock||0)*.63+(phase||0)*2.1);
+    pose=Object.assign({},pose,{
+      hipH:pose.hipH+br*.55,
+      spineEl:pose.spineEl+br*.55+sway*.7,
+      spineAz:pose.spineAz+sway*1.1,
+      neckAz:pose.neckAz-sway*1.3
+    });
     const j=joints(pose), out=[];
-    const up=vnorm(vsub(j.chest,j.hips));
-    const fwd=j.fwd;
-    const right=vnorm(vcross(fwd,up));
+    const up=vnorm(vsub(j.chest,j.hips)), fwd=j.fwd, right=vnorm(vcross(fwd,up));
     const shMid=mid(j.shL,j.shR,.5);
-    // a torso is wider than it is deep, so its rings key off the body's own
-    // right axis rather than drifting with the tube
-    tube(out,[mid(j.hpL,j.hpR,.5),mid(j.hips,j.chest,.42),mid(j.hips,j.chest,.8),shMid],
-         [11.5,10.4,13,12.4],12,[kit.shorts,kit.shirt,kit.shirt],.66,right);
-    tube(out,[j.shL,j.shR],[7.6,7.6],10,[kit.shirt],.8,up);
-    // arms and legs run as one chain each so the joints stay closed
-    tube(out,[j.shL,mid(j.shL,j.elL,.5),j.elL,mid(j.elL,j.haL,.5),j.haL],[6.6,5.2,4.7,4.3,3.6],10,[SKIN]);
-    tube(out,[j.shR,mid(j.shR,j.elR,.5),j.elR,mid(j.elR,j.haR,.5),j.haR],[6.6,5.2,4.7,4.3,3.6],10,[SKIN]);
-    tube(out,[j.hpL,mid(j.hpL,j.knL,.45),j.knL,mid(j.knL,j.ftL,.42),j.ftL],[9.8,8.8,6.5,6.2,4.4],10,[kit.shorts,SKIN,SKIN,SKIN]);
-    tube(out,[j.hpR,mid(j.hpR,j.knR,.45),j.knR,mid(j.knR,j.ftR,.42),j.ftR],[9.8,8.8,6.5,6.2,4.4],10,[kit.shorts,SKIN,SKIN,SKIN]);
-    tube(out,[j.ftL,j.toeL],[4.8,3.4],8,[rgb('#242932')],.58);
-    tube(out,[j.ftR,j.toeR],[4.8,3.4],8,[rgb('#242932')],.58);
-    tube(out,[shMid,j.neck],[6.4,4.8],8,[SKIN]);
-    ellipsoid(out,j.head,{x:8.6,y:10.4,z:9.4},[right,vnorm(vsub(j.head,j.neck)),fwd],9,6,
-      n=>(vdot(n,vnorm(vsub(j.head,j.neck)))>.34||vdot(n,fwd)<-.3)?HAIR:SKIN);
-    ellipsoid(out,j.haL,{x:4,y:4.4,z:3.4},[right,up,fwd],6,4,()=>SKIN);
-    ellipsoid(out,j.haR,{x:4,y:4.4,z:3.4},[right,up,fwd],6,4,()=>SKIN);
+    const S=kit.skin;
+    // torso, wider than it is deep
+    tube(out,[mid(j.hpL,j.hpR,.5),mid(j.hips,j.chest,.34),mid(j.hips,j.chest,.72),j.chest,shMid],
+         [12.6,10.4,12.6,13.6,11.4],16,[kit.shorts,kit.shirt,kit.shirt,kit.shirt],.62,right);
+    tube(out,[j.shL,mid(j.shL,j.shR,.5),j.shR],[7.4,9.2,7.4],12,[kit.shirt],.8,up);
+    // arms: deltoid, bicep, elbow, forearm, wrist
+    [['shL','elL','haL'],['shR','elR','haR']].forEach(([s,e,ha])=>{
+      tube(out,[j[s],mid(j[s],j[e],.22),mid(j[s],j[e],.72),j[e],mid(j[e],j[ha],.42),j[ha]],
+           [7,6.4,5.2,4.7,4.8,3.5],12,[S],1);
+    });
+    // legs: quad, knee, calf, ankle
+    [['hpL','knL','ftL'],['hpR','knR','ftR']].forEach(([hp,kn,ft])=>{
+      tube(out,[j[hp],mid(j[hp],j[kn],.2),mid(j[hp],j[kn],.62),j[kn],mid(j[kn],j[ft],.34),j[ft]],
+           [10.4,10,7.8,6.3,6.6,4.6],12,[kit.shorts,kit.shorts,S,S,S],1);
+    });
+    tube(out,[j.ftL,j.toeL],[5.2,3.6],9,[SHOE],.56);
+    tube(out,[j.ftR,j.toeR],[5.2,3.6],9,[SHOE],.56);
+    tube(out,[shMid,j.neck],[6.8,5.2],10,[S]);
+    const headUp=vnorm(vsub(j.head,j.neck));
+    ellipsoid(out,j.head,{x:9,y:11,z:9.8},[right,headUp,fwd],14,9,n=>{
+      if(vdot(n,headUp)>.46||vdot(n,fwd)<-.3) return kit.hair;
+      const up=vdot(n,headUp);
+      if(vdot(n,fwd)>.54&&up<.06&&up>-.14) return kit.brow;
+      return S;
+    });
+    ellipsoid(out,j.haL,{x:4.2,y:4.6,z:3.4},[right,up,fwd],7,5,()=>S);
+    ellipsoid(out,j.haR,{x:4.2,y:4.6,z:3.4},[right,up,fwd],7,5,()=>S);
     return {faces:out,j};
+  }
+
+  /* ---- the shot ---- */
+  const KEY=vnorm(v3(-0.46,0.78,0.42)), KEYC={r:1.0,g:.95,b:.87};
+  const FILLD=vnorm(v3(0.78,0.24,-0.32)), FILLC={r:.50,g:.62,b:.86};
+  const RIMD=vnorm(v3(0.24,0.34,-0.90)), RIMC={r:.62,g:.76,b:1.0};
+
+  let grainTile=null;
+  function grain(){
+    if(grainTile) return grainTile;
+    const g=document.createElement('canvas'); g.width=g.height=96;
+    const x=g.getContext('2d'), im=x.createImageData(96,96);
+    for(let i=0;i<im.data.length;i+=4){
+      const n=200+Math.random()*55|0;
+      im.data[i]=im.data[i+1]=im.data[i+2]=n; im.data[i+3]=26;
+    }
+    x.putImageData(im,0,0); grainTile=g; return g;
   }
 
   function draw(){
     const cv=W.cv, c=W.ctx; if(!cv) return;
-    const w=cv.width, h=cv.height, f=w*0.82;
-    c.clearRect(0,0,w,h);
+    const w=cv.width, h=cv.height, f=w*0.86;
     const V=camBasis();
     const pr=p=>{
       const d=vsub(p,V.eye), z=vdot(d,V.fwd);
@@ -1159,24 +1215,39 @@
       c.globalAlpha=1;
     };
 
-    // the mat
-    const matPts=[v3(-200,0,-200),v3(200,0,-200),v3(200,0,200),v3(-200,0,200)].map(pr);
+    // room
+    const sky=c.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#0d1219'); sky.addColorStop(.55,'#080b10'); sky.addColorStop(1,'#05070a');
+    c.fillStyle=sky; c.fillRect(0,0,w,h);
+    const haze=c.createRadialGradient(w*.42,h*.30,10,w*.42,h*.34,h*.95);
+    haze.addColorStop(0,'rgba(150,180,225,.10)'); haze.addColorStop(1,'rgba(150,180,225,0)');
+    c.fillStyle=haze; c.fillRect(0,0,w,h);
+
+    // mat
+    const matPts=[v3(-230,0,-230),v3(230,0,-230),v3(230,0,230),v3(-230,0,230)].map(pr);
     if(matPts.every(Boolean)){
       c.beginPath(); matPts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.closePath();
-      const g=c.createLinearGradient(0,h*0.2,0,h);
-      g.addColorStop(0,'#20262f'); g.addColorStop(1,'#12161c');
+      const g=c.createLinearGradient(0,h*.18,0,h);
+      g.addColorStop(0,'#252c36'); g.addColorStop(.6,'#171c24'); g.addColorStop(1,'#0e1218');
       c.fillStyle=g; c.fill();
     }
+    // pools of light on the mat
+    [[-70,-40,150],[90,60,190]].forEach(([px,pz,rad])=>{
+      const q=pr(v3(px,.2,pz)); if(!q) return;
+      const lg=c.createRadialGradient(q.x,q.y,2,q.x,q.y,rad*q.s);
+      lg.addColorStop(0,'rgba(255,246,228,.13)'); lg.addColorStop(1,'rgba(255,246,228,0)');
+      c.fillStyle=lg; c.fillRect(0,0,w,h);
+    });
     for(let i=-4;i<=4;i++){
-      const t=i*50;
-      seg(v3(t,0,-200),v3(t,0,200),'#ffffff',1,.05);
-      seg(v3(-200,0,t),v3(200,0,t),'#ffffff',1,.05);
+      const t=i*56;
+      seg(v3(t,0,-224),v3(t,0,224),'#ffffff',1,.038);
+      seg(v3(-224,0,t),v3(224,0,t),'#ffffff',1,.038);
     }
     const ring=[];
-    for(let i=0;i<=36;i++){const a=i/36*Math.PI*2;const q=pr(v3(Math.cos(a)*120,0.4,Math.sin(a)*120));if(q)ring.push(q);}
-    if(ring.length>30){
+    for(let i=0;i<=40;i++){const a=i/40*TAU;const q=pr(v3(Math.cos(a)*125,.4,Math.sin(a)*125));if(q)ring.push(q);}
+    if(ring.length>34){
       c.beginPath(); ring.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));
-      c.strokeStyle='rgba(255,255,255,.09)'; c.lineWidth=2; c.stroke();
+      c.strokeStyle='rgba(255,255,255,.07)'; c.lineWidth=2.4; c.stroke();
     }
 
     const sc=sceneOf(W.step), poses=W.cur||posesOf(sc);
@@ -1185,83 +1256,101 @@
     if(poses.them) bodies.push(bodyFaces(poses.them,KIT.them,1.9));
     if(poses.you) bodies.push(bodyFaces(poses.you,W.bad?KIT.bad:KIT.you,0));
 
-    // soft shadows: the body dropped onto the mat, blurred in three passes
-    c.save();
+    // contact shadows
     bodies.forEach(({j})=>{
-      [[j.hips,j.chest,15],[j.hpL,j.ftL,9],[j.hpR,j.ftR,9],[j.shL,j.haL,7],[j.shR,j.haR,7],[j.head,j.head,10]]
+      [[j.hips,j.chest,16],[j.hpL,j.ftL,10],[j.hpR,j.ftR,10],[j.shL,j.haL,8],[j.shR,j.haR,8],[j.head,j.neck,11]]
       .forEach(([a,b,r])=>{
-        const A=pr(v3(a.x,0.5,a.z)), B=pr(v3(b.x,0.5,b.z)); if(!A||!B) return;
-        const lift=Math.max(0,1-Math.max(a.y,b.y)/150);
+        const A=pr(v3(a.x,.4,a.z)), B=pr(v3(b.x,.4,b.z)); if(!A||!B) return;
+        const lift=Math.max(0,1-Math.max(a.y,b.y)/160);
         for(let k=0;k<3;k++){
-          c.globalAlpha=.09*lift;
-          c.strokeStyle='#000'; c.lineCap='round';
-          c.lineWidth=Math.max(2,r*A.s*(1+k*0.9));
+          c.globalAlpha=.10*lift; c.strokeStyle='#000'; c.lineCap='round';
+          c.lineWidth=Math.max(2,r*A.s*(1+k*1.1));
           c.beginPath(); c.moveTo(A.x,A.y); c.lineTo(B.x,B.y); c.stroke();
         }
       });
     });
-    c.globalAlpha=1; c.restore();
+    c.globalAlpha=1;
 
-    // the pivot cue, painted on the mat
     if(sc.foot){
       const fo=sc.foot, a=fo.az*RAD;
-      const tip=v3(fo.x+Math.sin(a)*36,1,fo.z+Math.cos(a)*36);
-      seg(v3(fo.x,1,fo.z),tip,COL[fo.c],3.5,.95);
-      seg(tip,v3(fo.x+Math.sin(a-.5)*23,1,fo.z+Math.cos(a-.5)*23),COL[fo.c],3.5,.95);
-      seg(tip,v3(fo.x+Math.sin(a+.5)*23,1,fo.z+Math.cos(a+.5)*23),COL[fo.c],3.5,.95);
+      const tip=v3(fo.x+Math.sin(a)*38,1,fo.z+Math.cos(a)*38);
+      seg(v3(fo.x,1,fo.z),tip,COL[fo.c],3.6,.92);
+      seg(tip,v3(fo.x+Math.sin(a-.5)*24,1,fo.z+Math.cos(a-.5)*24),COL[fo.c],3.6,.92);
+      seg(tip,v3(fo.x+Math.sin(a+.5)*24,1,fo.z+Math.cos(a+.5)*24),COL[fo.c],3.6,.92);
     }
 
-    // faces: cull what points away, paint far to near
+    // geometry
     const faces=[];
     bodies.forEach(b=>{ for(const fc of b.faces) faces.push(fc); });
     if(bag){
-      const bcol=rgb('#4A5058');
-      tube(faces,[v3(bag.x,bag.top,bag.z),v3(bag.x,(bag.top+bag.bot)/2,bag.z),v3(bag.x,bag.bot,bag.z)],
-        [bag.r*.92,bag.r,bag.r*.88],10,[bcol,bcol]);
-      seg(v3(bag.x,bag.top,bag.z),v3(bag.x,bag.top+40,bag.z),'rgba(255,255,255,.22)',2);
+      const canvasMat=mat('#3F444C',12,.14);
+      tube(faces,[v3(bag.x,bag.top,bag.z),v3(bag.x,(bag.top*2+bag.bot)/3,bag.z),
+                  v3(bag.x,(bag.top+bag.bot*2)/3,bag.z),v3(bag.x,bag.bot,bag.z)],
+        [bag.r*.9,bag.r,bag.r,bag.r*.86],14,[canvasMat],1);
+      seg(v3(bag.x,bag.top,bag.z),v3(bag.x,bag.top+44,bag.z),'rgba(200,210,225,.30)',2.2);
     }
-    const KEY=vnorm(v3(-0.42,0.80,0.44)), FILL=vnorm(v3(0.72,0.22,-0.34));
+
+    const lit=(m,n,p)=>{
+      const toEye=vnorm(vsub(V.eye,p));
+      const d=Math.max(0,vdot(n,KEY)), fi=Math.max(0,vdot(n,FILLD));
+      const hv=vnorm(vadd(KEY,toEye));
+      const spc=Math.pow(Math.max(0,vdot(n,hv)),m.sh)*m.sp;
+      const rim=Math.pow(1-Math.max(0,vdot(n,toEye)),3.4)*Math.max(0,vdot(n,RIMD)*.6+.5);
+      const ao=Math.min(1,.55+p.y/70);
+      const amb=.17*ao;
+      const kr=amb+d*.92*ao, fr=fi*.30;
+      return [
+        Math.min(255,m.r*(kr*KEYC.r+fr*FILLC.r)+spc*250*KEYC.r+rim*86*RIMC.r)|0,
+        Math.min(255,m.g*(kr*KEYC.g+fr*FILLC.g)+spc*250*KEYC.g+rim*86*RIMC.g)|0,
+        Math.min(255,m.b*(kr*KEYC.b+fr*FILLC.b)+spc*250*KEYC.b+rim*86*RIMC.b)|0
+      ];
+    };
+
     const drawn=[];
     for(const fc of faces){
       const q=fc.q;
       const ctr=vmul(q.reduce(vadd,v3(0,0,0)),.25);
-      const n=vnorm(vcross(vsub(q[1],q[0]),vsub(q[3],q[0])));
-      const toEye=vnorm(vsub(V.eye,ctr));
-      if(vdot(n,toEye)<=0.02) continue;
-      drawn.push({q,col:fc.col,n,ctr,toEye,d:vdot(vsub(ctr,V.eye),V.fwd)});
+      const gn=vnorm(vcross(vsub(q[1],q[0]),vsub(q[3],q[0])));
+      if(vdot(gn,vnorm(vsub(V.eye,ctr)))<=0.015) continue;
+      drawn.push({fc,ctr,d:vdot(vsub(ctr,V.eye),V.fwd)});
     }
     drawn.sort((a,b)=>b.d-a.d);
-    for(const fc of drawn){
-      const pts=fc.q.map(pr);
+    for(const it of drawn){
+      const fc=it.fc, pts=fc.q.map(pr);
       if(pts.some(p=>!p)) continue;
-      const dif=Math.max(0,vdot(fc.n,KEY)), fil=Math.max(0,vdot(fc.n,FILL));
-      const rim=Math.pow(1-Math.max(0,vdot(fc.n,fc.toEye)),3.2);
-      const l=0.30+0.80*dif+0.22*fil;
-      const col=fc.col;
-      const r=Math.min(255,col.r*l+rim*64+dif*dif*26);
-      const g2=Math.min(255,col.g*l+rim*74+dif*dif*26);
-      const b2=Math.min(255,col.b*l+rim*96+dif*dif*26);
-      c.fillStyle='rgb('+(r|0)+','+(g2|0)+','+(b2|0)+')';
+      const area=Math.abs((pts[2].x-pts[0].x)*(pts[3].y-pts[1].y)-(pts[3].x-pts[1].x)*(pts[2].y-pts[0].y))*.5;
       c.beginPath();
       c.moveTo(pts[0].x,pts[0].y);
       for(let i=1;i<4;i++) c.lineTo(pts[i].x,pts[i].y);
       c.closePath();
+      if(area<26){
+        const cA=lit(fc.m,fc.n[0],fc.q[0]);
+        c.fillStyle='rgb('+cA[0]+','+cA[1]+','+cA[2]+')';
+      }else{
+        // smooth across the ring direction so the tubes don't read as facets
+        const a0=lit(fc.m,fc.n[0],fc.q[0]), a3=lit(fc.m,fc.n[3],fc.q[3]);
+        const b1=lit(fc.m,fc.n[1],fc.q[1]), b2=lit(fc.m,fc.n[2],fc.q[2]);
+        const g=c.createLinearGradient((pts[0].x+pts[3].x)/2,(pts[0].y+pts[3].y)/2,
+                                       (pts[1].x+pts[2].x)/2,(pts[1].y+pts[2].y)/2);
+        g.addColorStop(0,'rgb('+((a0[0]+a3[0])>>1)+','+((a0[1]+a3[1])>>1)+','+((a0[2]+a3[2])>>1)+')');
+        g.addColorStop(1,'rgb('+((b1[0]+b2[0])>>1)+','+((b1[1]+b2[1])>>1)+','+((b1[2]+b2[2])>>1)+')');
+        c.fillStyle=g;
+      }
       c.fill();
-      c.strokeStyle=c.fillStyle; c.lineWidth=.7; c.stroke();
+      c.strokeStyle=c.fillStyle; c.lineWidth=.6; c.stroke();
     }
 
-    // names above the heads
+    // names
     c.font='700 11px '+FF; c.textAlign='center';
     const name=(pose,txt,col)=>{
       if(!pose) return;
-      const q=pr(vadd(joints(pose).head,v3(0,32,0))); if(!q) return;
+      const q=pr(vadd(joints(pose).head,v3(0,34,0))); if(!q) return;
       c.fillStyle=col; c.fillText(txt,q.x,q.y);
     };
-    name(poses.you,'YOU',W.bad?'#EC9C7C':'#9DB4FF');
-    name(poses.them,'THEM','#AAB0B8');
-    if(bag){const q=pr(v3(bag.x,bag.top+26,bag.z)); if(q){c.fillStyle='#AAB0B8';c.fillText('BAG',q.x,q.y);}}
+    name(poses.you,'YOU',W.bad?'#EFA98A':'#A8BCFF');
+    name(poses.them,'THEM','#B0B6BE');
+    if(bag){const q=pr(v3(bag.x,bag.top+30,bag.z)); if(q){c.fillStyle='#B0B6BE';c.fillText('BAG',q.x,q.y);}}
 
-    // coaching arrows, drawn over the bodies so they stay readable
     (sc.arrows||[]).forEach(ar=>{
       const pts=ar.p.map(q=>pr(v3(q[0],q[1],q[2])));
       if(pts.some(q=>!q)) return;
@@ -1283,17 +1372,30 @@
         const anc=Math.hypot(p0.x-w/2,p0.y-h/2)>Math.hypot(pN.x-w/2,pN.y-h/2)?p0:pN;
         let lx=anc.x+(anc.x>w/2?1:-1)*(tw/2+14), ly=anc.y-14;
         lx=Math.min(w-tw/2-8,Math.max(tw/2+8,lx));
-        ly=Math.max(30,Math.min(h-14,ly));
-        c.fillStyle='rgba(8,9,11,.72)';
-        c.beginPath(); c.roundRect(lx-tw/2-6,ly-13,tw+12,19,6); c.fill();
+        ly=Math.max(34,Math.min(h-26,ly));
+        c.fillStyle='rgba(6,8,11,.74)';
+        c.beginPath(); c.roundRect(lx-tw/2-7,ly-13,tw+14,19,6); c.fill();
         c.fillStyle=COL[ar.c]; c.textAlign='center'; c.fillText(ar.lab,lx,ly+1);
       }
     });
 
-    // a little lens: darkened corners so the eye stays on the technique
-    const vg=c.createRadialGradient(w/2,h*.46,h*.2,w/2,h*.5,h*.92);
-    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.5)');
+    // grade, grain, vignette, letterbox
+    c.globalCompositeOperation='screen';
+    const warm=c.createLinearGradient(0,0,w,h);
+    warm.addColorStop(0,'rgba(60,44,20,.16)'); warm.addColorStop(1,'rgba(10,26,60,.16)');
+    c.fillStyle=warm; c.fillRect(0,0,w,h);
+    c.globalCompositeOperation='source-over';
+    const g2=grain();
+    c.globalAlpha=.5;
+    const ox=(W.clock*97|0)%96, oy=(W.clock*61|0)%96;
+    const pat=c.createPattern(g2,'repeat');
+    c.save(); c.translate(-ox,-oy); c.fillStyle=pat; c.fillRect(0,0,w+96,h+96); c.restore();
+    c.globalAlpha=1;
+    const vg=c.createRadialGradient(w/2,h*.45,h*.24,w/2,h*.5,h*.95);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.55)');
     c.fillStyle=vg; c.fillRect(0,0,w,h);
+    const bar=Math.round(h*.045);
+    c.fillStyle='#05070a'; c.fillRect(0,0,w,bar); c.fillRect(0,h-bar,w,bar);
   }
 
   /* ---- playback ---- */
@@ -1307,16 +1409,27 @@
       W.cur={you:poseAt(W.chainYou,u),them:W.chainThem?poseAt(W.chainThem,u):W.to.them};
     }else W.cur=W.to;
     if(W.camTo){
-      const k=Math.min(1,dt*4.5);
-      ['yaw','pitch','r'].forEach(m=>{W.cam[m]=lerp(W.cam[m],W.camTo[m],k);});
-      if(Math.abs(W.cam.yaw-W.camTo.yaw)<.4&&Math.abs(W.cam.pitch-W.camTo.pitch)<.4) W.camTo=null;
-    }else if(W.playing&&W.spin&&!reduced&&!W.drag) W.cam.yaw+=dt*3.2;
+      const k=Math.min(1,dt*2.6);
+      ['yaw','pitch','r','tx','ty','tz'].forEach(m=>{
+        if(W.camTo[m]!==undefined) W.cam[m]=lerp(W.cam[m],W.camTo[m],k);
+      });
+      if(Math.abs(W.cam.yaw-W.camTo.yaw)<.3&&Math.abs(W.cam.pitch-W.camTo.pitch)<.3&&Math.abs(W.cam.r-W.camTo.r)<2) W.camTo=null;
+    }else if(W.playing&&!reduced&&!W.drag){
+      if(W.spin) W.cam.yaw+=dt*2.6;
+      W.cam.r*=1-dt*.022;            // a slow push in, like a held shot
+    }
     if(W.playing&&!W.bad){
       W.prog+=dt/DUR();
       if(W.prog>=1){ goStep(W.step+1>=W.tech.steps.length?0:W.step+1,W.step+1<W.tech.steps.length); }
     }
     const segs=W.el?W.el.querySelectorAll('.seg i'):[];
     segs.forEach((n,i)=>{n.style.width=(i<W.step?100:i===W.step?Math.min(100,W.prog*100):0)+'%';});
+    const tc=W.el&&W.el.querySelector('#wTc');
+    if(tc){
+      const total=W.tech.steps.length*DUR(), at=(W.step+Math.min(1,W.prog))*DUR();
+      const fmt=x=>Math.floor(x/60)+':'+String(Math.floor(x%60)).padStart(2,'0');
+      tc.textContent=fmt(at)+' / '+fmt(total);
+    }
     draw();
   }
 
@@ -1363,6 +1476,8 @@
     W.step=Math.max(0,Math.min(i,W.tech.steps.length-1));
     W.prog=0;
     const sc=W.tech.steps[W.step];
+    // each step can call its own shot, unless the viewer has taken the camera
+    if(!W.userCam) W.camTo=Object.assign({},W.tech.cam,sc.shot||{});
     setScene(sc,animate!==false);
     stepText(sc,W.step);
   }
@@ -1376,6 +1491,7 @@
   }
 
   function setCam(k){
+    W.userCam=true;
     const base=W.tech.cam;
     const presets={side:{yaw:90,pitch:12},front:{yaw:0,pitch:10},top:{yaw:base.yaw,pitch:66},corner:{yaw:base.yaw,pitch:base.pitch},behind:{yaw:180,pitch:16}};
     const p=presets[k]||presets.corner;
@@ -1393,7 +1509,7 @@
   }
 
   function orbit(el){
-    const down=e=>{ W.drag={x:e.clientX,y:e.clientY}; W.spin=false; const g=W.el.querySelector('.grab'); if(g) g.style.opacity=0; el.setPointerCapture&&el.setPointerCapture(e.pointerId); };
+    const down=e=>{ W.drag={x:e.clientX,y:e.clientY}; W.spin=false; W.userCam=true; const g=W.el.querySelector('.grab'); if(g) g.style.opacity=0; el.setPointerCapture&&el.setPointerCapture(e.pointerId); };
     const move=e=>{
       if(!W.drag) return;
       W.camTo=null;
@@ -1413,7 +1529,7 @@
   function openWatch(key){
     const t=TECH[key]; if(!t) return;
     closeWatch();
-    W.tech=t; W.step=0; W.bad=false; W.checks={}; W.cur=null; W.prog=0; W.spin=!reduced;
+    W.tech=t; W.step=0; W.bad=false; W.checks={}; W.cur=null; W.prog=0; W.spin=!reduced; W.userCam=false; W.clock=0;
     W.cam=Object.assign({},t.cam); W.camTo=null;
     const el=document.createElement('div');
     el.className='watch'; el.id='watch';
@@ -1426,7 +1542,7 @@
         <p class="w-note">${esc(t.sub)}</p>
         <div class="mat-wrap">
           <div class="stage3d"><canvas id="mat3d" aria-label="3D breakdown of ${esc(t.title)}" role="img"></canvas>
-            <span class="grab">${s('orbit',12)} Drag to rotate</span></div>
+            <span class="grab">${s('orbit',12)} Drag to rotate</span><span class="tc" id="wTc">0:00</span></div>
           <div class="segs">${t.steps.map(()=>'<span class="seg"><i></i></span>').join('')}</div>
           <div class="w-ctrl">
             <button class="rnd" data-prev="1" aria-label="Previous step">${s('prev',15)}</button>
@@ -1449,6 +1565,21 @@
           <span class="lbl" style="color:var(--coral)">Where it usually goes wrong</span>
           <p>${esc(t.mistake)}</p>
         </div>
+        <div class="w-real">
+          <span class="lbl gold">${s('play',12)} Now watch real people do it</span>
+          <p class="w-realnote">${esc(t.watchFor)}</p>
+          <div class="w-list">
+            ${t.videos.map(v=>`
+              <a class="vrow" href="${yt(v.id)}" target="_blank" rel="noopener noreferrer">
+                <span class="vthumb">${s('play',16)}</span>
+                <div><strong>${esc(v.t)}</strong><small>${esc(v.by)}</small></div>${s('ext',15)}
+              </a>`).join('')}
+            <a class="vrow ghost" href="${ytSearch(t.search)}" target="_blank" rel="noopener noreferrer">
+              <span class="vthumb ghost">${s('learn',15)}</span>
+              <div><strong>${t.videos.length?'More footage of this on YouTube':'Find footage on YouTube'}</strong><small>"${esc(t.search)}"</small></div>${s('ext',15)}
+            </a>
+          </div>
+        </div>
         ${t.drill?`
         <div class="w-drill">
           <span class="lbl" style="color:var(--success)">Drill it tonight</span>
@@ -1458,19 +1589,7 @@
               <div><strong>${esc(d.t)}</strong><small>${esc(d.n)}</small></div>
             </button>`).join('')}
         </div>`:''}
-        <span class="lbl dim" style="margin-top:4px">Watch it at full speed</span>
-        <div class="w-list">
-          ${t.videos.map(v=>`
-            <a class="prow" href="${yt(v.id)}" target="_blank" rel="noopener noreferrer">
-              <span class="prow-ico" style="background:var(--gold-mut);color:var(--gold)">${s('play',15)}</span>
-              <div><strong>${esc(v.t)}</strong><small>${esc(v.by)} · YouTube</small></div>${s('ext',15)}
-            </a>`).join('')}
-          <a class="prow" href="${ytSearch(t.search)}" target="_blank" rel="noopener noreferrer">
-            <span class="prow-ico" style="background:var(--pop);color:var(--t2)">${s('learn',15)}</span>
-            <div><strong>${t.videos.length?'Search YouTube for more':'Find footage on YouTube'}</strong><small>"${esc(t.search)}"</small></div>${s('ext',15)}
-          </a>
-        </div>
-        <p class="w-note">The 3D breakdown is built by FightIQ from the coaching points in your session — a model, not footage. The links open real videos in a new tab.</p>
+        <p class="w-note">The 3D breakdown is built by FightIQ from the coaching points in your session — a model of the movement, not footage of an athlete. The links above open real video in a new tab.</p>
         <button class="btn alt" data-close="1">Done — back to training</button>
       </div>`;
     device.appendChild(el);

@@ -5,8 +5,9 @@ import {
   Dumbbell, Home, Mic, Plus, RefreshCw, Send, Sparkles, Utensils, X,
 } from "lucide-react";
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
+import { AthleteOnboarding } from "./AthleteOnboarding";
 
-type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food";
+type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food" | "onboarding";
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
@@ -107,7 +108,7 @@ function PreTrainingCheckIn({ brief, onClose, onStart }: { brief: PreTrainingBri
   </section></div>;
 }
 
-function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<void> }) {
+function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<void>; onFinishProfile: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
@@ -132,6 +133,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
       <p className="date-line">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
+      {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
       {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">YOUR TRAINING PLAN IS ACTIVE</p><h2>{activeExperiment.mission}</h2><p><b>Today:</b> {sessionPlanLabel(activeExperiment.reason)}<br />{activeExperiment.reason.replace(/^For\s+.+?:\s*/i, "")}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG HOW IT WENT <ChevronRight size={14} /></button><button className="text-link plan-change-link" onClick={() => setBriefOpen(true)}>CHANGE TODAY’S SESSION <ChevronRight size={14} /></button></div></section>
         : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
@@ -403,6 +405,8 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
   const [learnOrigin, setLearnOrigin] = useState<"coach" | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [onboardingStatus, setOnboardingStatus] = useState<"loading" | "required" | "legacy" | "complete">("loading");
+  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => setOnboardingStatus(data?.onboarding.status ?? "complete")).catch(() => setOnboardingStatus("complete")); }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
   function goHome() { window.history.replaceState({}, "", "/"); setActiveEntryId(null); setScreen("home"); }
   function act(name: string) {
@@ -418,8 +422,10 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t start that training brief.");
     setToast("Brief set. Tell FightIQ how it went after training.");
   }
+  if (onboardingStatus === "loading") return <main className="setup-loading"><p className="wordmark">FIGHT<span>IQ</span></p><p>Welcome back, {displayName}.<br />Checking your athlete profile…</p></main>;
+  if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
-    {screen === "home" && <HomeScreen name={displayName} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}

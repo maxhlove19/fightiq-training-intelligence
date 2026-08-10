@@ -57,6 +57,8 @@ export const trainingFollowups = sqliteTable("training_followups", {
 
 export const fighterProfiles = sqliteTable("fighter_profiles", {
   ownerId: text("owner_id").primaryKey(),
+  onboardingCompletedAt: text("onboarding_completed_at"),
+  athleteSetupJson: text("athlete_setup_json").notNull().default("{}"),
   currentFocus: text("current_focus"),
   focusReason: text("focus_reason"),
   primaryGoal: text("primary_goal").notNull().default("performance"),

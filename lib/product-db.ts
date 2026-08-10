@@ -4,6 +4,8 @@ import type { D1 } from "./debrief-db";
 
 export type FighterProfile = {
   owner_id: string;
+  onboarding_completed_at: string | null;
+  athlete_setup_json: string;
   current_focus: string | null;
   focus_reason: string | null;
   primary_goal: string;
@@ -12,6 +14,29 @@ export type FighterProfile = {
   protein_target: number;
   carb_target: number;
   fat_target: number;
+};
+
+export type AthleteSetup = {
+  disciplines: string[];
+  experienceLevel: string;
+  sessionsPerWeek: number;
+  sessionTypes: string[];
+  competitionIntent: string;
+  age: number | null;
+  calculatorSex: "female" | "male" | "manual" | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  dietaryRestrictions: string[];
+  foodPreferences: string;
+  foodsToAvoid: string;
+  mealsPerDay: number | null;
+  trainingTime: string;
+};
+
+export const emptyAthleteSetup: AthleteSetup = {
+  disciplines: [], experienceLevel: "", sessionsPerWeek: 0, sessionTypes: [], competitionIntent: "",
+  age: null, calculatorSex: null, heightCm: null, weightKg: null, dietaryRestrictions: [],
+  foodPreferences: "", foodsToAvoid: "", mealsPerDay: null, trainingTime: "",
 };
 
 export type MemorySnapshot = {
@@ -45,6 +70,8 @@ export async function ensureProductSchema(db: D1) {
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS fighter_profiles (
       owner_id TEXT PRIMARY KEY NOT NULL,
+      onboarding_completed_at TEXT,
+      athlete_setup_json TEXT NOT NULL DEFAULT '{}',
       current_focus TEXT,
       focus_reason TEXT,
       primary_goal TEXT NOT NULL DEFAULT 'performance',
@@ -185,6 +212,12 @@ export async function ensureProductSchema(db: D1) {
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)"),
   ]);
+  const profileColumns = await db.prepare("PRAGMA table_info(fighter_profiles)").all<{ name: string }>();
+  const columnNames = new Set((profileColumns.results ?? []).map((column) => column.name));
+  const profileMigrations = [];
+  if (!columnNames.has("onboarding_completed_at")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN onboarding_completed_at TEXT"));
+  if (!columnNames.has("athlete_setup_json")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN athlete_setup_json TEXT NOT NULL DEFAULT '{}'"));
+  if (profileMigrations.length) await db.batch(profileMigrations);
   await db.prepare("PRAGMA optimize").run();
 }
 
@@ -202,6 +235,28 @@ function safeStringArray(value: string | null | undefined): string[] {
     const parsed = JSON.parse(value ?? "[]");
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 8) : [];
   } catch { return []; }
+}
+
+export function getAthleteSetup(profile: FighterProfile): AthleteSetup {
+  try {
+    const parsed = JSON.parse(profile.athlete_setup_json || "{}") as Partial<AthleteSetup>;
+    return {
+      disciplines: Array.isArray(parsed.disciplines) ? parsed.disciplines.filter((item): item is string => typeof item === "string").slice(0, 8) : [],
+      experienceLevel: typeof parsed.experienceLevel === "string" ? parsed.experienceLevel : "",
+      sessionsPerWeek: typeof parsed.sessionsPerWeek === "number" ? parsed.sessionsPerWeek : 0,
+      sessionTypes: Array.isArray(parsed.sessionTypes) ? parsed.sessionTypes.filter((item): item is string => typeof item === "string").slice(0, 6) : [],
+      competitionIntent: typeof parsed.competitionIntent === "string" ? parsed.competitionIntent : "",
+      age: typeof parsed.age === "number" ? parsed.age : null,
+      calculatorSex: parsed.calculatorSex === "female" || parsed.calculatorSex === "male" || parsed.calculatorSex === "manual" ? parsed.calculatorSex : null,
+      heightCm: typeof parsed.heightCm === "number" ? parsed.heightCm : null,
+      weightKg: typeof parsed.weightKg === "number" ? parsed.weightKg : null,
+      dietaryRestrictions: Array.isArray(parsed.dietaryRestrictions) ? parsed.dietaryRestrictions.filter((item): item is string => typeof item === "string").slice(0, 8) : [],
+      foodPreferences: typeof parsed.foodPreferences === "string" ? parsed.foodPreferences : "",
+      foodsToAvoid: typeof parsed.foodsToAvoid === "string" ? parsed.foodsToAvoid : "",
+      mealsPerDay: typeof parsed.mealsPerDay === "number" ? parsed.mealsPerDay : null,
+      trainingTime: typeof parsed.trainingTime === "string" ? parsed.trainingTime : "",
+    };
+  } catch { return { ...emptyAthleteSetup }; }
 }
 
 function titleCase(value: string) {

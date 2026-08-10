@@ -35,6 +35,6 @@ test("renders the authenticated application shell from trusted identity headers"
   assert.match(html, /FIGHT/);
   assert.match(html, /Welcome back/);
   assert.match(html, />Max</);
-  assert.match(html, /LOG TODAY/);
+  assert.match(html, /Checking your athlete profile/);
   assert.doesNotMatch(html, /Sign in to FightIQ/);
 });

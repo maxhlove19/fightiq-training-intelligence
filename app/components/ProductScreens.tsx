@@ -14,7 +14,8 @@ type SpeechRecognitionLike = {
 };
 
 export type ProductData = {
-  profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues };
+  profile: { currentFocus: string | null; focusReason: string | null; primaryGoal: string; styleInfluences: string[]; targets: MacroValues; athleteSetup: AthleteSetup };
+  onboarding: { status: "required" | "legacy" | "complete" };
   memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[] };
   insight: { title: string; body: string; currentFocus: string };
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
@@ -26,6 +27,7 @@ export type ProductData = {
 };
 
 type MacroValues = { calories: number; protein: number; carbs: number; fat: number };
+export type AthleteSetup = { disciplines: string[]; experienceLevel: string; sessionsPerWeek: number; sessionTypes: string[]; competitionIntent: string; age: number | null; calculatorSex: "female" | "male" | "manual" | null; heightCm: number | null; weightKg: number | null; dietaryRestrictions: string[]; foodPreferences: string; foodsToAvoid: string; mealsPerDay: number | null; trainingTime: string };
 type NutritionEntry = MacroValues & { id: string; description: string; photoUrl: string | null; created_at?: string; createdAt?: string };
 
 function cleanAiDisplay(value: string) {
@@ -250,6 +252,12 @@ export function WorkoutScreen({ onBack }: { onBack: () => void }) {
   const [workout, setWorkout] = useState<GeneratedWorkout | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => {
+    const preferred = data?.profile.athleteSetup.disciplines.find((item) => ["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai"].includes(item));
+    if (preferred) setDiscipline(preferred);
+    if (data?.profile.primaryGoal === "gain muscle") setGoal("Strength");
+    if (data?.profile.primaryGoal === "performance") setGoal("Fight performance");
+  }).catch(() => undefined); }, []);
   async function generate() {
     setLoading(true); setError(""); setWorkout(null);
     try { const response = await fetch("/api/workouts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, goal, fatigue, duration }) }); const data = await response.json() as GeneratedWorkout & { error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setWorkout(data); }

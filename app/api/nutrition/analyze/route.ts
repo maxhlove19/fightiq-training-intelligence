@@ -1,5 +1,5 @@
 import { analyzeMeal, ProductAIError } from "../../../../lib/product-ai";
-import { getProductOwnerId, getProductRuntime, productError } from "../../../../lib/product-db";
+import { ensureProductSchema, getAthleteSetup, getOrCreateProfile, getProductOwnerId, getProductRuntime, productError } from "../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 const imageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
@@ -14,7 +14,7 @@ function base64(buffer: ArrayBuffer) {
 export async function POST(request: Request) {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
-  const { apiKey, allowMockAi } = getProductRuntime();
+  const { apiKey, allowMockAi, db } = getProductRuntime();
   let form: FormData;
   try { form = await request.formData(); } catch { return productError("INVALID_REQUEST", "Invalid meal.", 400); }
   const description = String(form.get("description") ?? "").trim().slice(0, 500);
@@ -25,7 +25,16 @@ export async function POST(request: Request) {
     image = { dataUrl: `data:${photo.type};base64,${base64(await photo.arrayBuffer())}`, mimeType: photo.type };
   }
   if (!description && !image) return productError("EMPTY_MEAL", "Describe the meal or add a photo.", 422);
-  try { return Response.json(await analyzeMeal({ apiKey, allowMockAi, ownerId, description, image })); }
+  try {
+    let nutritionContext: { goal: string; restrictions: string[]; preferences: string; avoid: string; trainingTime: string } | undefined;
+    if (db) {
+      await ensureProductSchema(db);
+      const profile = await getOrCreateProfile(db, ownerId);
+      const setup = getAthleteSetup(profile);
+      nutritionContext = { goal: profile.primary_goal, restrictions: setup.dietaryRestrictions, preferences: setup.foodPreferences, avoid: setup.foodsToAvoid, trainingTime: setup.trainingTime };
+    }
+    return Response.json(await analyzeMeal({ apiKey, allowMockAi, ownerId, description, image, nutritionContext }));
+  }
   catch (error) {
     if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, error.development);
     return productError("AI_UNAVAILABLE", "FightIQ couldn’t estimate that meal.", 503);

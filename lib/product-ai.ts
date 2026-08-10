@@ -1,4 +1,4 @@
-import type { FighterProfile, MemorySnapshot } from "./product-db";
+import { getAthleteSetup, type FighterProfile, type MemorySnapshot } from "./product-db";
 
 export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
@@ -185,7 +185,11 @@ video.mode is "direct" only when the athlete explicitly asks for a video, a clip
       { role: "user", content: JSON.stringify({
         question: args.question,
         fighter_memory: compactCoachMemory(args.memory),
-        profile: { current_focus: args.profile.current_focus, focus_reason: args.profile.focus_reason, primary_goal: args.profile.primary_goal, style_influences: safeArray(args.profile.style_influences_json) },
+        profile: {
+          current_focus: args.profile.current_focus, focus_reason: args.profile.focus_reason, primary_goal: args.profile.primary_goal,
+          style_influences: safeArray(args.profile.style_influences_json),
+          athlete_setup: (() => { const setup = getAthleteSetup(args.profile); return { disciplines: setup.disciplines, experience: setup.experienceLevel, sessions_per_week: setup.sessionsPerWeek, session_types: setup.sessionTypes, competition_intent: setup.competitionIntent, dietary_restrictions: setup.dietaryRestrictions, food_preferences: setup.foodPreferences, foods_to_avoid: setup.foodsToAvoid, meals_per_day: setup.mealsPerDay, usual_training_time: setup.trainingTime }; })(),
+        },
         recent_workouts: compactWorkouts(args.workouts),
         nutrition_today: compactNutrition(args.nutrition),
         active_pre_training_experiment: args.activeExperiment ?? null,
@@ -275,14 +279,14 @@ const mealSchema = {
   },
 };
 
-export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string } }) {
+export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string }; nutritionContext?: { goal: string; restrictions: string[]; preferences: string; avoid: string; trainingTime: string } }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) return mockMeal(args.description, Boolean(args.image));
     throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const content: Array<Record<string, unknown>> = [{
     type: "input_text",
-    text: `Estimate this meal for editable food logging. User description: ${args.description || "No description supplied."}. Identify visible foods conservatively. Return realistic calories and grams of protein, carbohydrates, and fat. State uncertainty in note. This is an estimate, not medical advice.`,
+    text: `Estimate this meal for editable food logging. User description: ${args.description || "No description supplied."}. Identify visible foods conservatively. Return realistic calories and grams of protein, carbohydrates, and fat. Athlete food context: ${JSON.stringify(args.nutritionContext ?? {})}. Respect stated restrictions when naming foods, but do not claim a meal is safe for an allergy. State uncertainty in note. This is an estimate, not medical advice.`,
   }];
   if (args.image) content.push({ type: "input_image", image_url: args.image.dataUrl, detail: "low" });
   const payload = await responseRequest(args.apiKey, args.ownerId, {

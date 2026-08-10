@@ -1,5 +1,5 @@
 import { buildLearnFeed } from "../../../lib/video-recommendations";
-import { ensureProductSchema, getActiveTrainingExperiment, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +19,23 @@ export async function GET(request: Request) {
   const { db, youtubeApiKey } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
   await ensureProductSchema(db);
-  const [profile, memory, nutrition, recentWorkouts] = await Promise.all([
+  const [profile, memory, nutrition, recentWorkouts, trainingCount, foodCount] = await Promise.all([
     getOrCreateProfile(db, ownerId),
     getMemorySnapshot(db, ownerId),
     getTodayNutrition(db, ownerId),
     db.prepare("SELECT id, discipline, goal, fatigue, duration_minutes, plan_json, status, created_at FROM workout_plans WHERE owner_id = ? ORDER BY created_at DESC LIMIT 3").bind(ownerId).all(),
+    db.prepare("SELECT COUNT(*) AS count FROM training_entries WHERE owner_id = ?").bind(ownerId).first<{ count: number }>(),
+    db.prepare("SELECT COUNT(*) AS count FROM nutrition_entries WHERE owner_id = ?").bind(ownerId).first<{ count: number }>(),
   ]);
   const cursor = refreshCursor(request);
   const topic = requestedTopic(request);
+  const athleteSetup = getAthleteSetup(profile);
+  const recommendationMemory = athleteSetup.disciplines.length
+    ? { ...memory, oneTimeObservations: [...memory.oneTimeObservations, `${athleteSetup.disciplines.join(" ")} ${athleteSetup.sessionTypes.join(" ")} ${athleteSetup.competitionIntent}`] }
+    : memory;
   const [preTrainingBrief, learn, activeExperiment] = await Promise.all([
     getOrCreatePreTrainingBrief(db, ownerId, memory),
-    buildLearnFeed({ db, ownerId, memory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
+    buildLearnFeed({ db, ownerId, memory: recommendationMemory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
     getActiveTrainingExperiment(db, ownerId),
   ]);
   const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
@@ -40,7 +46,9 @@ export async function GET(request: Request) {
       primaryGoal: profile.primary_goal,
       styleInfluences: JSON.parse(profile.style_influences_json || "[]"),
       targets: { calories: profile.calorie_target, protein: profile.protein_target, carbs: profile.carb_target, fat: profile.fat_target },
+      athleteSetup,
     },
+    onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
     insight: {
       title: latestCompletedTraining

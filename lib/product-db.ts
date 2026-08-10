@@ -315,17 +315,26 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
   return brief;
 }
 
-export async function startPreTrainingExperiment(db: D1, ownerId: string) {
+export async function startPreTrainingExperiment(db: D1, ownerId: string, sessionPlan?: string) {
   const brief = await getOrCreatePreTrainingBrief(db, ownerId);
   const now = new Date().toISOString();
+  const plan = sessionPlan?.replace(/\s+/g, " ").trim().slice(0, 240) ?? "";
   const existing = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
     WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<TrainingExperiment & { started_at: string | null }>();
-  if (existing) return { ...existing, startedAt: existing.started_at };
+  if (existing) {
+    // Starting a new brief is an explicit choice to carry a fresh session plan
+    // into training, so replace a stale plan rather than following up on it.
+    const reason = plan ? `For ${plan}: ${brief.reason}` : existing.reason;
+    const refreshed = reason !== existing.reason;
+    if (refreshed) await db.prepare("UPDATE training_experiments SET reason = ?, started_at = ? WHERE id = ? AND owner_id = ?").bind(reason, now, existing.id, ownerId).run();
+    return { ...existing, reason, startedAt: refreshed ? now : existing.started_at };
+  }
   const id = crypto.randomUUID();
+  const reason = plan ? `For ${plan}: ${brief.reason}` : brief.reason;
   await db.prepare(`INSERT INTO training_experiments (id, owner_id, mission, cue, reason, status, started_at, created_at)
     VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`)
-    .bind(id, ownerId, brief.mission, brief.cue, brief.reason, now, now).run();
-  return { id, mission: brief.mission, cue: brief.cue, reason: brief.reason, status: "active", startedAt: now, outcome: null };
+    .bind(id, ownerId, brief.mission, brief.cue, reason, now, now).run();
+  return { id, mission: brief.mission, cue: brief.cue, reason, status: "active", startedAt: now, outcome: null };
 }
 
 export async function getActiveTrainingExperiment(db: D1, ownerId: string) {

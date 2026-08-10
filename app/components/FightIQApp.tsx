@@ -36,9 +36,45 @@ type DebriefState = {
   question?: { id: string; sequence: number; prompt: string; choices: string[]; targetField: string };
 };
 
-function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void; onStartTraining: () => void }) {
+type PreTrainingBrief = { mission: string; reason: string; cue: string };
+
+function PreTrainingCheckIn({ brief, onClose, onStart }: { brief: PreTrainingBrief; onClose: () => void; onStart: (sessionPlan: string) => Promise<void> }) {
+  const [sessionPlan, setSessionPlan] = useState("");
+  const [showBrief, setShowBrief] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+  const suggestedSessions = ["MMA class", "BJJ class", "Muay Thai class", "Sparring", "Open mat"];
+  async function beginTraining() {
+    if (!sessionPlan.trim() || starting) return;
+    setStarting(true); setError("");
+    try { await onStart(sessionPlan.trim()); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t start that training brief."); }
+    finally { setStarting(false); }
+  }
+  return <div className="sheet-backdrop"><section className="pre-training-checkin" role="dialog" aria-modal="true" aria-labelledby="pre-training-title">
+    <button className="sheet-close" onClick={onClose} aria-label="Close pre-training brief"><X size={18} /></button>
+    {!showBrief ? <>
+      <p className="eyebrow">BEFORE TRAINING</p><h2 id="pre-training-title">What are you training today?</h2><p>One line is enough. FightIQ will pull forward the one thing worth remembering.</p>
+      <div className="session-options">{suggestedSessions.map((session) => <button key={session} className={sessionPlan === session ? "selected" : ""} onClick={() => setSessionPlan(session)}>{session}</button>)}</div>
+      <label className="field-label" htmlFor="session-plan">OR TELL FIGHTIQ YOUR PLAN</label>
+      <input id="session-plan" className="session-plan-input" value={sessionPlan} onChange={(event) => setSessionPlan(event.target.value)} placeholder="e.g. Muay Thai class, then light sparring" maxLength={240} />
+      <button className="primary-button" onClick={() => setShowBrief(true)} disabled={!sessionPlan.trim()}>SHOW MY BRIEF <ChevronRight size={18} /></button>
+    </> : <>
+      <button className="back-to-plan" onClick={() => setShowBrief(false)}><ArrowLeft size={15} /> Change session</button>
+      <p className="eyebrow">YOUR QUICK RECAP</p><h2 id="pre-training-title">For {sessionPlan}</h2><p className="brief-intro">This is the one thread to carry in from your recent training.</p>
+      <div className="brief-detail"><span>MISSION</span><strong>{brief.mission}</strong><p>{brief.reason}</p></div>
+      <div className="brief-cue"><span>ONE CUE</span><strong>{brief.cue}</strong></div>
+      {error && <p className="error-message" role="alert">{error}</p>}
+      <button className="primary-button" onClick={() => void beginTraining()} disabled={starting}>{starting ? "SETTING YOUR BRIEF…" : "I’M TRAINING NOW"}</button>
+      <p className="checkin-note">FightIQ will ask how this went when you log afterward.</p>
+    </>}
+  </section></div>;
+}
+
+function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: string; onLog: () => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<void> }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -60,6 +96,8 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
 
+      {brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
+
       <section className="insight-card">
         <p className="eyebrow">FIGHTIQ INSIGHT</p>
         <h2>{insight.title}</h2>
@@ -67,13 +105,12 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
         <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
 
-      {brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={onStartTraining}>I&apos;M TRAINING NOW <ChevronRight size={14} /></button></div></section>}
-
       <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>
 
       <h2 className="section-heading">FOR YOUR GAME</h2>
       {firstVideo ? <article className="video-card"><a className="video-thumb real-video-thumb" href={firstVideo.url} target="_blank" rel="noreferrer"><img src={firstVideo.thumbnail} alt={`Video thumbnail for ${firstVideo.title}`} /><div className="play"><ChevronRight size={22} fill="currentColor" /></div><span className="duration">{firstVideo.duration}</span></a><div className="video-copy"><span className="video-type">{firstVideo.discipline}</span><h3>{firstVideo.title}</h3><p>{firstVideo.description}</p><button className="text-link" onClick={onLearn}>Why FightIQ picked this <ChevronRight size={14} /></button></div></article> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
+      {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); setBriefOpen(false); }} />}
     </main>
   );
 }
@@ -278,11 +315,14 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     else if (name === "Workout") setScreen("workout");
     else if (name === "Food") setScreen("food");
   }
-  async function startTraining() {
-    try { await fetch("/api/pre-training/start", { method: "POST" }); } finally { setScreen("log"); }
+  async function startTraining(sessionPlan: string) {
+    const response = await fetch("/api/pre-training/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionPlan }) });
+    const payload = await response.json() as { error?: { message?: string } };
+    if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t start that training brief.");
+    setToast("Brief set. Tell FightIQ how it went after training.");
   }
   return <div className="app-frame">
-    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={() => void startTraining()} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={() => setScreen("log")} onLearn={() => setScreen("learn")} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} />}
     {screen === "learn" && <LearnScreen />}
     {screen === "coach" && <CoachScreen />}

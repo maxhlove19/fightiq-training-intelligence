@@ -191,6 +191,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const [debriefPhase, setDebriefPhase] = useState<"log" | "loading" | "question" | "complete" | "error">(initialEntryId ? "loading" : "log");
   const [answer, setAnswer] = useState("");
   const [answerMethod, setAnswerMethod] = useState<"text" | "voice">("text");
+  const [showCustomAnswer, setShowCustomAnswer] = useState(false);
   const [error, setError] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement | null>(null);
@@ -199,14 +200,6 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const debriefPollAttemptsRef = useRef(0);
 
   useEffect(() => () => { recognitionRef.current?.stop(); if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current); }, []);
-  useEffect(() => {
-    if (!initialEntryId || restoredRef.current) return;
-    restoredRef.current = true;
-    void restoreDebrief(initialEntryId);
-    // Restore is deliberately keyed only to the entry in the URL; its request helpers do not
-    // represent reactive inputs and including them would restart an in-flight debrief.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialEntryId]);
   useEffect(() => { if (debriefPhase === "question") questionHeadingRef.current?.focus(); }, [debriefPhase, debrief?.question?.id]);
 
   function scheduleDebriefPoll(id: string) {
@@ -298,6 +291,15 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     } catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t restore your debrief."); setDebriefPhase("error"); }
   }
 
+  useEffect(() => {
+    if (!initialEntryId || restoredRef.current) return;
+    restoredRef.current = true;
+    void restoreDebrief(initialEntryId);
+    // Restore is deliberately keyed only to the entry in the URL; its request helpers do not
+    // represent reactive inputs and including them would restart an in-flight debrief.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEntryId]);
+
   async function respond(action: "answer" | "skip" | "finish", value = answer, method: "chip" | "text" | "voice" = answerMethod) {
     if (!entryId || submitting) return;
     if (action === "answer" && !value.trim()) return;
@@ -348,10 +350,9 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       <section className="question-card">
         <p className="eyebrow">QUICK QUESTION</p>
         <h2 ref={questionHeadingRef} tabIndex={-1}>{debrief.question.prompt}</h2>
-        <div className="answer-compose"><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setAnswerMethod("text"); }} placeholder="Talk or type a different answer…" aria-label="Your answer" /><button className={`answer-mic ${answerListening ? "listening" : ""}`} onClick={toggleAnswerListening} aria-label={answerListening ? "Stop listening" : "Answer by voice"}>{answerListening ? <X size={20} /> : <Mic size={20} />}</button></div>
+        {debrief.question.choices.length > 0 && <><p className="tap-answer-label">CHOOSE THE CLOSEST ANSWER</p><div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div></>}
+        {!showCustomAnswer && debrief.question.choices.length > 0 ? <button className="type-toggle debrief-custom-answer" onClick={() => setShowCustomAnswer(true)}>Give a different answer</button> : <><div className="answer-compose"><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setAnswerMethod("text"); }} placeholder="Talk or type your answer…" aria-label="Your answer" /><button className={`answer-mic ${answerListening ? "listening" : ""}`} onClick={toggleAnswerListening} aria-label={answerListening ? "Stop listening" : "Answer by voice"}>{answerListening ? <X size={20} /> : <Mic size={20} />}</button></div><button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> {error ? "RETRY ANSWER" : "SEND ANSWER"}</>}</button></>}
         {error && <p className="error-message" role="alert">{error}</p>}
-        <button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> {error ? "RETRY ANSWER" : "SEND ANSWER"}</>}</button>
-        {debrief.question.choices.length > 0 && <><p className="tap-answer-label">OR USE A QUICK ANSWER</p><div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div></>}
         <div className="debrief-secondary-actions"><button onClick={() => respond("skip")} disabled={submitting}>Skip this question</button><span aria-hidden="true">·</span><button onClick={() => respond("finish")} disabled={submitting}>Finish for now</button></div>
       </section>
       <p className="sr-status" aria-live="polite">{submitting ? "Saving your answer and preparing the next step." : ""}</p>

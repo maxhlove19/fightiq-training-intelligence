@@ -1,6 +1,8 @@
-// This is a safety ceiling, not a prescribed interview length. The model ends the
-// conversation as soon as another answer would not materially change the next test.
-const MAX_CLARIFYING_QUESTIONS = 3;
+// Logging needs to stay lighter than a form. FightIQ may ask one optional
+// clarification, then turns the athlete's note and answer into the next test.
+// A later session can supply more evidence; it does not need to be extracted
+// from one sitting.
+const MAX_CLARIFYING_QUESTIONS = 1;
 const evidenceGaps = ["mechanics", "timing", "balance_or_mobility", "side_or_stance", "resistance_or_context", "coach_cue", "attempted_correction", "experiment_outcome", "other"] as const;
 
 export type DebriefMemory = {
@@ -71,7 +73,7 @@ Rules:
 - Preserve the athlete's raw account. Never invent facts. Treat anything the athlete says a coach/instructor taught as high-value instructor_detail memory, quoted or closely paraphrased, never as your own instruction.
 - Keep reported coach details separate from FightIQ explanations. coach_detail contains only the athlete's report of what their coach said. fightiq_explanation must use uncertainty language when causal reasoning is not certain.
 - Speak like a concise human coach: natural sentences, no Markdown, no headings, no bullets, no report language. Keep each field short.
-- Ask one short question at a time, only while the answer could materially improve the athlete's next experiment. Do not use a fixed question count. Do not repeat facts already stated. When a pre-training experiment exists, first ask how that specific test went. Do not reuse a target_field already asked unless the athlete's answer explicitly left that exact gap unresolved.
+- Ask at most one short optional question per training log, and only when the answer could materially improve the athlete's next experiment. After the athlete answers, complete the debrief; later sessions are the right place to learn more. Do not repeat facts already stated. When a pre-training experiment exists, use that one question to ask how the specific test went.
 - For vague notes, clarify the observed problem before naming a cause. Useful uncertainty includes what happened, what worked or failed, side/situation, mechanics versus timing/balance/mobility, resistance, an instructor cue, and what the athlete tried.
 - Set intelligence.follow_up_needed true and status question only when a further answer is materially useful. Otherwise set it false and status complete. Never turn a single observation into a confirmed weakness.
 - Keep athlete-reported facts in reported_facts. Put only qualified FightIQ reasoning in fightiq_hypotheses and suspected_cause. Instructor teaching belongs in coach_instructor_cue and memory.instructor_details, not as FightIQ advice.
@@ -88,7 +90,7 @@ export async function generateDebrief(args: {
   const mustClarifyInitial = args.history.length === 0 && needsInitialClarification(args.entry, args.activeExperiment);
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
-      const result = mockDebrief(args.entry, args.history);
+      const result = mockDebrief(args.entry, args.history, args.activeExperiment);
       if (!allowQuestion && result.status === "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ exceeded the question limit.", 502);
       return result;
     }
@@ -113,7 +115,7 @@ export async function generateDebrief(args: {
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: JSON.stringify({
-            task: args.history.length === 0 ? "Create the initial takeaway. Ask the first clarification question only if the raw note leaves a material uncertainty." : "Use the answer to update training intelligence. Ask another question only if it materially changes the next experiment; otherwise complete the debrief.",
+            task: args.history.length === 0 ? "Create the initial takeaway. Ask one optional clarification only if the raw note leaves a material uncertainty." : "Use the athlete's answer to update training intelligence, then complete the debrief. Do not ask another question.",
             must_ask_question: mustClarifyInitial,
             allow_another_question: allowQuestion,
             next_question_sequence: nextSequence,
@@ -159,8 +161,19 @@ export async function generateDebrief(args: {
   try { result = validateDebriefResult(parsed); }
   catch { result = resilientDebrief(args.entry, args.history, args.activeExperiment); }
   if (mustClarifyInitial && result.status === "complete") result = requiredInitialQuestion(args.entry, result, args.activeExperiment);
-  if (!allowQuestion && result.status === "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ exceeded the question limit.", 502);
+  // A question-count mistake should never turn an already-saved answer into an
+  // error/retry loop. Keep the useful extraction and end the conversation.
+  if (!allowQuestion && result.status === "question") result = completeAfterAnswer(result);
   return result;
+}
+
+function completeAfterAnswer(result: DebriefResult): DebriefResult {
+  return {
+    ...result,
+    status: "complete",
+    intelligence: { ...result.intelligence, follow_up_needed: false },
+    question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+  };
 }
 
 function needsInitialClarification(entry: Entry, activeExperiment?: Record<string, unknown> | null) {
@@ -237,14 +250,14 @@ async function hashIdentifier(value: string) {
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 48);
 }
 
-function mockDebrief(entry: Entry, history: History): DebriefResult {
+function mockDebrief(entry: Entry, history: History, activeExperiment?: Record<string, unknown> | null): DebriefResult {
   const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [], reported_facts: [], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: [] };
   const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique: "", goal: "", problem: "", suspected_cause: "", coach_instructor_cue: "", what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length < 1, reported_facts: [entry.raw_entry], fightiq_hypotheses: [], experiment_result: "unknown" };
-  if (history.length >= 1) return {
-    status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail. Now see whether it stays there once the pace picks up.",
-    coach_detail: "", fightiq_explanation: "Before we settle on a cause, it helps to know where the detail first starts to slip.",
-    next_session_focus: "Notice the moment the detail stops working, then test one small change.", confidence: .82, memory,
-    intelligence: { ...intelligence, follow_up_needed: false, confidence: .72 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+  if (history.length >= 1 || !needsInitialClarification(entry, activeExperiment)) return {
+    status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "Your session is saved with the detail you logged.",
+    coach_detail: "", fightiq_explanation: history.length ? "FightIQ needs more repeated evidence before calling this a pattern." : "",
+    next_session_focus: "", confidence: history.length ? .72 : .35, memory,
+    intelligence: { ...intelligence, follow_up_needed: false, confidence: history.length ? .72 : .35 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const first: Record<string, [string, string[], string]> = {
     MMA: ["Where did it first start to fall apart?", ["At the entry", "Against the fence", "During the transition"], "mechanics"],
@@ -275,8 +288,10 @@ function resilientDebrief(entry: Entry, history: History, activeExperiment?: Rec
   const answerLower = lastAnswer.toLowerCase();
   const experimentResult = /\b(helped|better|improved|worked)\b/.test(answerLower) ? "helped" : /\b(no|not|worse|didn't|did not)\b/.test(answerLower) ? "not_helped" : "unknown";
   const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique, goal: kickSession ? "Cleaner kick mechanics" : "", problem: "", suspected_cause: "", coach_instructor_cue: coachDetail, what_worked: experimentResult === "helped" ? lastAnswer : "", what_failed: experimentResult === "not_helped" ? lastAnswer : "", context: entry.session_type, confidence: .35, follow_up_needed: history.length === 0, reported_facts: [note, ...answeredFacts], fightiq_hypotheses: [], experiment_result: experimentResult };
-  if (history.length > 0) return {
-    status: "complete", summary: note.slice(0, 220), takeaway: lastAnswer ? `You reported: ${lastAnswer.slice(0, 160)}` : "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: "FightIQ needs more repeated evidence before calling this a pattern.", next_session_focus: kickSession ? "Use controlled reps and notice whether the support-foot pivot changes your rotation and balance." : "Repeat one clear detail and notice what changes as the pace picks up.", confidence: .58, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: .58 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+  // The resilient path must follow the same low-friction promise as the model:
+  // rich notes complete directly, and one answer completes a clarification.
+  if (history.length > 0 || !needsInitialClarification(entry, activeExperiment)) return {
+    status: "complete", summary: note.slice(0, 220), takeaway: lastAnswer ? `You reported: ${lastAnswer.slice(0, 160)}` : "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: history.length > 0 ? "FightIQ needs more repeated evidence before calling this a pattern." : "", next_session_focus: "", confidence: history.length > 0 ? .58 : .35, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: history.length > 0 ? .58 : .35 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const prompt = activeMission
     ? activeCue ? `When you used “${activeCue},” what changed as you worked on ${activeMission.toLowerCase()}?` : `What changed when you worked on ${activeMission.toLowerCase()} today?`

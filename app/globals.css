@@ -220,6 +220,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .answer-choices button:hover, .answer-choices button:focus-visible { border-color: #35608f; background: #101b2a; }
 .answer-choices button svg { color: var(--blue-bright); }
 .answer-choices button:disabled { opacity: .45; }
+.debrief-custom-answer { margin: 1px auto 12px; font-size: 12px; }
 .answer-compose { position: relative; margin: 0 0 13px; }
 .answer-compose textarea { width: 100%; min-height: 104px; resize: vertical; border: 1px solid var(--line); border-radius: 15px; padding: 15px 52px 15px 15px; color: var(--ink); background: var(--surface); outline: none; line-height: 1.5; font-size: 13px; }
 .answer-compose textarea:focus { border-color: #315a89; box-shadow: 0 0 0 3px rgba(29,130,255,.08); }

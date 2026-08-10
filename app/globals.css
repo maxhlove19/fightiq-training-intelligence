@@ -1127,3 +1127,24 @@ body { letter-spacing: .003em; }
 .learn-video.studying .why-detail summary, .learn-video.studying .watch-link { font-size: 11px; }
 .learn-video.studying .why-detail p { font-size: 11.5px; line-height: 1.5; }
 .learn-video.studying .watch-link { display: inline-flex; margin-top: 12px; color: var(--muted); }
+
+
+/* The safety notice has to be readable before anything else on the screen and
+   impossible to mistake for coaching. It never uses the app's blue. */
+.safety-notice { border: 1px solid rgba(255,138,110,.42); border-radius: 16px; background: linear-gradient(180deg, rgba(196,72,44,.16), rgba(196,72,44,.05)); padding: 17px 16px 15px; margin: 0 0 16px; }
+.safety-notice.head_impact { border-color: rgba(255,110,86,.62); background: linear-gradient(180deg, rgba(214,64,38,.22), rgba(214,64,38,.06)); box-shadow: 0 14px 40px rgba(150,30,10,.16); }
+.safety-notice.illness_or_load { border-color: rgba(226,178,74,.42); background: linear-gradient(180deg, rgba(198,146,44,.15), rgba(198,146,44,.04)); }
+.safety-notice .eyebrow { display: flex; align-items: center; gap: 6px; color: #ff9d80; margin-bottom: 9px; }
+.safety-notice.illness_or_load .eyebrow { color: #e9c377; }
+.safety-notice h2 { margin: 0 0 9px; font-size: 19px; line-height: 1.22; letter-spacing: -.02em; color: var(--ink); }
+.safety-body { margin: 0 0 13px; color: #f0dfd8; font-size: 13.5px; line-height: 1.55; }
+.safety-advice { margin: 0; padding-left: 18px; display: grid; gap: 7px; }
+.safety-advice li { color: #e6d6d0; font-size: 13px; line-height: 1.5; }
+.safety-redflags { margin-top: 14px; border: 1px solid rgba(255,110,86,.4); border-radius: 12px; background: rgba(8,4,3,.45); padding: 12px 13px; }
+.safety-redflags > span { display: block; color: #ff8a6e; font-size: 9px; font-weight: 800; letter-spacing: .14em; margin-bottom: 8px; }
+.safety-redflags ul { margin: 0; padding-left: 17px; display: grid; gap: 5px; }
+.safety-redflags li { color: #f3ded8; font-size: 12.5px; line-height: 1.45; }
+.safety-source { margin: 13px 0 0; color: #c2a79f; font-size: 11px; line-height: 1.5; }
+.safety-dismiss { margin-top: 11px; border: 0; background: transparent; padding: 6px 0; color: #c2a79f; font-size: 11.5px; text-decoration: underline; cursor: pointer; }
+.next-focus.held strong { color: #ffb59e; }
+.next-focus.held small { display: block; margin-top: 6px; color: var(--muted); font-size: 11.5px; line-height: 1.5; }

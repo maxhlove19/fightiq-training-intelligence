@@ -269,6 +269,20 @@
   .w-tog{width:100%;border:1px solid rgba(217,119,87,.4);border-radius:12px;padding:12px;text-align:center;font-size:13px;font-weight:650;color:#F0CDBC;transition:background .15s}
   .w-tog[aria-pressed="true"]{background:rgba(217,119,87,.16)}
   .w-drill{display:flex;flex-direction:column;gap:9px}
+  .safety{border:1px solid rgba(255,110,86,.55);border-radius:16px;background:linear-gradient(180deg,rgba(214,64,38,.20),rgba(214,64,38,.05));padding:16px;display:flex;flex-direction:column;gap:10px}
+  .safety .lbl{display:flex;align-items:center;gap:6px}
+  .safety h2{font-size:18px;font-weight:660;line-height:1.22;letter-spacing:-.02em}
+  .s-body{color:#F0DFD8;font-size:13px;line-height:1.55}
+  .s-advice{margin:0;padding-left:17px;display:flex;flex-direction:column;gap:6px}
+  .s-advice li{color:#E6D6D0;font-size:12.5px;line-height:1.5}
+  .s-red{border:1px solid rgba(255,110,86,.4);border-radius:12px;background:rgba(8,4,3,.5);padding:11px 12px}
+  .s-red>span{display:block;color:#FF8A6E;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px}
+  .s-red ul{margin:0;padding-left:16px;display:flex;flex-direction:column;gap:4px}
+  .s-red li{color:#F3DED8;font-size:12px;line-height:1.45}
+  .s-src{color:#C2A79F;font-size:11px;line-height:1.5}
+  .next.held{border-color:rgba(217,119,87,.3);background:rgba(217,119,87,.08)}
+  .sample.rough{border-color:rgba(217,119,87,.4);color:#E7BCA9}
+  .sample.rough b{color:var(--coral)}
   .drow{display:flex;align-items:flex-start;gap:11px;border:1px solid rgba(63,190,122,.22);background:rgba(63,190,122,.07);border-radius:13px;padding:12px 13px;width:100%}
   .drow .box{flex:0 0 auto;width:20px;height:20px;border-radius:6px;border:1px solid rgba(63,190,122,.5);display:grid;place-items:center;color:transparent;margin-top:1px}
   .drow[aria-pressed="true"] .box{background:var(--success);border-color:var(--success);color:#08130C}
@@ -411,6 +425,22 @@
   </section>
 
   <section class="blk">
+    <div class="kicker"><h2>When the answer is "don't train"</h2><hr class="rule"/></div>
+    <div class="prose">
+      <p class="lede">FightIQ reads what you wrote and tells you what to work on. In combat sports, that is a dangerous thing to do without checking one thing first.</p>
+      <p>Session notes contain sentences like <b>"got rocked in the third and felt dizzy after"</b>. An app that reads that as a technique problem and answers with a drill for tonight is actively doing harm. So before any analysis runs, a scan reads the raw note for head knocks, acute injuries, and the illness and load signals athletes talk themselves out of.</p>
+      <p>It never asks a model. It runs on your own words, deterministically, so it fires even when the analysis is unavailable or simply wrong about the session — and it is tuned to <b>over-fire</b>, because a false alarm costs one dismissible card and a miss tells a concussed fighter to go and spar.</p>
+      <p>When it finds a head knock, FightIQ stops recommending training. Not just on that screen: the session never becomes the focus the app pushes at you afterwards. Then it does the only useful thing software can do here — say plainly that it cannot assess you, that a qualified person has to, and what would mean emergency care rather than wait-and-see.</p>
+    </div>
+    <div class="honest" style="border-color:rgba(255,110,86,.34);background:linear-gradient(180deg,rgba(214,64,38,.13),rgba(214,64,38,.04))">
+      <h3 style="color:#FF9D80">See it work</h3>
+      <ul>
+        <li style="color:#F0DFD8">Open the demo below, go to <b style="color:#fff">Train</b>, and tap the second sample — <b style="color:#fff">"a session that went badly"</b>. The same scan runs on this page.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="blk">
     <div class="kicker"><h2>What's in it</h2><hr class="rule"/></div>
     <dl class="surfaces">
       <div class="srow"><dt>Home</dt><dd>Today's read: the one thing to work on, and a receipt for why FightIQ picked it.</dd></div>
@@ -427,6 +457,7 @@
       <h3>What's real in this demo</h3>
       <ul>
         <li><b>The analysis is pre-written.</b> Your note is matched to one of five prepared reads by keyword — there's no model running on this page.</li>
+        <li><b>The safety scan is the real thing.</b> It reads your words the same way here as it does in the app, and holds the training recommendation the same way. It is pattern matching on language, not a medical assessment — deliberately quick to fire, and dismissible when it is wrong.</li>
         <li><b>The 3D breakdowns are hand-built models</b> of four techniques — bodies posed by hand to hit real coaching points. Not motion capture, and not footage of a real athlete.</li>
         <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with. This page can't play them inline — a published page like this one is sandboxed away from external media — but <b>the app plays them in place</b>, with the detail to look for pinned under the player.</li>
         <li><b>Nothing is saved.</b> Reload and the demo starts clean.</li>
@@ -480,6 +511,7 @@
     lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     brain:'<path d="M12 5a3 3 0 0 0-3 3 3 3 0 0 0-1 5.8V17a3 3 0 0 0 6 0V5z"/><path d="M12 5a3 3 0 0 1 3 3 3 3 0 0 1 1 5.8V17a3 3 0 0 1-6 0"/>',
     check:'<path d="m4 12 5 5L20 6"/>',
+    warn:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
     orbit:'<ellipse cx="12" cy="12" rx="10" ry="4.5"/><circle cx="12" cy="12" r="3"/>',
     info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01"/>'
   };
@@ -489,6 +521,7 @@
   const ytSearch=q=>'https://www.youtube.com/results?search_query='+encodeURIComponent(q);
   const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  const ROUGH="MMA sparring tonight. Got rocked by a left hook in the third round and felt dizzy after, so I sat the rest out. Head is still banging a bit.";
   const SAMPLE="Did BJJ today. We worked arm drags. Professor said to grab behind the armpit rather than the tricep. I had trouble turning the corner to the back. During rolling I kept getting flattened from half guard.";
 
   /* ---------- technique breakdowns ------------------------------------
@@ -681,7 +714,7 @@
   };
 
   const st={
-    tab:'welcome', why:false, note:'', listening:false,
+    tab:'welcome', why:false, safety:null, note:'', listening:false,
     phase:'compose', analysis:null, topic:null, lastNote:'',
     learnTab:'For You', perfTab:'Today',
     saved:{}, used:3,
@@ -732,6 +765,39 @@
     }}
   ];
   const matchRule=t=>RULES.find(r=>r.k.test(t))||RULES[RULES.length-1];
+
+  /* A training app that reads your session and tells you what to drill has one
+     job before it says anything about technique. This is the demo of the
+     deterministic scanner that ships in the app: it reads the raw note, never
+     the model's summary, so it fires even when the analysis doesn't. */
+  const HEAD=[[/\bconcus(sion|sed)\b/i,'concussion'],[/\b(knocked out|ko'?d|out cold|blacked out|passed out)\b/i,'knocked out'],
+    [/\b(got|was|felt) (rocked|buzzed|stunned|wobbled)\b|\brocked me\b/i,'got rocked'],[/\b(got|was) dropped\b|\bdropped me\b/i,'got dropped'],
+    [/\b(saw stars|lights went out)\b/i,'saw stars'],[/\b(dizzy|dizziness|light ?headed)\b/i,'dizzy'],
+    [/\bheadache|head is (banging|pounding)\b/i,'headache'],[/\b(blurr?y|double) vision\b/i,'vision problems'],
+    [/\b(nausea|nauseous|threw up|vomit)\b/i,'nausea'],[/\b(ears? ringing|ringing in my ears)\b/i,'ringing ears'],
+    [/\b(can'?t|don'?t) remember\b/i,"can't remember"],[/\b(hit|banged|bounced) (my|the back of my) head\b/i,'hit my head']];
+  const NEG=/\b(no|not|never|didn'?t|don'?t|wasn'?t)\b(?![^.!?]*\b(but|though)\b)[^.!?]{0,24}$/i;
+  function safetyScan(note){
+    const t=String(note||'');
+    const hit=[];
+    HEAD.forEach(([re,label])=>{
+      const m=re.exec(t);
+      if(m && !NEG.test(t.slice(Math.max(0,m.index-26),m.index))) hit.push(label);
+    });
+    if(!hit.length) return null;
+    return {
+      matched:hit,
+      title:'Stop training and get your head checked',
+      body:'You wrote about '+hit.join(', ')+". That is how a head injury shows up, and no app — this one included — can tell the difference between a rattle and something that needs treating. FightIQ is holding your next session plan until a qualified person has looked at you.",
+      advice:['Do not train, spar, roll or lift again today. Not even light rounds.',
+        'Get seen by a doctor or another qualified medical professional before your next session.',
+        'Tell your coach and someone at home, so you are not the only person watching for it.',
+        'Symptoms can arrive or get worse hours later.'],
+      red:['A headache that keeps getting worse','Being sick repeatedly','A seizure or fit',
+        'Weakness, numbness, or trouble walking, talking or seeing','Getting more confused or drowsy, or being hard to wake',
+        'Clear fluid or blood from the nose or ears','Neck pain after the impact']
+    };
+  }
   const artOf=t=>/bjj|jiu|guard|arm drag|roll/i.test(t)?'BJJ':/muay thai|teep|clinch|kick/i.test(t)?'Muay Thai':/wrestl|single leg|takedown/i.test(t)?'Wrestling':/box|jab|hook/i.test(t)?'Boxing':'Training';
 
   const LEARN=[
@@ -817,12 +883,27 @@
           <button data-newlog="1" style="color:var(--t2)" aria-label="Back to logging">${s('back',18)}</button>
           <h1 class="h-title" style="font-size:21px">Session Analysis</h1>
         </div>
+        ${st.safety?`
+        <section class="safety" role="alert">
+          <span class="lbl" style="color:#FF9D80">${s('warn',13)} Stop — read this first</span>
+          <h2>${esc(st.safety.title)}</h2>
+          <p class="s-body">${esc(st.safety.body)}</p>
+          <ul class="s-advice">${st.safety.advice.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+          <div class="s-red"><span>Go to emergency care now if any of this happens</span>
+            <ul>${st.safety.red.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
+          <p class="s-src">FightIQ is not a medical service and cannot assess you. This is general safety guidance, triggered by your own words: ${esc(st.safety.matched.join(', '))}.</p>
+        </section>`:''}
         <div class="an-sec"><span class="lbl dim">Today's training</span><p class="quote">${esc(st.lastNote)}</p></div>
         <div class="an-sec"><span class="lbl sig">What you learned</span><p>${esc(a.learned)}</p></div>
         <div class="an-sec"><span class="lbl sig">What gave you trouble</span><p>${esc(a.trouble)}</p></div>
         <div class="an-sec"><span class="lbl sig">Why it works</span><p>${esc(a.why)}</p></div>
         <div class="remember"><span class="lbl gold">Remember this</span><p>${esc(a.remember)}</p></div>
-        <div class="next"><span class="lbl" style="color:var(--success)">Next session</span><p>${esc(a.next)}</p></div>
+        ${st.safety?`
+        <div class="next held"><span class="lbl" style="color:var(--coral)">Next session</span>
+          <p style="color:#F3CDBE">On hold until you have been checked.</p>
+          <p style="color:var(--t3);font-size:12px">FightIQ keeps what it learned about your technique. It won't tell you what to go and train off the back of this session.</p>
+        </div>`:`
+        <div class="next"><span class="lbl" style="color:var(--success)">Next session</span><p>${esc(a.next)}</p></div>`}
         ${st.topic?`
         <div class="an-sec">
           <span class="lbl dim">Hard to picture?</span>
@@ -845,7 +926,10 @@
           <span class="count">${n} character${n===1?'':'s'}</span>
         </div>
       </div>
-      ${n<12?`<button class="sample" data-sample="1">Try it with a sample note — <b>tap here</b></button>`:''}
+      ${n<12?`<div style="display:flex;flex-direction:column;gap:8px">
+        <button class="sample" data-sample="1">Try it with a sample note — <b>tap here</b></button>
+        <button class="sample rough" data-sample="2">Or try a session that went badly — <b>tap here</b></button>
+      </div>`:''}
       <button class="btn" data-analyze="1" ${n<12?'disabled':''}>${s('spark',17)} Analyze session</button>
       <button class="btn-ghost" data-save="1">Save without analysis</button>
       <div style="margin-top:6px"><span class="lbl dim">Past sessions</span></div>
@@ -1653,7 +1737,7 @@
     if(d.perftab){ st.perfTab=d.perftab; return render(true); }
     if(d.bm){ st.saved[d.bm]=!st.saved[d.bm]; return render(true); }
 
-    if(d.sample){ st.note=SAMPLE; return render(true); }
+    if(d.sample){ st.note=d.sample==='2'?ROUGH:SAMPLE; return render(true); }
     if(d.mic){
       st.listening=!st.listening;
       if(st.listening) setTimeout(()=>{ if(!st.listening) return; st.listening=false; st.note=SAMPLE; render(true); },1500);
@@ -1670,7 +1754,7 @@
       st.lastNote=st.note; st.phase='thinking'; render();
       setTimeout(()=>{
         const rule=matchRule(st.lastNote), a=rule.a;
-        st.analysis=a; st.topic=rule.topic;
+        st.analysis=a; st.topic=rule.topic; st.safety=safetyScan(st.lastNote);
         st.sessions.unshift({art:artOf(st.lastNote),date:'Today',title:'Session Notes',note:st.lastNote});
         st.insight={head:a.trouble,why:"FightIQ read this straight from the session you just logged, and weighted it against what you've logged before."};
         st.focus=a.next;

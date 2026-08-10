@@ -13,6 +13,10 @@ Open it directly in a browser; there is no build step.
   honest list of what is and isn't real in the demo.
 - **Demo** — the phone: welcome screen, Home, Train (log → analysis), Learn,
   Performance, Profile.
+- **The safety scan** — a miniature of `lib/safety-signals.ts`. Logging a note
+  that describes a head knock shows the stop-training notice and holds the
+  next-session recommendation, exactly as the app does. Keep the two in step:
+  if the real scanner changes, this demo should change with it.
 - **3D technique breakdowns** — a looping, step-through player for four
   techniques (arm drag to back take, half guard underhook, round kick pivot,
   single leg finish). Bodies are built from joint angles and rendered as

@@ -14,7 +14,7 @@ export function getRuntime() {
   return { db: runtime.DB, apiKey: runtime.OPENAI_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
 }
 
-export async function persistDebriefResult(db: D1, entryId: string, ownerId: string, result: DebriefResult, sequence: number) {
+export async function persistDebriefResult(db: D1, entryId: string, ownerId: string, result: DebriefResult, sequence: number, safetyHold = false) {
   const now = new Date().toISOString();
   const status = result.status === "complete" ? "complete" : "question";
   const structuredMemory = JSON.stringify({ ...result.memory, intelligence: result.intelligence });
@@ -26,8 +26,11 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
     ? fighterBrainEvidenceStatements(db, ownerId, entry, structuredMemory, result.confidence)
     : [];
   // A recommendation can evolve after a high-confidence completed debrief. It is
-  // not the same field as an athlete's manually pinned current focus.
+  // not the same field as an athlete's manually pinned current focus. A session
+  // that reported a head knock or an injury never becomes the thing the app
+  // tells this athlete to go and work on.
   const shouldRecommendFocus = result.status === "complete"
+    && !safetyHold
     && result.confidence >= 0.7
     && Boolean(result.next_session_focus.trim());
   const statements = [

@@ -5,7 +5,6 @@ import { AlertTriangle } from "lucide-react";
 
 export type SafetySignal = {
   level: "head_impact" | "acute_injury" | "illness_or_load" | "none";
-  language: "en" | "pt";
   matched: string[];
   eyebrow: string;
   title: string;
@@ -26,9 +25,8 @@ export type SafetySignal = {
  *
  * It never diagnoses. It shows which of the athlete's own words triggered it,
  * so a wrong call is obvious and can be dismissed. Every string comes from the
- * signal rather than from here, because the scan answers in the language the
- * athlete wrote in — nothing on this card should be in a language they might
- * not read.
+ * signal rather than from here, so the copy that matters most is reviewable in
+ * one place.
  */
 export function SafetyNotice({ signal, storageKey }: { signal: SafetySignal; storageKey: string }) {
   // Only rendered after a fetch resolves on the client, so reading storage in
@@ -39,7 +37,7 @@ export function SafetyNotice({ signal, storageKey }: { signal: SafetySignal; sto
   });
   if (signal.level === "none" || dismissed) return null;
   const urgent = signal.level === "head_impact";
-  return <section className={`safety-notice ${signal.level}`} role={urgent ? "alert" : "status"} lang={signal.language}>
+  return <section className={`safety-notice ${signal.level}`} role={urgent ? "alert" : "status"}>
     <p className="eyebrow"><AlertTriangle size={13} /> {signal.eyebrow}</p>
     <h2>{signal.title}</h2>
     <p className="safety-body">{signal.body}</p>

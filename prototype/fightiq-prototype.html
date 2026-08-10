@@ -57,11 +57,13 @@
   .prose b{font-weight:500;color:var(--fg)}
   .prose .lede{font-size:19px;color:var(--fg)}
 
-  .loop{display:grid;gap:14px;grid-template-columns:repeat(3,1fr)}
+  .loop{display:grid;gap:14px;grid-template-columns:repeat(2,1fr)}
+  @media (min-width:820px){.loop{grid-template-columns:repeat(4,1fr)}}
   .beat{border:1px solid var(--line);border-top:2px solid var(--line-2);background:var(--paper);padding:18px 17px 20px;display:flex;flex-direction:column;gap:9px}
   .beat:nth-child(1){border-top-color:var(--signal)}
   .beat:nth-child(2){border-top-color:var(--gold)}
   .beat:nth-child(3){border-top-color:var(--success)}
+  .beat:nth-child(4){border-top-color:var(--coral)}
   .beat .n{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.2em;color:var(--t3)}
   .beat h3{font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:.04em;text-transform:uppercase}
   .beat p{font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--t2)}
@@ -355,6 +357,11 @@
         <h3>See it</h3>
         <p>Can't picture the correction? Spin the movement around in 3D, flip to the version most people get wrong, then watch the real footage.</p>
       </article>
+      <article class="beat">
+        <span class="n">STEP 04</span>
+        <h3>Zoom out</h3>
+        <p>Nobody improves inside one session. Every seven days, the themes your notes kept returning to — and the ones that went quiet.</p>
+      </article>
     </div>
   </section>
 
@@ -430,7 +437,6 @@
       <p class="lede">FightIQ reads what you wrote and tells you what to work on. In combat sports, that is a dangerous thing to do without checking one thing first.</p>
       <p>Session notes contain sentences like <b>"got rocked in the third and felt dizzy after"</b>. An app that reads that as a technique problem and answers with a drill for tonight is actively doing harm. So before any analysis runs, a scan reads the raw note for head knocks, acute injuries, and the illness and load signals athletes talk themselves out of.</p>
       <p>It never asks a model. It runs on your own words, deterministically, so it fires even when the analysis is unavailable or simply wrong about the session — and it is tuned to <b>over-fire</b>, because a false alarm costs one dismissible card and a miss tells a concussed fighter to go and spar.</p>
-      <p>It reads <b>English and Portuguese</b>, and answers in whichever one you wrote in. “levei uma bomba, tô tonto” has to land exactly as hard as “got rocked, feeling dizzy” — this sport does not train in one language, and this is the one screen where being understood is not optional.</p>
       <p>When it finds a head knock, FightIQ stops recommending training. Not just on that screen: the session never becomes the focus the app pushes at you afterwards. Then it does the only useful thing software can do here — say plainly that it cannot assess you, that a qualified person has to, and what would mean emergency care rather than wait-and-see.</p>
     </div>
     <div class="honest" style="border-color:rgba(255,110,86,.34);background:linear-gradient(180deg,rgba(214,64,38,.13),rgba(214,64,38,.04))">
@@ -458,7 +464,7 @@
       <h3>What's real in this demo</h3>
       <ul>
         <li><b>The analysis is pre-written.</b> Your note is matched to one of five prepared reads by keyword — there's no model running on this page.</li>
-        <li><b>The safety scan is the real thing.</b> It reads your words the same way here as it does in the app, in both languages, and holds the training recommendation the same way. It is pattern matching on language, not a medical assessment — deliberately quick to fire, and dismissible when it is wrong.</li>
+        <li><b>The safety scan is the real thing.</b> It reads your words the same way here as it does in the app, and holds the training recommendation the same way. It is pattern matching on language, not a medical assessment — deliberately quick to fire, and dismissible when it is wrong.</li>
         <li><b>The 3D breakdowns are hand-built models</b> of four techniques — bodies posed by hand to hit real coaching points. Not motion capture, and not footage of a real athlete.</li>
         <li><b>The YouTube links are real</b> and open in a new tab. They're the same vetted studies the production app ships with. This page can't play them inline — a published page like this one is sandboxed away from external media — but <b>the app plays them in place</b>, with the detail to look for pinned under the player.</li>
         <li><b>Nothing is saved.</b> Reload and the demo starts clean.</li>
@@ -522,7 +528,6 @@
   const ytSearch=q=>'https://www.youtube.com/results?search_query='+encodeURIComponent(q);
   const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const ROUGH_PT="Treino de MMA hoje. Levei uma bomba no terceiro round e fiquei tonto, parei por aí. Cabeça ainda latejando.";
   const ROUGH="MMA sparring tonight. Got rocked by a left hook in the third round and felt dizzy after, so I sat the rest out. Head is still banging a bit.";
   const SAMPLE="Did BJJ today. We worked arm drags. Professor said to grab behind the armpit rather than the tricep. I had trouble turning the corner to the back. During rolling I kept getting flattened from half guard.";
 
@@ -778,33 +783,14 @@
     [/\bheadache|head is (banging|pounding)\b/i,'headache'],[/\b(blurr?y|double) vision\b/i,'vision problems'],
     [/\b(nausea|nauseous|threw up|vomit)\b/i,'nausea'],[/\b(ears? ringing|ringing in my ears)\b/i,'ringing ears'],
     [/\b(can'?t|don'?t) remember\b/i,"can't remember"],[/\b(hit|banged|bounced) (my|the back of my) head\b/i,'hit my head']];
-  const HEAD_PT=[[/\bconcuss(ão|ao)\b/i,'concussão'],[/\b(nocaute|nocauteado)\b/i,'nocaute'],
-    [/\b(apaguei|desmaiei|apagão)\b/i,'apaguei'],[/\bvi estrelas\b/i,'vi estrelas'],
-    [/\bn(ã|a)o (me )?lembro\b/i,'não lembro'],
-    [/\b(levei|tomei) (uma bomba|uma pancada|uma paulada)\b/i,'levei uma bomba'],
-    [/\b(levei|tomei)\b[^.!?]{0,30}\b(na|de) (cabe(ç|c)a|cara|queixo|nuca)\b/i,'levei um golpe na cabeça'],
-    [/\bbati (a|com a) cabe(ç|c)a\b|\bcabe(ç|c)ada\b/i,'bati a cabeça'],
-    [/\b(fiquei|t(ô|o)|estou) (grogue|zonzo|atordoado)\b/i,'fiquei grogue'],
-    [/\b(tont(o|a|ura)|zonzo|tudo rodando)\b/i,'tontura'],
-    [/\bdor de cabe(ç|c)a\b|\bcabe(ç|c)a\b[^.!?]{0,14}\b(latejando|doendo)\b/i,'dor de cabeça'],
-    [/\bvis(ã|a)o (emba(ç|c)ada|turva|dupla)\b/i,'visão embaçada'],
-    [/\b(enjoo|enjoado|n(á|a)usea|vomitei|passando mal)\b/i,'enjoo'],
-    [/\b(zumbido|ouvido zunindo)\b/i,'zumbido no ouvido']];
   const CARD={
-    en:{eyebrow:'Stop — read this first',title:'Stop training and get your head checked',
-      body:x=>'You wrote about '+x.join(', ')+". That is how a head injury shows up, and no app — this one included — can tell the difference between a rattle and something that needs treating. FightIQ is holding your next session plan until a qualified person has looked at you.",
-      advice:['Do not train, spar, roll or lift again today. Not even light rounds.','Get seen by a doctor or another qualified medical professional before your next session.','Tell your coach and someone at home, so you are not the only person watching for it.','Symptoms can arrive or get worse hours later.'],
-      redTitle:'Go to emergency care now if any of this happens',
-      red:['A headache that keeps getting worse','Being sick repeatedly','A seizure or fit','Weakness, numbness, or trouble walking, talking or seeing','Getting more confused or drowsy, or being hard to wake','Clear fluid or blood from the nose or ears','Neck pain after the impact'],
-      src:x=>'FightIQ is not a medical service and cannot assess you. This is general safety guidance, triggered by your own words: '+x.join(', ')+'.',
-      hold:'On hold until you have been checked.',holdNote:"FightIQ keeps what it learned about your technique. It won't tell you what to go and train off the back of this session."},
-    pt:{eyebrow:'Pare — leia isto primeiro',title:'Pare de treinar e vá avaliar sua cabeça',
-      body:x=>'Você escreveu sobre '+x.join(', ')+'. É assim que uma lesão na cabeça aparece, e nenhum aplicativo — nem este — consegue diferenciar um susto de algo que precisa de tratamento. O FightIQ vai segurar o plano do próximo treino até alguém qualificado te examinar.',
-      advice:['Não treine, não role, não faça sparring nem musculação hoje. Nem rounds leves.','Procure um médico ou outro profissional de saúde qualificado antes do próximo treino.','Avise seu professor e alguém em casa, para você não ser a única pessoa de olho nisso.','Os sintomas podem aparecer ou piorar horas depois.'],
-      redTitle:'Procure emergência agora se acontecer qualquer um destes',
-      red:['Dor de cabeça que só piora','Vômitos repetidos','Convulsão','Fraqueza, dormência ou dificuldade para andar, falar ou enxergar','Ficar mais confuso ou sonolento, ou difícil de acordar','Líquido claro ou sangue saindo do nariz ou do ouvido','Dor no pescoço depois do impacto'],
-      src:x=>'O FightIQ não é um serviço médico e não pode te avaliar. Isto é orientação geral de segurança, acionada pelas suas próprias palavras: '+x.join(', ')+'.',
-      hold:'Em espera até você ser avaliado.',holdNote:'O FightIQ guarda o que aprendeu sobre sua técnica. Ele não vai te dizer o que treinar depois desta sessão.'}
+    eyebrow:'Stop — read this first',title:'Stop training and get your head checked',
+    body:x=>'You wrote about '+x.join(', ')+". That is how a head injury shows up, and no app — this one included — can tell the difference between a rattle and something that needs treating. FightIQ is holding your next session plan until a qualified person has looked at you.",
+    advice:['Do not train, spar, roll or lift again today. Not even light rounds.','Get seen by a doctor or another qualified medical professional before your next session.','Tell your coach and someone at home, so you are not the only person watching for it.','Symptoms can arrive or get worse hours later.'],
+    redTitle:'Go to emergency care now if any of this happens',
+    red:['A headache that keeps getting worse','Being sick repeatedly','A seizure or fit','Weakness, numbness, or trouble walking, talking or seeing','Getting more confused or drowsy, or being hard to wake','Clear fluid or blood from the nose or ears','Neck pain after the impact'],
+    src:x=>'FightIQ is not a medical service and cannot assess you. This is general safety guidance, triggered by your own words: '+x.join(', ')+'.',
+    hold:'On hold until you have been checked.',holdNote:"FightIQ keeps what it learned about your technique. It won't tell you what to go and train off the back of this session."
   };
   const NEG=/\b(no|not|never|didn'?t|don'?t|wasn'?t)\b(?![^.!?]*\b(but|though)\b)[^.!?]{0,24}$/i;
   function safetyScan(note){
@@ -813,12 +799,10 @@
       const m=re.exec(t);
       return m && !NEG.test(t.slice(Math.max(0,m.index-26),m.index));
     }).map(([,label])=>label);
-    const enHits=run(HEAD), ptHits=run(HEAD_PT);
-    const hit=[...ptHits,...enHits];
+    const hit=run(HEAD);
     if(!hit.length) return null;
-    // The card answers in the language the athlete wrote in.
-    const c=CARD[ptHits.length?'pt':'en'];
-    return {lang:ptHits.length?'pt':'en',matched:hit,eyebrow:c.eyebrow,title:c.title,body:c.body(hit),
+    const c=CARD;
+    return {matched:hit,eyebrow:c.eyebrow,title:c.title,body:c.body(hit),
       advice:c.advice,redTitle:c.redTitle,red:c.red,src:c.src(hit),hold:c.hold,holdNote:c.holdNote};
   }
 
@@ -908,7 +892,7 @@
           <h1 class="h-title" style="font-size:21px">Session Analysis</h1>
         </div>
         ${st.safety?`
-        <section class="safety" role="alert" lang="${st.safety.lang}">
+        <section class="safety" role="alert">
           <span class="lbl" style="color:#FF9D80">${s('warn',13)} ${esc(st.safety.eyebrow)}</span>
           <h2>${esc(st.safety.title)}</h2>
           <p class="s-body">${esc(st.safety.body)}</p>
@@ -953,7 +937,6 @@
       ${n<12?`<div style="display:flex;flex-direction:column;gap:8px">
         <button class="sample" data-sample="1">Try it with a sample note — <b>tap here</b></button>
         <button class="sample rough" data-sample="2">Or try a session that went badly — <b>tap here</b></button>
-        <button class="sample rough" data-sample="3" lang="pt">Ou em português — <b>toque aqui</b></button>
       </div>`:''}
       <button class="btn" data-analyze="1" ${n<12?'disabled':''}>${s('spark',17)} Analyze session</button>
       <button class="btn-ghost" data-save="1">Save without analysis</button>
@@ -1038,9 +1021,9 @@
           <div><strong>Recovery status</strong><small>See how your training load is trending</small></div>${s('chev',15)}
         </button>
         <div class="card">
-          <span class="lbl gold">Weekly report</span>
-          <p class="body" style="color:var(--fg)">Your latest weekly recap is ready — see what's trending and what to prioritize next week.</p>
-          <button class="link" data-toast="Weekly report isn't built out in this prototype.">Open report ${s('chev',14)}</button>
+          <span class="lbl gold">Your last seven days</span>
+          <p class="body" style="color:var(--fg);font-size:14px">${st.sessions.length===1?'1 session':st.sessions.length+' sessions'} logged so far in this demo. In the app this is a weekly review: sessions and days trained, your longest gap, and the themes your own notes kept returning to — each one marked <b style="color:#FF9D80">still open</b>, <b style="color:#5FC98F">went quiet</b> or <b style="color:var(--signal)">new this week</b>.</p>
+          <p class="body" style="font-size:12px">It reads the sessions already stored, so there is no model call and no waiting. FightIQ can see what you stopped writing down; it can't see what you fixed.</p>
         </div>`}`;
   };
 
@@ -1762,7 +1745,7 @@
     if(d.perftab){ st.perfTab=d.perftab; return render(true); }
     if(d.bm){ st.saved[d.bm]=!st.saved[d.bm]; return render(true); }
 
-    if(d.sample){ st.note=d.sample==='3'?ROUGH_PT:d.sample==='2'?ROUGH:SAMPLE; return render(true); }
+    if(d.sample){ st.note=d.sample==='2'?ROUGH:SAMPLE; return render(true); }
     if(d.mic){
       st.listening=!st.listening;
       if(st.listening) setTimeout(()=>{ if(!st.listening) return; st.listening=false; st.note=SAMPLE; render(true); },1500);

@@ -7,6 +7,7 @@ import {
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
+import { buildWeeklyReview, themeStatusLabel } from "../../lib/weekly-review";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -256,6 +257,37 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   </main>;
 }
 
+// The payoff for logging. Improvement in this sport does not happen inside one
+// session, so this is the first screen that zooms out far enough to show it —
+// computed from sessions already in memory, with no model call and no wait.
+function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["recentTraining"]; target: number }) {
+  const review = useMemo(() => buildWeeklyReview(sessions, target), [sessions, target]);
+  return <section className="week-review">
+    <div className="week-head">
+      <p className="eyebrow">YOUR LAST SEVEN DAYS</p>
+      <h2>{review.headline}</h2>
+      <p className="week-sub">{review.subline}</p>
+    </div>
+    {review.hasData && <>
+      <div className="week-stats">
+        <div><strong>{review.sessions}</strong><small>{review.sessions === 1 ? "session" : "sessions"}</small></div>
+        <div><strong>{review.days}</strong><small>{review.days === 1 ? "day trained" : "days trained"}</small></div>
+        <div><strong>{review.hardestGapDays}</strong><small>{review.hardestGapDays === 1 ? "day off in a row" : "days off in a row"}</small></div>
+      </div>
+      {review.disciplines.length > 1 && <p className="week-split">{review.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(" · ")}</p>}
+      {review.themes.length > 0 && <div className="week-themes">
+        <span className="field-label">WHAT KEPT COMING UP</span>
+        {review.themes.map((theme) => <div className={`week-theme ${theme.status}`} key={theme.label}>
+          <strong>{theme.label}</strong>
+          <span>{theme.sessions === 1 ? "1 session" : `${theme.sessions} sessions`}</span>
+          <em>{themeStatusLabel(theme.status)}</em>
+        </div>)}
+        <p className="week-note">FightIQ can see what you stopped writing down. It cannot see what you fixed — that part is still your call.</p>
+      </div>}
+    </>}
+  </section>;
+}
+
 export function GameScreen() {
   const { data, error, reload } = useProductData();
   const [editing, setEditing] = useState(false);
@@ -273,6 +305,7 @@ export function GameScreen() {
   return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && <>
+      <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">
         <section className="game-card"><span>STRENGTHS</span>{data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>

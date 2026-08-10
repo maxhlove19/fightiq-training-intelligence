@@ -69,6 +69,44 @@ export const fighterProfiles = sqliteTable("fighter_profiles", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Evidence is the durable source of truth for Fighter Brain. We retain the
+// athlete's own wording in `label`, but group related reports under a stable
+// canonical key so natural language variation does not create fake new traits.
+export const fighterBrainEvidence = sqliteTable("fighter_brain_evidence", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  entryId: text("entry_id").notNull(),
+  category: text("category").notNull(),
+  canonicalKey: text("canonical_key").notNull(),
+  label: text("label").notNull(),
+  source: text("source").notNull(),
+  confidence: real("confidence").notNull(),
+  observedAt: text("observed_at").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("idx_fighter_brain_evidence_entry_claim").on(table.ownerId, table.entryId, table.category, table.canonicalKey),
+  index("idx_fighter_brain_evidence_owner_category_observed").on(table.ownerId, table.category, table.observedAt),
+]);
+
+// The athlete's manually edited focus always wins. This is FightIQ's evolving
+// recommendation, kept separately so one good session cannot overwrite intent.
+export const fighterFocusRecommendations = sqliteTable("fighter_focus_recommendations", {
+  ownerId: text("owner_id").primaryKey(),
+  focus: text("focus").notNull(),
+  reason: text("reason").notNull(),
+  confidence: real("confidence").notNull(),
+  entryId: text("entry_id").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [index("idx_fighter_focus_recommendations_updated").on(table.updatedAt)]);
+
+export const debriefGenerationLeases = sqliteTable("debrief_generation_leases", {
+  entryId: text("entry_id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  leaseId: text("lease_id").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => [index("idx_debrief_generation_leases_owner_expires").on(table.ownerId, table.expiresAt)]);
+
 export const coachMessages = sqliteTable("coach_messages", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),

@@ -45,6 +45,8 @@ export function cleanCoachText(value: string) {
     .replace(/```[\s\S]*?```/g, "")
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/__(.*?)__/g, "$1")
+    .replace(/(?<!\*)\*(?!\*)/g, "")
+    .replace(/`([^`]+)`/g, "$1")
     .replace(/^\s*>\s?/gm, "")
     .replace(/^\s{0,3}#{1,6}\s*/gm, "")
     .replace(/^\s*[-*]\s+/gm, "")
@@ -90,7 +92,7 @@ function coachReplyFrom(value: unknown): CoachReply {
     followUp: `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?`,
     video: { mode: offer.mode as CoachVideoOffer["mode"], topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
   };
-  if (!cleaned.reply || cleaned.followUp === "?" || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
+  if (!cleaned.reply || cleaned.followUp === "?" || cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3 || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
   return cleaned;
@@ -167,7 +169,7 @@ video.mode is "direct" only when the athlete explicitly asks for a video, a clip
         question: args.question,
         fighter_memory: compactCoachMemory(args.memory),
         profile: { current_focus: args.profile.current_focus, focus_reason: args.profile.focus_reason, primary_goal: args.profile.primary_goal, style_influences: safeArray(args.profile.style_influences_json) },
-        recent_workouts: args.workouts.slice(0, 3),
+        recent_workouts: compactWorkouts(args.workouts),
         nutrition_today: compactNutrition(args.nutrition),
         active_pre_training_experiment: args.activeExperiment ?? null,
         recent_conversation: args.history.slice(-8).map((message) => ({
@@ -197,6 +199,9 @@ function compactCoachMemory(memory: MemorySnapshot) {
     strongest_areas: memory.strongestAreas.slice(0, 3),
     recent_improvement: memory.recentImprovement,
     instructor_details: memory.instructorDetails.slice(0, 3),
+    emerging_strengths: memory.emergingStrengths.slice(0, 3),
+    working_observations: memory.oneTimeObservations.slice(0, 4),
+    next_evolution: memory.nextEvolution,
     recent_training: memory.recentTraining.slice(0, 3).map((item) => ({
       discipline: item.discipline,
       session_type: item.sessionType,
@@ -205,6 +210,19 @@ function compactCoachMemory(memory: MemorySnapshot) {
       focus: item.focus?.slice(0, 180) ?? null,
     })),
   };
+}
+
+function compactWorkouts(value: unknown[]) {
+  return value.slice(0, 3).flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    const workout = item as Record<string, unknown>;
+    const discipline = typeof workout.discipline === "string" ? workout.discipline.slice(0, 80) : "Training";
+    const goal = typeof workout.goal === "string" ? workout.goal.slice(0, 140) : "";
+    const fatigue = typeof workout.fatigue === "string" ? workout.fatigue.slice(0, 60) : "";
+    const duration = typeof workout.duration_minutes === "number" ? workout.duration_minutes : null;
+    const status = typeof workout.status === "string" ? workout.status.slice(0, 32) : "planned";
+    return [{ discipline, goal, fatigue, duration_minutes: duration, status }];
+  });
 }
 
 function compactNutrition(value: unknown) {

@@ -119,7 +119,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
 
-      {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">BEFORE TRAINING</p><h2>{activeExperiment.mission}</h2><p><b>Today:</b> {sessionPlanLabel(activeExperiment.reason)}<br />{activeExperiment.reason.replace(/^For\s+.+?:\s*/i, "")}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG THIS SESSION <ChevronRight size={14} /></button></div></section>
+      {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">YOUR TRAINING PLAN IS ACTIVE</p><h2>{activeExperiment.mission}</h2><p><b>Today:</b> {sessionPlanLabel(activeExperiment.reason)}<br />{activeExperiment.reason.replace(/^For\s+.+?:\s*/i, "")}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG HOW IT WENT <ChevronRight size={14} /></button><button className="text-link plan-change-link" onClick={() => setBriefOpen(true)}>CHANGE TODAY’S SESSION <ChevronRight size={14} /></button></div></section>
         : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
 
       <section className="insight-card">
@@ -129,7 +129,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining }: { name: s
         <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
       </section>
 
-      <button className="primary-button" onClick={onLog}><Mic size={20} strokeWidth={2.2} /> LOG TODAY’S TRAINING</button>
+      <button className="primary-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={20} strokeWidth={2.2} /> {activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</button>
       <p className="primary-support">Talk or type. FightIQ learns your game.</p>
 
       {firstVideo ? <button className="home-study" onClick={onLearn}><span>STUDY NEXT</span><strong>{firstVideo.title}</strong><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
@@ -181,8 +181,10 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const restoredRef = useRef(false);
+  const debriefPollRef = useRef<number | null>(null);
+  const debriefPollAttemptsRef = useRef(0);
 
-  useEffect(() => () => recognitionRef.current?.stop(), []);
+  useEffect(() => () => { recognitionRef.current?.stop(); if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current); }, []);
   useEffect(() => {
     if (!initialEntryId || restoredRef.current) return;
     restoredRef.current = true;
@@ -192,6 +194,17 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEntryId]);
   useEffect(() => { if (debriefPhase === "question") questionHeadingRef.current?.focus(); }, [debriefPhase, debrief?.question?.id]);
+
+  function scheduleDebriefPoll(id: string) {
+    if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current);
+    if (debriefPollAttemptsRef.current >= 40) {
+      setError("Your note is still safe. FightIQ is taking longer than expected—try again when you’re ready.");
+      setDebriefPhase("error");
+      return;
+    }
+    debriefPollAttemptsRef.current += 1;
+    debriefPollRef.current = window.setTimeout(() => { void startDebrief(id); }, 1200);
+  }
 
   function toggleListening() {
     if (listening) { recognitionRef.current?.stop(); setListening(false); return; }
@@ -247,16 +260,19 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     if (!response.ok) throw new Error(data.error?.message ?? "FightIQ couldn’t continue the debrief.");
     setDebrief(data);
     setError("");
-    if (data.status === "question") setDebriefPhase("question");
-    else if (data.status === "complete") setDebriefPhase("complete");
-    else if (data.status === "error") setDebriefPhase("error");
-    else setDebriefPhase("loading");
+    if (data.status === "question") { debriefPollAttemptsRef.current = 0; setDebriefPhase("question"); }
+    else if (data.status === "complete") { debriefPollAttemptsRef.current = 0; setDebriefPhase("complete"); }
+    else if (data.status === "error") { debriefPollAttemptsRef.current = 0; setDebriefPhase("error"); }
+    else { setDebriefPhase("loading"); }
     return data;
   }
 
   async function startDebrief(id: string) {
     setDebriefPhase("loading"); setError("");
-    try { await parseResponse(await fetch(`/api/training-entries/${encodeURIComponent(id)}/debrief`, { method: "POST" })); }
+    try {
+      const data = await parseResponse(await fetch(`/api/training-entries/${encodeURIComponent(id)}/debrief`, { method: "POST" }));
+      if (data.status === "not_started" || data.status === "preparing") scheduleDebriefPoll(id);
+    }
     catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t prepare your debrief."); setDebriefPhase("error"); }
   }
 
@@ -277,10 +293,23 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, questionId: debrief?.question?.id, answer: value.trim(), inputMethod: method }),
       });
+      if (!response.ok && action === "answer") {
+        const payload = await response.clone().json() as { error?: { code?: string } };
+        // A response can be lost after the server already saved the answer. Ask
+        // the entry to resume rather than asking the athlete to repeat themself.
+        if (payload.error?.code === "QUESTION_NOT_FOUND") { await startDebrief(entryId); return; }
+      }
       setDebriefPhase("loading");
-      await parseResponse(response);
+      const data = await parseResponse(response);
+      if (data.status === "preparing" || data.status === "not_started") scheduleDebriefPoll(entryId);
       setAnswer(""); setAnswerMethod("text");
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Your answer was saved, but FightIQ couldn’t continue."); setDebriefPhase("error"); }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Your answer was saved, but FightIQ couldn’t continue.");
+      // Keep the exact question and typed/spoken wording on screen. The Retry
+      // path will resume the saved turn without throwing the athlete into a
+      // generic error screen.
+      setDebriefPhase(action === "answer" && debrief?.question ? "question" : "error");
+    }
     finally { setSubmitting(false); setAnswerListening(false); }
   }
 
@@ -307,7 +336,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
         <h2 ref={questionHeadingRef} tabIndex={-1}>{debrief.question.prompt}</h2>
         <div className="answer-compose"><textarea value={answer} onChange={(event) => { setAnswer(event.target.value); setAnswerMethod("text"); }} placeholder="Talk or type a different answer…" aria-label="Your answer" /><button className={`answer-mic ${answerListening ? "listening" : ""}`} onClick={toggleAnswerListening} aria-label={answerListening ? "Stop listening" : "Answer by voice"}>{answerListening ? <X size={20} /> : <Mic size={20} />}</button></div>
         {error && <p className="error-message" role="alert">{error}</p>}
-        <button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> SEND ANSWER</>}</button>
+        <button className="primary-button" onClick={() => respond("answer")} disabled={!answer.trim() || submitting}>{submitting ? "UPDATING…" : <><Send size={18} /> {error ? "RETRY ANSWER" : "SEND ANSWER"}</>}</button>
         {debrief.question.choices.length > 0 && <><p className="tap-answer-label">OR USE A QUICK ANSWER</p><div className="answer-choices">{debrief.question.choices.map((choice) => <button key={choice} onClick={() => respond("answer", choice, "chip")} disabled={submitting}>{choice}<ChevronRight size={16} /></button>)}<button onClick={() => respond("answer", "Not sure", "chip")} disabled={submitting}>Not sure<ChevronRight size={16} /></button></div></>}
         <div className="debrief-secondary-actions"><button onClick={() => respond("skip")} disabled={submitting}>Skip this question</button><span aria-hidden="true">·</span><button onClick={() => respond("finish")} disabled={submitting}>Finish for now</button></div>
       </section>
@@ -355,6 +384,7 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
   const [learnTopic, setLearnTopic] = useState<string | null>(null);
+  const [learnOrigin, setLearnOrigin] = useState<"coach" | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
@@ -373,16 +403,16 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     setToast("Brief set. Tell FightIQ how it went after training.");
   }
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
-    {screen === "home" && <HomeScreen name={displayName} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
+    {screen === "home" && <HomeScreen name={displayName} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} />}
-    {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => setLearnTopic(null)} />}
-    {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setScreen("learn"); }} />}
+    {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
+    {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}
     {screen === "game" && <GameScreen />}
     {screen === "workout" && <WorkoutScreen onBack={goHome} />}
     {screen === "food" && <FoodScreen onBack={goHome} />}
     {screen !== "log" && screen !== "workout" && screen !== "food" && <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={`nav-button ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}><Home size={21} /><span>HOME</span></button>
-      <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => { setLearnTopic(null); setScreen("learn"); }}><BookOpen size={21} /><span>LEARN</span></button>
+      <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }}><BookOpen size={21} /><span>LEARN</span></button>
       <button className="nav-button center" onClick={() => setSheetOpen(true)} aria-label="Open quick actions"><span className="nav-center-icon"><Plus size={27} /></span><span>FIGHTIQ</span></button>
       <button className={`nav-button ${screen === "coach" ? "active" : ""}`} onClick={() => setScreen("coach")}><Sparkles size={21} /><span>COACH</span></button>
       <button className={`nav-button ${screen === "game" ? "active" : ""}`} onClick={() => setScreen("game")}><CircleUserRound size={21} /><span>MY GAME</span></button>

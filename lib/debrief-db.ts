@@ -129,13 +129,79 @@ export async function markDebriefError(db: D1, entryId: string, ownerId: string)
     .bind(new Date().toISOString(), entryId, ownerId).run();
 }
 
+const DEBRIEF_LEASE_MS = 45_000;
+
+/**
+ * One debrief generation may own an entry at a time. A lease expires so a
+ * crashed worker cannot leave a saved training note in “preparing” forever.
+ */
+export async function claimDebriefGeneration(db: D1, entryId: string, ownerId: string) {
+  const now = new Date();
+  const leaseId = crypto.randomUUID();
+  await db.prepare("DELETE FROM debrief_generation_leases WHERE entry_id = ? AND owner_id = ? AND expires_at <= ?")
+    .bind(entryId, ownerId, now.toISOString()).run();
+  const claimed = await db.prepare(`INSERT OR IGNORE INTO debrief_generation_leases (entry_id, owner_id, lease_id, expires_at, created_at)
+    VALUES (?, ?, ?, ?, ?)`)
+    .bind(entryId, ownerId, leaseId, new Date(now.getTime() + DEBRIEF_LEASE_MS).toISOString(), now.toISOString()).run();
+  return (claimed.meta?.changes ?? 0) === 1 ? leaseId : null;
+}
+
+export async function releaseDebriefGeneration(db: D1, entryId: string, ownerId: string, leaseId: string) {
+  await db.prepare("DELETE FROM debrief_generation_leases WHERE entry_id = ? AND owner_id = ? AND lease_id = ?")
+    .bind(entryId, ownerId, leaseId).run();
+}
+
+function preservedArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 1).map((item) => item.replace(/\s+/g, " ").trim()).slice(0, 8)
+    : [];
+}
+
+// Finishing early means “don't infer more,” not “forget what the athlete and
+// coach already said.” This preserves factual context at low confidence while
+// removing tentative problems, causes, and recommendations.
+function conservativeFinishMemory(value: string | null, coachDetail: string | null) {
+  try {
+    const parsed = JSON.parse(value ?? "{}");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const memory = parsed as Record<string, unknown>;
+    const intelligence = memory.intelligence && typeof memory.intelligence === "object" && !Array.isArray(memory.intelligence)
+      ? memory.intelligence as Record<string, unknown>
+      : {};
+    const coachCues = [...preservedArray(memory.instructor_details), ...(coachDetail?.trim() ? [coachDetail.trim()] : []), ...(typeof intelligence.coach_instructor_cue === "string" && intelligence.coach_instructor_cue.trim() ? [intelligence.coach_instructor_cue.trim()] : [])]
+      .filter((item, index, values) => values.indexOf(item) === index).slice(0, 4);
+    const facts = [...preservedArray(memory.reported_facts), ...preservedArray(intelligence.reported_facts)].slice(0, 8);
+    const technique = typeof intelligence.technique === "string" ? intelligence.technique.trim().slice(0, 160) : "";
+    return JSON.stringify({
+      techniques: preservedArray(memory.techniques), positions: preservedArray(memory.positions), successes: [], problems: [],
+      concepts: preservedArray(memory.concepts), sparring_observations: [], related_topics: preservedArray(memory.related_topics), instructor_details: coachCues,
+      reported_facts: facts, fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: preservedArray(memory.experiments),
+      intelligence: {
+        discipline: typeof intelligence.discipline === "string" ? intelligence.discipline.slice(0, 80) : "",
+        technique, goal: "", problem: "", suspected_cause: "", coach_instructor_cue: coachCues[0] ?? "",
+        what_worked: "", what_failed: "", context: typeof intelligence.context === "string" ? intelligence.context.slice(0, 120) : "",
+        confidence: 0.25, follow_up_needed: false, reported_facts: facts, fightiq_hypotheses: [], experiment_result: "unknown",
+      },
+    });
+  } catch { return null; }
+}
+
 export async function finishDebrief(db: D1, entryId: string, ownerId: string) {
   const now = new Date().toISOString();
+  const existing = await db.prepare(`SELECT summary, takeaway, coach_detail, structured_memory_json, question_count
+    FROM training_debriefs WHERE entry_id = ? AND owner_id = ? LIMIT 1`)
+    .bind(entryId, ownerId).first<{ summary: string | null; takeaway: string | null; coach_detail: string | null; structured_memory_json: string | null; question_count: number | null }>();
+  const preservedMemory = conservativeFinishMemory(existing?.structured_memory_json ?? null, existing?.coach_detail ?? null);
+  const takeaway = existing?.takeaway?.trim() || "Your training note is saved.";
+  const confidence = preservedMemory ? 0.25 : 0;
   await db.batch([
     db.prepare("UPDATE training_followups SET status = 'skipped', answer_source = 'finish', answered_at = ? WHERE entry_id = ? AND owner_id = ? AND status = 'pending'").bind(now, entryId, ownerId),
-    db.prepare(`INSERT INTO training_debriefs (entry_id, owner_id, takeaway, structured_memory_json, next_session_focus, status, question_count, confidence, created_at, updated_at)
-      VALUES (?, ?, 'Your training note is saved.', NULL, NULL, 'complete', 0, 0, ?, ?)
-      ON CONFLICT(entry_id) DO UPDATE SET takeaway = excluded.takeaway, structured_memory_json = NULL, next_session_focus = NULL, status = 'complete', updated_at = excluded.updated_at`)
-      .bind(entryId, ownerId, now, now),
+    db.prepare(`INSERT INTO training_debriefs (entry_id, owner_id, summary, takeaway, coach_detail, structured_memory_json, next_session_focus, status, question_count, confidence, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, NULL, 'complete', ?, ?, ?, ?)
+      ON CONFLICT(entry_id) DO UPDATE SET summary = excluded.summary, takeaway = excluded.takeaway,
+        coach_detail = excluded.coach_detail, structured_memory_json = excluded.structured_memory_json,
+        next_session_focus = NULL, status = 'complete', confidence = excluded.confidence, updated_at = excluded.updated_at`)
+      .bind(entryId, ownerId, existing?.summary ?? null, takeaway, existing?.coach_detail ?? null, preservedMemory, existing?.question_count ?? 0, confidence, now, now),
   ]);
+  return { structuredMemory: preservedMemory, confidence };
 }

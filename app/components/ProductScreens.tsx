@@ -88,7 +88,7 @@ function LoadingState({ label = "Reading your FightIQ memory…" }: { label?: st
   return <div className="inline-loading" role="status"><LoaderCircle size={22} className="spin" /><span>{label}</span></div>;
 }
 
-export function LearnScreen({ studyTopic, onReturnToFeed }: { studyTopic?: string | null; onReturnToFeed?: () => void }) {
+export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { studyTopic?: string | null; onReturnToFeed?: () => void; onReturnToCoach?: () => void }) {
   const topicQuery = studyTopic?.trim() ?? "";
   const baseUrl = topicQuery ? `/api/product?topic=${encodeURIComponent(topicQuery)}` : "/api/product";
   const { data, error, reload } = useProductData(baseUrl);
@@ -107,7 +107,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed }: { studyTopic?: strin
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
-      <section className="focus-banner"><span>{topicQuery ? "FROM YOUR COACH CHAT" : "CURRENT STUDY FOCUS"}</span><h2>{topicQuery || data.memory.currentFocus}</h2><p>{topicQuery ? "FightIQ narrowed this feed to the exact technique you were discussing." : data.memory.focusReason}</p>{topicQuery && onReturnToFeed && <button className="text-link" onClick={onReturnToFeed}>Back to my feed <ChevronRight size={14} /></button>}</section>
+      <section className="focus-banner"><span>{topicQuery ? "FROM YOUR COACH CHAT" : "CURRENT STUDY FOCUS"}</span><h2>{topicQuery || data.memory.currentFocus}</h2><p>{topicQuery ? "FightIQ narrowed this feed to the exact technique you were discussing." : data.memory.focusReason}</p>{topicQuery && (onReturnToCoach || onReturnToFeed) && <button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Back to Coach" : "Back to my feed"} <ChevronRight size={14} /></button>}</section>
       <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2>{data.learn.refreshed && <p className="refresh-note" role="status">{data.learn.liveDiscoveryAvailable ? "New relevant studies" : "A rotated set of relevant studies"}: {data.learn.studyTopic}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding videos…" : data.learn.liveDiscoveryAvailable ? "Refresh recommendations" : "Rotate relevant studies"}</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
@@ -173,7 +173,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     </section>
     {suggestions.length > 0 && <section className="coach-suggestions" aria-label="Suggested questions"><span>SUGGESTED FROM YOUR FIGHTER BRAIN</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
-    {failure && <div className="coach-error" role="alert"><p>{failure.message} Your message was preserved.</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> Retry</button><code>{failure.code}{failure.development?.cause ? ` · ${String(failure.development.cause)}` : ""}</code></div>}
+    {failure && <div className="coach-error" role="alert"><p>{failure.message} Your message was preserved.</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> Retry</button></div>}
     <div className="coach-compose"><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about training, technique, recovery, workouts, or food…" aria-label="Ask FightIQ" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
     <p className="sr-status" aria-live="polite">{sending ? "FightIQ is thinking with your training context." : messages.at(-1)?.role === "assistant" ? "FightIQ replied." : ""}</p>
   </main>;

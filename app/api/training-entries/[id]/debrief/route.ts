@@ -1,7 +1,7 @@
 import { DebriefAIError, generateDebrief } from "../../../../../lib/debrief-ai";
 import {
-  ensureDebriefSchema, getDebriefRecord, getDebriefState, getFollowupHistory,
-  getOwnedEntry, markDebriefError, markDebriefPreparing,
+  claimDebriefGeneration, ensureDebriefSchema, getDebriefRecord, getDebriefState, getFollowupHistory,
+  getOwnedEntry, markDebriefError, markDebriefPreparing, releaseDebriefGeneration,
 } from "../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../lib/debrief-server";
 import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, updateExperimentForEntry } from "../../../../../lib/product-db";
@@ -35,7 +35,10 @@ export async function POST(_request: Request, context: Context) {
   if (!entry) return apiError("NOT_FOUND", "Training entry not found.", 404);
   const existing = await getDebriefState(db, id, ownerId);
   if (existing.status === "question" || existing.status === "complete") return Response.json(existing);
-
+  const leaseId = await claimDebriefGeneration(db, id, ownerId);
+  // The client can safely poll this state. We never launch a second model call
+  // for the same saved entry while another worker owns the generation.
+  if (!leaseId) return Response.json(await getDebriefState(db, id, ownerId), { status: 202 });
   await markDebriefPreparing(db, id, ownerId);
   const history = await getFollowupHistory(db, id, ownerId);
   const current = await getDebriefRecord(db, id, ownerId);
@@ -59,5 +62,5 @@ export async function POST(_request: Request, context: Context) {
     if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { entrySaved: true, development: error.development });
     console.error("Unexpected FightIQ debrief failure", error);
     return apiError("AI_UNAVAILABLE", "FightIQ could not prepare the debrief.", 503, { entrySaved: true });
-  }
+  } finally { await releaseDebriefGeneration(db, id, ownerId, leaseId); }
 }

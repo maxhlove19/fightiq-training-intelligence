@@ -1,10 +1,10 @@
 import { DebriefAIError, generateDebrief } from "../../../../../../lib/debrief-ai";
 import {
-  ensureDebriefSchema, finishDebrief, getDebriefRecord, getDebriefState, getFollowupHistory,
-  getOwnedEntry, markDebriefError, markDebriefPreparing,
+  claimDebriefGeneration, ensureDebriefSchema, finishDebrief, getDebriefRecord, getDebriefState, getFollowupHistory,
+  getOwnedEntry, markDebriefError, markDebriefPreparing, releaseDebriefGeneration,
 } from "../../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../../lib/debrief-server";
-import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, updateExperimentForEntry } from "../../../../../../lib/product-db";
+import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, persistFighterBrainEvidence, updateExperimentForEntry } from "../../../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
@@ -25,7 +25,10 @@ export async function POST(request: Request, context: Context) {
   try { body = await request.json(); } catch { return apiError("INVALID_REQUEST", "Invalid response.", 400); }
   const action = body.action;
   if (action === "finish") {
-    await finishDebrief(db, id, ownerId);
+    const finished = await finishDebrief(db, id, ownerId);
+    if (finished.structuredMemory) await persistFighterBrainEvidence(db, ownerId, entry, finished.structuredMemory, finished.confidence);
+    await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
+      .bind(new Date().toISOString(), ownerId).run();
     await updateExperimentForEntry(db, ownerId, id, "inconclusive", "The athlete finished the debrief before there was enough evidence to judge the experiment.");
     return Response.json(await getDebriefState(db, id, ownerId));
   }
@@ -40,9 +43,15 @@ export async function POST(request: Request, context: Context) {
   const allowedInputMethods = new Set(["chip", "text", "voice"]);
   const inputMethod = typeof body.inputMethod === "string" && allowedInputMethods.has(body.inputMethod) ? body.inputMethod : "text";
   const now = new Date().toISOString();
-  await db.prepare(`UPDATE training_followups SET answer = ?, answer_source = ?, status = ?, answered_at = ?
+  const leaseId = await claimDebriefGeneration(db, id, ownerId);
+  if (!leaseId) return Response.json(await getDebriefState(db, id, ownerId), { status: 202 });
+  const consumed = await db.prepare(`UPDATE training_followups SET answer = ?, answer_source = ?, status = ?, answered_at = ?
     WHERE id = ? AND entry_id = ? AND owner_id = ? AND status = 'pending'`)
     .bind(action === "skip" ? null : answer, action === "skip" ? "skip" : inputMethod, action === "skip" ? "skipped" : "answered", now, questionId, id, ownerId).run();
+  if ((consumed.meta?.changes ?? 0) !== 1) {
+    await releaseDebriefGeneration(db, id, ownerId, leaseId);
+    return apiError("QUESTION_NOT_FOUND", "This question is no longer active.", 409);
+  }
 
   const history = await getFollowupHistory(db, id, ownerId);
   const current = await getDebriefRecord(db, id, ownerId);
@@ -66,5 +75,5 @@ export async function POST(request: Request, context: Context) {
     if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { entrySaved: true, answerSaved: true, development: error.development });
     console.error("Unexpected FightIQ debrief response failure", error);
     return apiError("AI_UNAVAILABLE", "Your answer was saved, but FightIQ could not continue yet.", 503, { entrySaved: true, answerSaved: true });
-  }
+  } finally { await releaseDebriefGeneration(db, id, ownerId, leaseId); }
 }

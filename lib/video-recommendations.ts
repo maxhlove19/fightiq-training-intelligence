@@ -119,6 +119,20 @@ function videoUrl(videoId: string) {
   return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
+function studyWatchFor(topic: string) {
+  const lower = topic.toLowerCase();
+  if (/support foot|pivot/.test(lower)) return "Watch whether the support foot turns before the hip starts to come through.";
+  if (/hip|round kick|roundhouse/.test(lower)) return "Watch the order: foot turns, hip follows, then the kick returns balanced.";
+  if (/arm drag/.test(lower)) return "Watch the step to the angle straight after the drag, before they can square back up.";
+  if (/guard|frame/.test(lower)) return "Watch which frame stays connected while the hips make space.";
+  if (/takedown|single leg|double leg/.test(lower)) return "Watch where the head and feet arrive before they try to finish.";
+  return `Watch for the exact ${compact(topic, "technique", 54)} detail the athlete logged.`;
+}
+
+function currentTrainingSignal(memory: MemorySnapshot) {
+  return compact(memory.oneTimeObservations[0] || memory.recentTraining[0]?.takeaway || memory.currentFocus, "your current training", 120);
+}
+
 function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnapshot, index: number) {
   const { latest, focus, latestTokens, focusTokens } = contextFor(memory);
   const recentMatches = video.topics.filter((topic) => topicScore(topic, latest, latestTokens) > 0);
@@ -205,12 +219,27 @@ async function searchYouTube(apiKey: string, memory: MemorySnapshot, refreshCurs
   const allowed = new Map((Array.isArray(details?.items) ? details.items as YouTubeVideoItem[] : []).filter((item) => isVideoId(item.id) && item.status?.embeddable === true && item.status?.privacyStatus === "public").map((item) => [item.id as string, isoDuration(item.contentDetails?.duration)]));
   const discipline = disciplineFromContext(`${memory.currentFocus} ${memory.recentTraining[0]?.note ?? ""}`);
   const topicWords = query.toLowerCase().split(/\s+/).filter((word) => word.length > 2);
-  return candidates.filter((item) => allowed.has(item.id)).slice(0, 8).map((item, index) => {
+  const relevance = (title: string, description: string) => {
+    const titleWords = tokens(title);
+    const descriptionWords = tokens(description);
+    return topicWords.reduce((score, word) => score + (titleWords.has(word) ? 8 : 0) + (descriptionWords.has(word) ? 2 : 0), 0)
+      + (title.toLowerCase().includes(query.toLowerCase()) ? 16 : 0);
+  };
+  const ranked = candidates.filter((item) => allowed.has(item.id)).map((item) => {
     const title = String(item.snippet.title).replace(/\s+/g, " ").trim().slice(0, 150);
     const creator = String(item.snippet.channelTitle).replace(/\s+/g, " ").trim().slice(0, 90);
     const detail = typeof item.snippet.description === "string" ? compact(item.snippet.description, `A study selected for ${query}.`, 180) : `A study selected for ${query}.`;
-    const firstTopic = topicWords[index % topicWords.length] ?? "first technical";
-    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, thumbnail: thumbnail(item.id), url: videoUrl(item.id), source: "youtube" as const, why: `Fresh YouTube result for ${compact(query, "your latest training", 72)}.`, watchFor: `Watch how the ${firstTopic} detail is set up, then compare it to your last session.` };
+    return { id: item.id, title, creator, discipline, duration: allowed.get(item.id) ?? "YouTube", description: detail, score: relevance(title, detail) };
+  }).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 8);
+  const signal = currentTrainingSignal(memory);
+  return ranked.map(({ score, ...item }) => {
+    void score;
+    return {
+      ...item,
+      thumbnail: thumbnail(item.id), url: videoUrl(item.id), source: "youtube" as const,
+      why: `You logged ${signal}. This stays on ${compact(query, "that exact detail", 78)}.`,
+      watchFor: studyWatchFor(query),
+    };
   });
 }
 
@@ -266,7 +295,11 @@ export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: Me
     const { topics } = video;
     return { ...rest, thumbnail: thumbnail(video.id), url: videoUrl(video.id), source: "curated" as const, ...whyAndWatchFor({ topics }, rankingMemory, index) };
   });
-  const videos = [...liveVideos, ...curated].slice(0, 12);
+  // Keep one vetted, exactly-ranked anchor first; fresh YouTube studies then
+  // broaden the same topic instead of replacing the feed with search noise.
+  const videos = liveVideos.length
+    ? [curated[0], ...liveVideos.slice(0, 5), ...curated.slice(1)].filter((video): video is LearnVideo => Boolean(video)).slice(0, 12)
+    : curated.slice(0, 12);
   if (refresh) await rememberVideoRefresh(args.db, args.ownerId, videos, family);
   return { videos, studyTopic, exploreUrl: `https://www.youtube.com/results?search_query=${encodeURIComponent(studyTopic)}`, liveDiscoveryAvailable: Boolean(args.youtubeApiKey?.trim()), refreshed: refresh };
 }

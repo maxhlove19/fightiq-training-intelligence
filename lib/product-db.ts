@@ -56,6 +56,37 @@ export async function ensureProductSchema(db: D1) {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS fighter_brain_evidence (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      entry_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      canonical_key TEXT NOT NULL,
+      label TEXT NOT NULL,
+      source TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      observed_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS fighter_focus_recommendations (
+      owner_id TEXT PRIMARY KEY NOT NULL,
+      focus TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      entry_id TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS debrief_generation_leases (
+      entry_id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      lease_id TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS coach_messages (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -220,7 +251,135 @@ function compactTopic(value: string, fallback: string) {
   return words.length > 8 ? `${words.slice(0, 8).join(" ")}…` : words.join(" ");
 }
 
-export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { mission: string; cue: string } | null) {
+type BrainEvidence = {
+  owner_id: string;
+  entry_id: string;
+  category: string;
+  canonical_key: string;
+  label: string;
+  source: string;
+  confidence: number;
+  observed_at: string;
+};
+
+type StructuredMemory = Record<string, unknown> & { intelligence?: Record<string, unknown> };
+
+function safeStructuredMemory(value: string | null | undefined): StructuredMemory | null {
+  try {
+    const parsed = JSON.parse(value ?? "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as StructuredMemory : null;
+  } catch { return null; }
+}
+
+function stringsFrom(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 1).map((item) => item.replace(/\s+/g, " ").trim()).slice(0, 8)
+    : [];
+}
+
+function claimLabel(value: unknown) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, 240) : "";
+}
+
+// Canonical keys deliberately cover common ways athletes describe the same
+// learning problem without pretending every phrase means the same thing.
+function canonicalClaimKey(discipline: string, category: string, label: string, technique = "") {
+  const lower = `${technique} ${label}`.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const disciplineKey = trainingDomain(discipline) || normalizeInsight(discipline).split(" ")[0] || "mma";
+  const aliases: Array<[RegExp, string]> = [
+    [/arm drag/, "arm-drag"],
+    [/(support foot|pivot)/, "support-foot-pivot"],
+    [/(hip turn|turning.*hip|hip rotation|open.*hip)/, "hip-rotation"],
+    [/(round kick|roundhouse)/, "round-kick"],
+    [/(square back|squaring)/, "opponent-squares"],
+    [/(take.*back|back take)/, "back-take"],
+    [/(head position|head drops?)/, "head-position"],
+    [/(double leg|double-leg)/, "double-leg"],
+    [/(single leg|single-leg)/, "single-leg"],
+    [/(balance|off balance)/, "balance"],
+    [/(timing|late|early)/, "timing"],
+    [/(frame|framing)/, "frames"],
+  ];
+  const subject = aliases.find(([pattern]) => pattern.test(lower))?.[1] ?? (normalizeInsight(technique || label).split(" ").slice(0, 7).join(" ") || "session-detail");
+  return `${disciplineKey}:${category}:${subject}`;
+}
+
+type EvidenceInput = { category: "observation" | "problem" | "strength" | "improvement" | "instructor_cue"; label: string; source: "athlete" | "coach" };
+
+function evidenceInputs(memory: StructuredMemory) {
+  const intelligence = memory.intelligence && typeof memory.intelligence === "object" && !Array.isArray(memory.intelligence) ? memory.intelligence : {};
+  const collect = (category: EvidenceInput["category"], source: EvidenceInput["source"], ...values: unknown[]): EvidenceInput[] => values.flatMap((value) => {
+    const candidates = Array.isArray(value) ? stringsFrom(value) : [claimLabel(value)].filter(Boolean);
+    return candidates.map((label) => ({ category, label, source }));
+  });
+  return [
+    ...collect("observation", "athlete", memory.techniques, intelligence.technique),
+    ...collect("observation", "athlete", memory.reported_facts, intelligence.reported_facts),
+    ...collect("problem", "athlete", memory.problems, memory.what_failed, intelligence.problem, intelligence.what_failed),
+    ...collect("strength", "athlete", memory.successes),
+    ...collect("improvement", "athlete", memory.what_worked, intelligence.what_worked),
+    ...collect("instructor_cue", "coach", memory.instructor_details, intelligence.coach_instructor_cue),
+  ].filter((item) => item.label.length > 1);
+}
+
+/** Persist reported training evidence without treating FightIQ hypotheses as facts. */
+export async function persistFighterBrainEvidence(
+  db: D1,
+  ownerId: string,
+  entry: { id: string; discipline: string; created_at: string },
+  structuredMemoryJson: string | null | undefined,
+  confidence: number,
+) {
+  const memory = safeStructuredMemory(structuredMemoryJson);
+  if (!memory) return;
+  const technique = claimLabel(memory.intelligence && typeof memory.intelligence === "object" && !Array.isArray(memory.intelligence) ? memory.intelligence.technique : "") || stringsFrom(memory.techniques)[0] || "";
+  const unique = new Map<string, EvidenceInput>();
+  for (const input of evidenceInputs(memory)) {
+    // Raw session-wide notes are still retained in training_entries. Avoid turning
+    // a whole paragraph into one fuzzy Fighter Brain observation.
+    if (input.category === "observation" && input.label.length > 180) continue;
+    const key = canonicalClaimKey(entry.discipline, input.category, input.label, technique);
+    if (!unique.has(`${input.category}:${key}`)) unique.set(`${input.category}:${key}`, input);
+  }
+  const now = new Date().toISOString();
+  const boundedConfidence = Math.max(0.15, Math.min(1, Number.isFinite(confidence) ? confidence : 0.35));
+  await db.batch([...unique.values()].map((input) => {
+    const key = canonicalClaimKey(entry.discipline, input.category, input.label, technique);
+    return db.prepare(`INSERT INTO fighter_brain_evidence (
+      id, owner_id, entry_id, category, canonical_key, label, source, confidence, observed_at, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(owner_id, entry_id, category, canonical_key) DO UPDATE SET
+      label = excluded.label, source = excluded.source, confidence = MAX(fighter_brain_evidence.confidence, excluded.confidence)`)
+      .bind(crypto.randomUUID(), ownerId, entry.id, input.category, key, input.label, input.source, boundedConfidence, entry.created_at, now);
+  }));
+}
+
+type EvidenceGroup = { label: string; count: number; latest: string };
+
+function groupedEvidence(rows: BrainEvidence[], category: string) {
+  const groups = new Map<string, { label: string; entries: Set<string>; latest: string }>();
+  for (const row of rows.filter((item) => item.category === category)) {
+    const existing = groups.get(row.canonical_key);
+    if (!existing) groups.set(row.canonical_key, { label: row.label, entries: new Set([row.entry_id]), latest: row.observed_at });
+    else {
+      existing.entries.add(row.entry_id);
+      if (row.observed_at > existing.latest) { existing.label = row.label; existing.latest = row.observed_at; }
+    }
+  }
+  return [...groups.values()]
+    .map((group) => ({ label: group.label, count: group.entries.size, latest: group.latest }))
+    .sort((a, b) => b.count - a.count || b.latest.localeCompare(a.latest));
+}
+
+function evidenceLabels(groups: EvidenceGroup[], predicate: (group: EvidenceGroup) => boolean, used: string[], limit: number) {
+  return takeDistinct(groups.filter(predicate).map((group) => group.label), used, limit);
+}
+
+export function getCoachSuggestions(
+  memory: MemorySnapshot,
+  experiment?: { mission: string; cue: string } | null,
+  conversation?: { followUp?: string; videoTopic?: string } | null,
+) {
   const focus = compactTopic(memory.currentFocus, "your current focus");
   const confirmedProblem = memory.recurringProblems.find((item) => !item.toLowerCase().includes("no recurring"));
   const strength = memory.strongestAreas.find((item) => !item.toLowerCase().includes("still learning"));
@@ -229,7 +388,11 @@ export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { missi
   const latestNote = memory.recentTraining[0]?.note.toLowerCase() ?? "";
   const armDrag = latestNote.includes("arm drag") || memory.currentFocus.toLowerCase().includes("arm drag");
   const kickIssue = /kick|hip|pivot|bag/.test(`${latestNote} ${memory.currentFocus.toLowerCase()}`);
-  const candidates = [
+  const candidates = conversation?.followUp ? [
+    conversation.videoTopic ? `How should I drill ${compactTopic(conversation.videoTopic, "that")} next class?` : "What should I test next session?",
+    conversation.videoTopic ? `What should I watch for in a ${compactTopic(conversation.videoTopic, "technique")} video?` : "What should I notice once I have that answer?",
+    instructor ? "How does my coach’s detail fit into that?" : `What would make this useful in ${latestDiscipline ?? "training"}?`,
+  ] : [
     kickIssue ? "What should I watch for in my support-foot pivot?" : experiment ? `What should I notice while I test “${compactTopic(experiment.mission, "this experiment")}”?` : instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
     kickIssue ? "How can I tell timing from a balance problem?" : armDrag ? "How do I stop them squaring after the arm drag?" : confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
     kickIssue ? "Who should I study for clean round-kick mechanics?" : strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
@@ -243,14 +406,21 @@ export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { missi
 
 export async function getMemorySnapshot(db: D1, ownerId: string): Promise<MemorySnapshot> {
   const profile = await getOrCreateProfile(db, ownerId);
-  const result = await db.prepare(`SELECT e.discipline, e.session_type, e.raw_entry, e.created_at,
+  const [result, evidenceResult, recommendedFocus] = await Promise.all([
+    db.prepare(`SELECT e.discipline, e.session_type, e.raw_entry, e.created_at,
       d.takeaway, d.next_session_focus, d.structured_memory_json, d.status AS debrief_status
     FROM training_entries e LEFT JOIN training_debriefs d ON d.entry_id = e.id AND d.owner_id = e.owner_id
     WHERE e.owner_id = ? ORDER BY e.created_at DESC LIMIT 40`).bind(ownerId).all<{
       discipline: string; session_type: string; raw_entry: string; created_at: string;
       takeaway: string | null; next_session_focus: string | null; structured_memory_json: string | null; debrief_status: string | null;
-    }>();
+    }>(),
+    db.prepare(`SELECT owner_id, entry_id, category, canonical_key, label, source, confidence, observed_at
+      FROM fighter_brain_evidence WHERE owner_id = ? ORDER BY observed_at DESC LIMIT 240`).bind(ownerId).all<BrainEvidence>(),
+    db.prepare("SELECT focus, reason, confidence, entry_id, updated_at FROM fighter_focus_recommendations WHERE owner_id = ? LIMIT 1")
+      .bind(ownerId).first<{ focus: string; reason: string; confidence: number; entry_id: string; updated_at: string }>(),
+  ]);
   const rows = result.results ?? [];
+  const evidence = evidenceResult.results ?? [];
   // A question-stage debrief is private working context, not Fighter Brain
   // evidence. It is intentionally invisible to Home, Learn, and Coach until
   // the athlete completes or meaningfully finishes the conversation.
@@ -281,18 +451,35 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     } catch { /* malformed historical memory is ignored */ }
   }
   const latestFocus = completedRows.find((row) => row.next_session_focus)?.next_session_focus;
-  const currentFocus = profile.current_focus || latestFocus || "Build a reliable first layer of defense";
+  // A manually saved focus is the athlete's intent. FightIQ's recommendation is
+  // deliberately separate and can evolve from evidence without overwriting it.
+  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || "Build a reliable first layer of defense";
   const used = [currentFocus];
   const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
   const counts = (items: string[]) => new Map(items.map((item) => [normalizeInsight(item), (items.filter((other) => normalizeInsight(other) === normalizeInsight(item)).length)]));
   const successCounts = counts(successes);
   const problemCounts = counts(problems);
-  const strongestAreas = takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) >= 3), 8), used, 3);
-  const recurringProblems = takeDistinct(topValues(problems.filter((item) => (problemCounts.get(normalizeInsight(item)) ?? 0) >= 2), 8), used, 3);
-  const emergingStrengths = takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) === 2), 8), used, 3);
-  const improvement = isDistinct(improvementCandidate, used)
-    ? improvementCandidate
+  const strengthEvidence = groupedEvidence(evidence, "strength");
+  const problemEvidence = groupedEvidence(evidence, "problem");
+  const improvementEvidence = groupedEvidence(evidence, "improvement");
+  const observationEvidence = groupedEvidence(evidence, "observation");
+  const instructorEvidence = groupedEvidence(evidence, "instructor_cue");
+  const confirmedEvidenceStrengths = evidenceLabels(strengthEvidence, (item) => item.count >= 3, used, 3);
+  const strongestAreas = confirmedEvidenceStrengths.length
+    ? confirmedEvidenceStrengths
+    : takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) >= 3), 8), used, 3);
+  const confirmedEvidenceProblems = evidenceLabels(problemEvidence, (item) => item.count >= 2, used, 3);
+  const recurringProblems = confirmedEvidenceProblems.length
+    ? confirmedEvidenceProblems
+    : takeDistinct(topValues(problems.filter((item) => (problemCounts.get(normalizeInsight(item)) ?? 0) >= 2), 8), used, 3);
+  const evidenceEmergingStrengths = evidenceLabels(strengthEvidence, (item) => item.count === 2, used, 3);
+  const emergingStrengths = evidenceEmergingStrengths.length
+    ? evidenceEmergingStrengths
+    : takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) === 2), 8), used, 3);
+  const evidenceImprovement = improvementEvidence[0]?.label;
+  const improvement = isDistinct(evidenceImprovement || improvementCandidate, used)
+    ? titleCase(evidenceImprovement || improvementCandidate)
     : completedRows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
   used.push(improvement);
   const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
@@ -302,15 +489,19 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
   return {
     currentFocus,
-    focusReason: profile.focus_reason || (latestFocus ? "This is the clearest next step from your recent training debrief." : "This gives your next sessions one clear direction."),
+    focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
     recurringProblems: recurringProblems.length ? recurringProblems : ["No recurring problem confirmed yet"],
     recentImprovement: improvement,
     styleInfluences,
     nextEvolution,
-    instructorDetails: takeDistinct(topValues(instructorDetails, 8), [], 3),
+    instructorDetails: instructorEvidence.length
+      ? takeDistinct(instructorEvidence.map((item) => item.label), [], 3)
+      : takeDistinct(topValues(instructorDetails, 8), [], 3),
     emergingStrengths,
-    oneTimeObservations: takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
+    oneTimeObservations: observationEvidence.length
+      ? takeDistinct(observationEvidence.filter((item) => item.count === 1).map((item) => item.label), [], 4)
+      : takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
     // Recent notes are useful as near-term Learn/Coach context, but unfinished
     // debriefs deliberately carry no inferred takeaway or focus.
     recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
@@ -368,7 +559,7 @@ export async function startPreTrainingExperiment(db: D1, ownerId: string, sessio
   const id = crypto.randomUUID();
   await db.prepare(`INSERT INTO training_experiments (id, owner_id, mission, cue, reason, status, started_at, created_at)
     VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`)
-    .bind(id, ownerId, brief.mission, brief.cue, reason, now, now).run();
+    .bind(id, ownerId, mission, cue, reason, now, now).run();
   await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND created_at = ? AND consumed_at IS NULL")
     .bind(now, ownerId, brief.createdAt).run();
   return { id, mission, cue, reason, status: "active", startedAt: now, outcome: null };

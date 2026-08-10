@@ -66,20 +66,27 @@ export async function POST(request: Request) {
   // Make the retry path deterministic. The same user message either returns
   // the completed answer, waits for the in-flight one, or safely reopens a
   // failed turn—never creates a second Coach answer.
-  const existingTurn = await db.prepare("SELECT status FROM coach_turns WHERE user_message_id = ? AND owner_id = ? LIMIT 1")
-    .bind(userMessageId, ownerId).first<{ status: string }>();
+  const existingTurn = await db.prepare("SELECT status, created_at FROM coach_turns WHERE user_message_id = ? AND owner_id = ? LIMIT 1")
+    .bind(userMessageId, ownerId).first<{ status: string; created_at: string }>();
   if (existingTurn?.status === "complete") {
     const completed = await completedTurnResponse(db, ownerId, userMessageId, question, userCreatedAt);
     if (completed) return Response.json(completed);
   }
-  if (existingTurn?.status === "pending") {
-    return productError("COACH_RESPONSE_PENDING", "FightIQ is still finishing that answer. Try again in a moment.", 409, { savedMessageId: userMessageId });
-  }
   let ownsPendingTurn = false;
   if (existingTurn?.status === "failed") {
-    const retried = await db.prepare("UPDATE coach_turns SET status = 'pending', assistant_message_id = NULL, completed_at = NULL WHERE user_message_id = ? AND owner_id = ? AND status = 'failed'")
-      .bind(userMessageId, ownerId).run();
+    const retried = await db.prepare("UPDATE coach_turns SET status = 'pending', assistant_message_id = NULL, completed_at = NULL, created_at = ? WHERE user_message_id = ? AND owner_id = ? AND status = 'failed'")
+      .bind(now, userMessageId, ownerId).run();
     ownsPendingTurn = (retried.meta?.changes ?? 0) === 1;
+  } else if (existingTurn?.status === "pending") {
+    // A worker can die after reserving a turn. Reclaim only an old reservation;
+    // a fresh pending turn remains idempotent and never gets two replies.
+    const staleBefore = new Date(Date.now() - 45_000).toISOString();
+    if (existingTurn.created_at <= staleBefore) {
+      const reclaimed = await db.prepare(`UPDATE coach_turns SET created_at = ?, assistant_message_id = NULL, completed_at = NULL
+        WHERE user_message_id = ? AND owner_id = ? AND status = 'pending' AND created_at = ?`)
+        .bind(now, userMessageId, ownerId, existingTurn.created_at).run();
+      ownsPendingTurn = (reclaimed.meta?.changes ?? 0) === 1;
+    }
   } else if (!existingTurn) {
     const created = await db.prepare("INSERT OR IGNORE INTO coach_turns (user_message_id, owner_id, status, created_at) VALUES (?, ?, 'pending', ?)")
       .bind(userMessageId, ownerId, now).run();
@@ -127,7 +134,11 @@ export async function POST(request: Request) {
         id: assistantMessageId, role: "assistant", content: answer.reply, created_at: assistantCreatedAt,
         follow_up: answer.followUp, video_mode: answer.video.mode, video_topic: answer.video.topic || null, video_prompt: answer.video.prompt || null,
       },
-      suggestions: getCoachSuggestions(memory, activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null),
+      suggestions: getCoachSuggestions(
+        memory,
+        activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null,
+        { followUp: answer.followUp, videoTopic: answer.video.topic },
+      ),
     });
   } catch (error) {
     await db.prepare("UPDATE coach_turns SET status = 'failed' WHERE user_message_id = ? AND owner_id = ? AND status = 'pending'").bind(userMessageId, ownerId).run();

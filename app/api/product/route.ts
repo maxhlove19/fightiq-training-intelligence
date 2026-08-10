@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     buildLearnFeed({ db, ownerId, memory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
     getActiveTrainingExperiment(db, ownerId),
   ]);
+  const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
   return Response.json({
     profile: {
       currentFocus: profile.current_focus,
@@ -42,8 +43,10 @@ export async function GET(request: Request) {
     },
     memory,
     insight: {
-      title: memory.recurringProblems[0]?.includes("No recurring") ? "FightIQ is learning your patterns." : "Your game is showing a pattern.",
-      body: memory.focusReason,
+      title: latestCompletedTraining
+        ? "FightIQ updated your training picture."
+        : memory.recurringProblems[0]?.includes("No recurring") ? "FightIQ is learning your patterns." : "Your game is showing a pattern.",
+      body: latestCompletedTraining?.takeaway || memory.focusReason,
       currentFocus: memory.currentFocus,
     },
     videos: learn.videos,

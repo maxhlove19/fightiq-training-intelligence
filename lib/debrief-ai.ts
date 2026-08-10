@@ -241,7 +241,7 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
   const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [], reported_facts: [], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: [] };
   const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique: "", goal: "", problem: "", suspected_cause: "", coach_instructor_cue: "", what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length < 1, reported_facts: [entry.raw_entry], fightiq_hypotheses: [], experiment_result: "unknown" };
   if (history.length >= 1) return {
-    status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail, and the next step is making it reliable against live resistance.",
+    status: "complete", summary: entry.raw_entry.slice(0, 180), takeaway: "You understood the session detail. Now see whether it stays there once the pace picks up.",
     coach_detail: "", fightiq_explanation: "Before we settle on a cause, it helps to know where the detail first starts to slip.",
     next_session_focus: "Notice the moment the detail stops working, then test one small change.", confidence: .82, memory,
     intelligence: { ...intelligence, follow_up_needed: false, confidence: .72 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },

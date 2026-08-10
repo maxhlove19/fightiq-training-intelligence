@@ -953,6 +953,15 @@ body { letter-spacing: .003em; }
 .workout-gear { border-color: #2a3650; background: #121a2a; }
 .workout-page .choice-stack button { border-color: #2a3650; background: #111827; }
 .workout-page .choice-stack button.selected { border-color: #16d4e7; background: #0b3d49; }
+.coach-header { align-items: center; justify-content: space-between; }
+.new-chat-button { min-height: 34px; padding: 0 10px; border: 1px solid #25d5e6; border-radius: 8px; background: #0b3d49; color: #55e9f5; display: inline-flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 700; cursor: pointer; }
+.new-chat-button:disabled { opacity: .5; }
+.coach-chat-picker { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; margin: -5px 0 10px; }
+.coach-chat-picker span { color: #6e819d; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .13em; }
+.coach-chat-picker select { min-width: 0; min-height: 34px; border: 1px solid #2a3650; border-radius: 7px; background: #111827; color: #dce8f7; padding: 0 9px; font-size: 10px; }
+.coach-topic-return { min-height: 28px; margin: -5px 0 7px; }
+.learn-page .feed-heading { margin-top: 4px; }
+.learn-page .video-copy .creator-line { margin-bottom: 4px; }
 
 .home-page { padding-top: 12px; }
 .home-header { min-height: 31px; margin-bottom: 11px; }

@@ -7,6 +7,21 @@ export const dynamic = "force-dynamic";
 type StoredAssistant = { id: string; role: "assistant"; content: string; created_at: string; follow_up: string | null; follow_up_choices_json: string | null; video_mode: "none" | "offer" | "direct" | null; video_topic: string | null; video_prompt: string | null };
 type StoredCoachMessage = Omit<StoredAssistant, "role"> & { role: "user" | "assistant" };
 type CoachConversationContext = { follow_up: string | null; video_topic: string | null };
+type CoachChat = { id: string; title: string; created_at: string; updated_at: string };
+
+async function ensureCoachChat(db: D1, ownerId: string, requestedId?: string | null) {
+  const requested = requestedId ? await db.prepare("SELECT id, title, created_at, updated_at FROM coach_chats WHERE id = ? AND owner_id = ? LIMIT 1").bind(requestedId, ownerId).first<CoachChat>() : null;
+  if (requested) return requested;
+  const existing = await db.prepare("SELECT id, title, created_at, updated_at FROM coach_chats WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 1").bind(ownerId).first<CoachChat>();
+  if (existing) return existing;
+  const id = crypto.randomUUID(); const now = new Date().toISOString();
+  await db.batch([
+    db.prepare("INSERT INTO coach_chats (id, owner_id, title, created_at, updated_at) VALUES (?, ?, 'General', ?, ?)").bind(id, ownerId, now, now),
+    db.prepare("UPDATE coach_messages SET chat_id = ? WHERE owner_id = ? AND chat_id IS NULL").bind(id, ownerId),
+    db.prepare("UPDATE coach_turns SET chat_id = ? WHERE owner_id = ? AND chat_id IS NULL").bind(id, ownerId),
+  ]);
+  return { id, title: "General", created_at: now, updated_at: now };
+}
 
 function safeFollowUpChoices(value: string | null) {
   try {
@@ -39,30 +54,34 @@ async function completedTurnResponse(db: D1, ownerId: string, userMessageId: str
   return { user: { id: userMessageId, role: "user" as const, content: userContent, created_at: userCreatedAt }, assistant: coachMessageForClient(assistant) };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
   await ensureProductSchema(db);
-  const [messages, memory, activeExperiment, conversationContext] = await Promise.all([
+  const requestedChatId = new URL(request.url).searchParams.get("chatId");
+  const activeChat = await ensureCoachChat(db, ownerId, requestedChatId);
+  const [messages, memory, activeExperiment, conversationContext, chats] = await Promise.all([
     db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
         enrichments.follow_up, enrichments.follow_up_choices_json, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
       FROM (
-      SELECT id, role, content, created_at FROM coach_messages WHERE owner_id = ? ORDER BY created_at DESC LIMIT 60
+      SELECT id, role, content, created_at FROM coach_messages WHERE owner_id = ? AND chat_id = ? ORDER BY created_at DESC LIMIT 60
       ) messages LEFT JOIN coach_message_enrichments enrichments
         ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = ?
-      ORDER BY messages.created_at ASC`).bind(ownerId, ownerId).all(),
+      ORDER BY messages.created_at ASC`).bind(ownerId, activeChat.id, ownerId).all(),
     getMemorySnapshot(db, ownerId),
     getActiveTrainingExperiment(db, ownerId),
     db.prepare(`SELECT enrichments.follow_up, enrichments.video_topic
       FROM coach_messages messages
       LEFT JOIN coach_message_enrichments enrichments
         ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = messages.owner_id
-      WHERE messages.owner_id = ?
-      ORDER BY messages.created_at DESC LIMIT 1`).bind(ownerId).first<CoachConversationContext>(),
+      WHERE messages.owner_id = ? AND messages.chat_id = ?
+      ORDER BY messages.created_at DESC LIMIT 1`).bind(ownerId, activeChat.id).first<CoachConversationContext>(),
+    db.prepare("SELECT id, title, created_at, updated_at FROM coach_chats WHERE owner_id = ? ORDER BY updated_at DESC LIMIT 20").bind(ownerId).all<CoachChat>(),
   ]);
   return Response.json({
+    chats: chats.results ?? [], activeChatId: activeChat.id,
     messages: (messages.results ?? []).map((message) => coachMessageForClient(message as StoredCoachMessage)),
     currentFocus: memory.currentFocus,
     // Coach can be left for a video and reopened. Keep the suggestions attached
@@ -81,25 +100,28 @@ export async function POST(request: Request) {
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db, apiKey, allowMockAi } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
-  let body: { question?: unknown; messageId?: unknown };
+  let body: { question?: unknown; messageId?: unknown; chatId?: unknown };
   try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid question.", 400); }
   const question = typeof body.question === "string" ? body.question.trim() : "";
   const requestedMessageId = typeof body.messageId === "string" ? body.messageId.trim() : "";
+  const requestedChatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
   if (question.length < 2 || question.length > 3000) return productError("INVALID_QUESTION", "Question must be between 2 and 3,000 characters.", 422);
   if (requestedMessageId && (requestedMessageId.length < 8 || requestedMessageId.length > 100)) return productError("INVALID_MESSAGE_ID", "Invalid message identifier.", 422);
   await ensureProductSchema(db);
+  const activeChat = await ensureCoachChat(db, ownerId, requestedChatId);
+  if (requestedChatId && activeChat.id !== requestedChatId) return productError("CHAT_NOT_FOUND", "That Coach chat is unavailable.", 404);
   const existingMessage = requestedMessageId
-    ? await db.prepare("SELECT id, owner_id, role, content, created_at FROM coach_messages WHERE id = ? LIMIT 1").bind(requestedMessageId).first<{ id: string; owner_id: string; role: string; content: string; created_at: string }>()
+    ? await db.prepare("SELECT id, owner_id, chat_id, role, content, created_at FROM coach_messages WHERE id = ? LIMIT 1").bind(requestedMessageId).first<{ id: string; owner_id: string; chat_id: string | null; role: string; content: string; created_at: string }>()
     : null;
-  if (existingMessage && (existingMessage.owner_id !== ownerId || existingMessage.role !== "user" || existingMessage.content !== question)) {
+  if (existingMessage && (existingMessage.owner_id !== ownerId || existingMessage.chat_id !== activeChat.id || existingMessage.role !== "user" || existingMessage.content !== question)) {
     return productError("MESSAGE_CONFLICT", "That saved message cannot be retried.", 409);
   }
   const now = new Date().toISOString();
   const userMessageId = existingMessage?.id ?? (requestedMessageId || crypto.randomUUID());
   const userCreatedAt = existingMessage?.created_at ?? now;
   if (!existingMessage) {
-    await db.prepare("INSERT OR IGNORE INTO coach_messages (id, owner_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)")
-      .bind(userMessageId, ownerId, question, userCreatedAt).run();
+    await db.prepare("INSERT OR IGNORE INTO coach_messages (id, owner_id, chat_id, role, content, created_at) VALUES (?, ?, ?, 'user', ?, ?)")
+      .bind(userMessageId, ownerId, activeChat.id, question, userCreatedAt).run();
   }
   // Make the retry path deterministic. The same user message either returns
   // the completed answer, waits for the in-flight one, or safely reopens a
@@ -126,8 +148,8 @@ export async function POST(request: Request) {
       ownsPendingTurn = (reclaimed.meta?.changes ?? 0) === 1;
     }
   } else if (!existingTurn) {
-    const created = await db.prepare("INSERT OR IGNORE INTO coach_turns (user_message_id, owner_id, status, created_at) VALUES (?, ?, 'pending', ?)")
-      .bind(userMessageId, ownerId, now).run();
+    const created = await db.prepare("INSERT OR IGNORE INTO coach_turns (user_message_id, owner_id, chat_id, status, created_at) VALUES (?, ?, ?, 'pending', ?)")
+      .bind(userMessageId, ownerId, activeChat.id, now).run();
     ownsPendingTurn = (created.meta?.changes ?? 0) === 1;
   }
   if (!ownsPendingTurn) {
@@ -144,7 +166,7 @@ export async function POST(request: Request) {
       enrichments.follow_up, enrichments.video_mode, enrichments.video_topic
       FROM coach_messages messages LEFT JOIN coach_message_enrichments enrichments
         ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = messages.owner_id
-      WHERE messages.owner_id = ? ORDER BY messages.created_at DESC LIMIT 10`).bind(ownerId).all<{
+      WHERE messages.owner_id = ? AND messages.chat_id = ? ORDER BY messages.created_at DESC LIMIT 10`).bind(ownerId, activeChat.id).all<{
       id: string; role: string; content: string; follow_up: string | null; video_mode: string | null; video_topic: string | null;
     }>(),
     getActiveTrainingExperiment(db, ownerId),
@@ -157,14 +179,16 @@ export async function POST(request: Request) {
     const assistantMessageId = crypto.randomUUID();
     const assistantCreatedAt = new Date().toISOString();
     await db.batch([
-      db.prepare("INSERT INTO coach_messages (id, owner_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)")
-        .bind(assistantMessageId, ownerId, answer.reply, assistantCreatedAt),
+      db.prepare("INSERT INTO coach_messages (id, owner_id, chat_id, role, content, created_at) VALUES (?, ?, ?, 'assistant', ?, ?)")
+        .bind(assistantMessageId, ownerId, activeChat.id, answer.reply, assistantCreatedAt),
       db.prepare(`INSERT INTO coach_message_enrichments (
         assistant_message_id, owner_id, follow_up, follow_up_choices_json, video_mode, video_topic, video_prompt, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(assistantMessageId, ownerId, answer.followUp, JSON.stringify(answer.followUpChoices), answer.video.mode, answer.video.topic || null, answer.video.prompt || null, assistantCreatedAt),
       db.prepare("UPDATE coach_turns SET assistant_message_id = ?, status = 'complete', completed_at = ? WHERE user_message_id = ? AND owner_id = ?")
         .bind(assistantMessageId, assistantCreatedAt, userMessageId, ownerId),
+      db.prepare("UPDATE coach_chats SET title = CASE WHEN title IN ('General', 'New chat') THEN ? ELSE title END, updated_at = ? WHERE id = ? AND owner_id = ?")
+        .bind(question.replace(/[?!.,]+$/g, "").slice(0, 42), assistantCreatedAt, activeChat.id, ownerId),
     ]);
     return Response.json({
       user: { id: userMessageId, role: "user", content: question, created_at: userCreatedAt },

@@ -172,9 +172,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
           <p className="eyebrow">FIGHTIQ INSIGHT</p>
           <h2>{insight.title}</h2>
           <p className="home-insight-body">{insight.body}</p>
-          <span className="home-focus-label">CURRENT FOCUS</span>
-          <strong className="home-focus-name">{insight.currentFocus}</strong>
-          <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
+          <button className="home-insight-link" onClick={onGame}>OPEN MY GAME <ChevronRight size={14} /></button>
         </div>
         <div className="home-insight-media" aria-hidden="true">
           <img src={homePosterImages[posterIndex]} alt="" decoding="async" />

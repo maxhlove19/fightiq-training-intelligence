@@ -51,7 +51,7 @@ export async function GET(request: Request) {
     onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
     insight: {
-      title: latestCompletedTraining?.focus || memory.currentFocus || "Build your baseline.",
+      title: latestCompletedTraining ? "Here’s what matters next." : "Build your baseline.",
       body: latestCompletedTraining?.takeaway || memory.focusReason,
       currentFocus: memory.currentFocus,
     },

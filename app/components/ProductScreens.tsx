@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
-  LoaderCircle, MessageCircle, Mic, Pencil, RefreshCw, Save, Send, Sparkles, Target, X,
+  LoaderCircle, MessageCircle, Mic, Pencil, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
 
 type SpeechRecognitionLike = {
@@ -116,11 +116,11 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
-      <section className="focus-banner"><span>{topicQuery ? "COACH TOPIC" : "STUDY NOW"}</span><h2>{topicQuery || data.memory.currentFocus}</h2>{topicQuery && (onReturnToCoach || onReturnToFeed) && <button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Coach" : "My feed"} <ChevronRight size={14} /></button>}</section>
-      <div className="feed-heading"><div><p className="eyebrow">VIDEO PICKS</p>{(data.learn.refreshed || refreshNotice) && <p className="refresh-note" role="status">{refreshNotice || "Fresh studies ready."}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding…" : "Refresh"}</button></div>
+      {topicQuery && <div className="coach-topic-return"><button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Back to Coach" : "Back to my feed"} <ChevronRight size={14} /></button></div>}
+      <div className="feed-heading"><div><p className="eyebrow">{topicQuery ? "COACH VIDEO PICKS" : "FOR YOUR NEXT STUDY"}</p>{(data.learn.refreshed || refreshNotice) && <p className="refresh-note" role="status">{refreshNotice || "Fresh studies ready."}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding…" : "Refresh"}</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
-        <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH ON YOUTUBE" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
+        <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><details className="why-detail"><summary>Why this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
       </article>)}</div>
       <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">More on YouTube <ExternalLink size={14} /></a>
     </>}
@@ -129,6 +129,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
 
 type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string; follow_up?: string | null; follow_up_choices?: string[]; video_mode?: "none" | "offer" | "direct" | null; video_topic?: string | null; video_prompt?: string | null };
 type CoachFailure = { messageId: string; question: string; code: string; message: string };
+type CoachChat = { id: string; title: string; created_at: string; updated_at: string };
 
 function messageParagraphs(value: string) {
   return cleanAiDisplay(value).split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
@@ -136,7 +137,8 @@ function messageParagraphs(value: string) {
 
 export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) => void }) {
   const [messages, setMessages] = useState<CoachMessage[]>([]);
-  const [currentFocus, setCurrentFocus] = useState("");
+  const [chats, setChats] = useState<CoachChat[]>([]);
+  const [activeChatId, setActiveChatId] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(true);
@@ -146,7 +148,8 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const voice = useVoiceField(question, setQuestion);
   const endRef = useRef<HTMLDivElement | null>(null);
   const composeRef = useRef<HTMLTextAreaElement | null>(null);
-  useEffect(() => { void (async () => { try { const response = await fetch("/api/coach"); const data = await response.json() as { messages?: CoachMessage[]; currentFocus?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setMessages(data.messages ?? []); setCurrentFocus(data.currentFocus ?? ""); setSuggestions(data.suggestions ?? []); } catch (caught) { setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); } finally { setLoading(false); } })(); }, []);
+  async function loadChat(chatId?: string) { setLoading(true); setError(""); try { const response = await fetch(chatId ? `/api/coach?chatId=${encodeURIComponent(chatId)}` : "/api/coach"); const data = await response.json() as { messages?: CoachMessage[]; chats?: CoachChat[]; activeChatId?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setMessages(data.messages ?? []); setChats(data.chats ?? []); setActiveChatId(data.activeChatId ?? ""); setSuggestions(data.suggestions ?? []); setFailure(null); } catch (caught) { setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); } finally { setLoading(false); } }
+  useEffect(() => { let active = true; void fetch("/api/coach").then(async (response) => { const data = await response.json() as { messages?: CoachMessage[]; chats?: CoachChat[]; activeChatId?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); if (active) { setMessages(data.messages ?? []); setChats(data.chats ?? []); setActiveChatId(data.activeChatId ?? ""); setSuggestions(data.suggestions ?? []); } }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
   async function send(explicitQuestion?: string, retryMessageId?: string) {
     const pending = (explicitQuestion ?? question).trim();
@@ -156,7 +159,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     const optimistic: CoachMessage = { id: messageId, role: "user", content: pending };
     if (!retryMessageId) setMessages((current) => [...current, optimistic]);
     try {
-      const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId }) });
+      const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId, chatId: activeChatId }) });
       const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; error?: { code?: string; message?: string } };
       if (!response.ok || !data.assistant) {
         const code = data.error?.code ?? "AI_UNAVAILABLE";
@@ -167,16 +170,18 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
         return;
       }
       setMessages((current) => [...current.filter((item) => item.id !== messageId && item.id !== data.assistant?.id), data.user ?? optimistic, data.assistant as CoachMessage]);
+      setChats((current) => current.map((chat) => chat.id === activeChatId && (chat.title === "New chat" || chat.title === "General") ? { ...chat, title: pending.replace(/[?!.,]+$/g, "").slice(0, 42) } : chat));
       if (data.suggestions) setSuggestions(data.suggestions);
-    } catch (caught) {
+    } catch {
       setQuestion(pending);
-      setFailure({ messageId, question: pending, code: "NETWORK_ERROR", message: "FightIQ Coach couldn’t answer. Your message is still here.", development: { cause: caught instanceof Error ? caught.message : "Request failed" } });
+      setFailure({ messageId, question: pending, code: "NETWORK_ERROR", message: "FightIQ Coach couldn’t answer. Your message is still here." });
     }
     finally { setSending(false); }
   }
   function focusCompose() {
     requestAnimationFrame(() => composeRef.current?.focus());
   }
+  async function newChat() { if (sending) return; setError(""); try { const response = await fetch("/api/coach/chats", { method: "POST" }); const data = await response.json() as { chat?: CoachChat; error?: { message?: string } }; if (!response.ok || !data.chat) throw new Error(data.error?.message); setQuestion(""); await loadChat(data.chat.id); requestAnimationFrame(() => composeRef.current?.focus()); } catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t start a new chat."); } }
   function sendWithKeyboard(event: KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
@@ -189,8 +194,8 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const failureText = failure?.message.toLowerCase().includes("preserved")
     ? failure.message
     : failure ? `${failure.message} Your message was preserved.` : "";
-  return <main className="page product-page native-page coach-page"><ScreenHeader title="Ask FightIQ" kicker="YOUR TRAINING-AWARE COACH" />
-    {currentFocus && <div className="context-pill"><Target size={14} /><span>Current focus: {currentFocus}</span></div>}
+  return <main className="page product-page native-page coach-page"><header className="page-header coach-header"><div><p className="question-progress">YOUR COACH</p><h1 className="page-title">Ask FightIQ</h1></div><button className="new-chat-button" onClick={() => void newChat()} disabled={sending}><Plus size={15} /> New chat</button></header>
+    {chats.length > 1 && <label className="coach-chat-picker"><span>CHAT</span><select value={activeChatId} onChange={(event) => void loadChat(event.target.value)}>{chats.map((chat) => <option value={chat.id} key={chat.id}>{chat.title}</option>)}</select></label>}
     <section className="coach-thread">
       {loading && <LoadingState label="Loading your conversation…" />}
       {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>What do you want to sharpen?</h2></div>}

@@ -112,10 +112,22 @@ export const debriefGenerationLeases = sqliteTable("debrief_generation_leases", 
 export const coachMessages = sqliteTable("coach_messages", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),
+  chatId: text("chat_id"),
   role: text("role").notNull(),
   content: text("content").notNull(),
   createdAt: text("created_at").notNull(),
-}, (table) => [index("idx_coach_messages_owner_created").on(table.ownerId, table.createdAt)]);
+}, (table) => [
+  index("idx_coach_messages_owner_created").on(table.ownerId, table.createdAt),
+  index("idx_coach_messages_owner_chat_created").on(table.ownerId, table.chatId, table.createdAt),
+]);
+
+export const coachChats = sqliteTable("coach_chats", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  title: text("title").notNull().default("New chat"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [index("idx_coach_chats_owner_updated").on(table.ownerId, table.updatedAt)]);
 
 export const coachMessageEnrichments = sqliteTable("coach_message_enrichments", {
   assistantMessageId: text("assistant_message_id").primaryKey(),
@@ -134,6 +146,7 @@ export const coachMessageEnrichments = sqliteTable("coach_message_enrichments", 
 export const coachTurns = sqliteTable("coach_turns", {
   userMessageId: text("user_message_id").primaryKey(),
   ownerId: text("owner_id").notNull(),
+  chatId: text("chat_id"),
   assistantMessageId: text("assistant_message_id"),
   status: text("status").notNull().default("pending"),
   createdAt: text("created_at").notNull(),

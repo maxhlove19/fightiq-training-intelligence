@@ -117,11 +117,20 @@ export async function ensureProductSchema(db: D1) {
     db.prepare(`CREATE TABLE IF NOT EXISTS coach_messages (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
+      chat_id TEXT,
       role TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS coach_chats (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'New chat',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS coach_message_enrichments (
       assistant_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -136,6 +145,7 @@ export async function ensureProductSchema(db: D1) {
     db.prepare(`CREATE TABLE IF NOT EXISTS coach_turns (
       user_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
+      chat_id TEXT,
       assistant_message_id TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL,
@@ -252,6 +262,11 @@ export async function ensureProductSchema(db: D1) {
   if (!enrichmentColumnNames.has("follow_up_choices_json")) {
     await db.prepare("ALTER TABLE coach_message_enrichments ADD COLUMN follow_up_choices_json TEXT NOT NULL DEFAULT '[]'").run();
   }
+  const messageColumns = await db.prepare("PRAGMA table_info(coach_messages)").all<{ name: string }>();
+  if (!(messageColumns.results ?? []).some((column) => column.name === "chat_id")) await db.prepare("ALTER TABLE coach_messages ADD COLUMN chat_id TEXT").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_chat_created ON coach_messages (owner_id, chat_id, created_at)").run();
+  const turnColumns = await db.prepare("PRAGMA table_info(coach_turns)").all<{ name: string }>();
+  if (!(turnColumns.results ?? []).some((column) => column.name === "chat_id")) await db.prepare("ALTER TABLE coach_turns ADD COLUMN chat_id TEXT").run();
   await db.prepare("PRAGMA optimize").run();
 }
 

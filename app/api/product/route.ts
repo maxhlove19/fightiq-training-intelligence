@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     videos: learn.videos,
     learn: { studyTopic: learn.studyTopic, exploreUrl: learn.exploreUrl, liveDiscoveryAvailable: learn.liveDiscoveryAvailable, refreshed: learn.refreshed },
     preTrainingBrief,
-    activeExperiment: activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue, reason: activeExperiment.reason, startedAt: activeExperiment.started_at } : null,
+    activeExperiment: activeExperiment ? { id: activeExperiment.id, mission: activeExperiment.mission, cue: activeExperiment.cue, reason: activeExperiment.reason, startedAt: activeExperiment.started_at } : null,
     nutrition,
     recentWorkouts: recentWorkouts.results ?? [],
   });

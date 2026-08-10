@@ -83,12 +83,14 @@ function coachReplyFrom(value: unknown): CoachReply {
   if (!(["none", "offer", "direct"] as string[]).includes(String(offer.mode)) || typeof offer.topic !== "string" || typeof offer.prompt !== "string") {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
+  const replySentences = cleanCoachText(reply.reply).replace(/\?+/g, ".").split(/(?<=[.!])\s+/).filter(Boolean).slice(0, 2).join(" ");
+  const rawFollowUp = cleanCoachText(reply.follow_up).replace(/[.\s]+$/g, "");
   const cleaned = {
-    reply: cleanCoachText(reply.reply).slice(0, 1100),
-    followUp: cleanCoachText(reply.follow_up).slice(0, 220),
+    reply: replySentences.slice(0, 420),
+    followUp: `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?`,
     video: { mode: offer.mode as CoachVideoOffer["mode"], topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
   };
-  if (!cleaned.reply || !cleaned.followUp || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
+  if (!cleaned.reply || cleaned.followUp === "?" || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
   return cleaned;
@@ -136,7 +138,7 @@ async function responseRequest(apiKey: string, ownerId: string, body: Record<str
 
 export async function answerCoach(args: {
   apiKey?: string; allowMockAi?: boolean; ownerId: string; question: string; memory: MemorySnapshot; profile: FighterProfile;
-  workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string }>; activeExperiment?: unknown;
+  workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string; followUp?: string | null; videoMode?: string | null; videoTopic?: string | null }>; activeExperiment?: unknown;
 }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
@@ -149,12 +151,12 @@ export async function answerCoach(args: {
     throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
   }
   const payload = await responseRequest(args.apiKey, args.ownerId, {
-    max_output_tokens: 650,
+    max_output_tokens: 420,
     text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_coach_reply", strict: true, schema: coachReplySchema } },
     input: [
       { role: "system", content: `You are FightIQ Coach, a thoughtful MMA-first coach who remembers the athlete's training. Sound like a good coach in a real conversation: calm, curious, observant, and concise. Never sound like a report, therapist, motivational speaker, or content creator.
 
-Use the response JSON exactly. reply is one to four short, plain-language sentences. follow_up is exactly one short, direct question that moves the conversation forward. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
+Use the response JSON exactly. reply is one or two short, plain-language sentences and must not contain a question. follow_up is exactly one short, direct question ending in a question mark. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
 
 First decide whether a missing detail would change your advice. For technique, training, recovery, or strategy questions with meaningful uncertainty, say only what is clear, then ask the one missing question. Do not guess the cause or prescribe a drill first. When enough context is already present, answer it directly, then ask one natural question that would help tailor what comes next. Never ask more than one question and never repeat an answer already in the supplied context. A direct safety response still needs a gentle, relevant question when it is safe to continue.
 
@@ -163,12 +165,17 @@ Treat coach or instructor details as high-value athlete reports; attribute them 
 video.mode is "direct" only when the athlete explicitly asks for a video, a clip, or someone to study. It is "offer" only when a visual technique study would genuinely help; otherwise "none". For "offer" or "direct", set video.topic to a specific searchable technique topic and video.prompt to a short natural invitation. Do not offer a video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the actual video; never invent a link or title.` },
       { role: "user", content: JSON.stringify({
         question: args.question,
-        fighter_memory: args.memory,
-        profile: args.profile,
-        recent_workouts: args.workouts,
-        nutrition_today: args.nutrition,
+        fighter_memory: compactCoachMemory(args.memory),
+        profile: { current_focus: args.profile.current_focus, focus_reason: args.profile.focus_reason, primary_goal: args.profile.primary_goal, style_influences: safeArray(args.profile.style_influences_json) },
+        recent_workouts: args.workouts.slice(0, 3),
+        nutrition_today: compactNutrition(args.nutrition),
         active_pre_training_experiment: args.activeExperiment ?? null,
-        recent_conversation: args.history.slice(-8),
+        recent_conversation: args.history.slice(-8).map((message) => ({
+          role: message.role,
+          content: message.content.slice(0, 600),
+          ...(message.followUp ? { follow_up: message.followUp.slice(0, 180) } : {}),
+          ...(message.videoMode && message.videoMode !== "none" ? { video: { mode: message.videoMode, topic: message.videoTopic ?? "" } } : {}),
+        })),
       }) },
     ],
   });
@@ -176,6 +183,34 @@ video.mode is "direct" only when the athlete explicitly asks for a video, a clip
   if (!text) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   try { return coachReplyFrom(JSON.parse(text)); }
   catch (error) { if (error instanceof ProductAIError) throw error; throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502); }
+}
+
+function safeArray(value: string) {
+  try { return JSON.parse(value).filter((item: unknown) => typeof item === "string").slice(0, 5); } catch { return []; }
+}
+
+function compactCoachMemory(memory: MemorySnapshot) {
+  return {
+    current_focus: memory.currentFocus,
+    focus_reason: memory.focusReason,
+    recurring_problems: memory.recurringProblems.slice(0, 3),
+    strongest_areas: memory.strongestAreas.slice(0, 3),
+    recent_improvement: memory.recentImprovement,
+    instructor_details: memory.instructorDetails.slice(0, 3),
+    recent_training: memory.recentTraining.slice(0, 3).map((item) => ({
+      discipline: item.discipline,
+      session_type: item.sessionType,
+      note: item.note.slice(0, 700),
+      takeaway: item.takeaway?.slice(0, 250) ?? null,
+      focus: item.focus?.slice(0, 180) ?? null,
+    })),
+  };
+}
+
+function compactNutrition(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const nutrition = value as Record<string, unknown>;
+  return { totals: nutrition.totals ?? null, entry_count: Array.isArray(nutrition.entries) ? nutrition.entries.length : 0 };
 }
 
 export type MealEstimate = {

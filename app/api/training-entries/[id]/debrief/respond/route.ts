@@ -4,7 +4,7 @@ import {
   getOwnedEntry, markDebriefError, markDebriefPreparing,
 } from "../../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../../lib/debrief-server";
-import { ensureProductSchema, getExperimentForEntry, updateExperimentForEntry } from "../../../../../../lib/product-db";
+import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, updateExperimentForEntry } from "../../../../../../lib/product-db";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
@@ -48,9 +48,16 @@ export async function POST(request: Request, context: Context) {
   const current = await getDebriefRecord(db, id, ownerId);
   await markDebriefPreparing(db, id, ownerId);
   try {
-    const experiment = await getExperimentForEntry(db, ownerId, id);
+    const [experiment, memory] = await Promise.all([getExperimentForEntry(db, ownerId, id), getMemorySnapshot(db, ownerId)]);
     const experimentContext = experiment ? { mission: experiment.mission, cue: experiment.cue, reason: experiment.reason } : null;
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext });
+    const fighterBrain = {
+      current_focus: memory.currentFocus,
+      recurring_problems: memory.recurringProblems.slice(0, 3),
+      emerging_strengths: memory.emergingStrengths.slice(0, 3),
+      instructor_details: memory.instructorDetails.slice(0, 3),
+      recent_training: memory.recentTraining.slice(0, 3).map((item) => ({ discipline: item.discipline, note: item.note.slice(0, 500), takeaway: item.takeaway, focus: item.focus })),
+    };
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
     await persistDebriefResult(db, id, ownerId, result, history.length + 1);
     if (result.status === "complete") await updateExperimentForEntry(db, ownerId, id, result.intelligence.experiment_result, result.summary);
     return Response.json(await getDebriefState(db, id, ownerId));

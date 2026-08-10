@@ -20,7 +20,7 @@ export type ProductData = {
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };
-  activeExperiment: { mission: string; cue: string; reason: string; startedAt: string | null } | null;
+  activeExperiment: { id: string; mission: string; cue: string; reason: string; startedAt: string | null } | null;
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
 };
@@ -108,7 +108,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed }: { studyTopic?: strin
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
       <section className="focus-banner"><span>{topicQuery ? "FROM YOUR COACH CHAT" : "CURRENT STUDY FOCUS"}</span><h2>{topicQuery || data.memory.currentFocus}</h2><p>{topicQuery ? "FightIQ narrowed this feed to the exact technique you were discussing." : data.memory.focusReason}</p>{topicQuery && onReturnToFeed && <button className="text-link" onClick={onReturnToFeed}>Back to my feed <ChevronRight size={14} /></button>}</section>
-      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2>{data.learn.refreshed && <p className="refresh-note" role="status">Fresh set for: {data.learn.studyTopic}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding videos…" : "Refresh recommendations"}</button></div>
+      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2>{data.learn.refreshed && <p className="refresh-note" role="status">{data.learn.liveDiscoveryAvailable ? "New relevant studies" : "A rotated set of relevant studies"}: {data.learn.studyTopic}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding videos…" : data.learn.liveDiscoveryAvailable ? "Refresh recommendations" : "Rotate relevant studies"}</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
         <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH ON YOUTUBE" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
@@ -148,13 +148,14 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     if (!retryMessageId) setMessages((current) => [...current, optimistic]);
     try {
       const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId }) });
-      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; error?: { code?: string; message?: string; development?: Record<string, unknown> } };
+      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; error?: { code?: string; message?: string; development?: Record<string, unknown> } };
       if (!response.ok || !data.assistant) {
         setQuestion(pending);
         setFailure({ messageId, question: pending, code: data.error?.code ?? "AI_UNAVAILABLE", message: data.error?.message ?? "FightIQ Coach couldn’t answer.", development: data.error?.development });
         return;
       }
       setMessages((current) => [...current.filter((item) => item.id !== messageId && item.id !== data.assistant?.id), data.user ?? optimistic, data.assistant as CoachMessage]);
+      if (data.suggestions) setSuggestions(data.suggestions);
     } catch (caught) {
       setQuestion(pending);
       setFailure({ messageId, question: pending, code: "NETWORK_ERROR", message: "FightIQ Coach couldn’t answer. Your message is still here.", development: { cause: caught instanceof Error ? caught.message : "Request failed" } });
@@ -163,10 +164,10 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   }
   return <main className="page product-page coach-page"><ScreenHeader title="Ask FightIQ" kicker="YOUR TRAINING-AWARE COACH" />
     {currentFocus && <div className="context-pill"><Target size={14} /><span>Current focus: {currentFocus}</span></div>}
-    <section className="coach-thread" aria-live="polite">
+    <section className="coach-thread">
       {loading && <LoadingState label="Loading your conversation…" />}
       {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p></div>}
-      {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && <p className="coach-follow-up">{cleanAiDisplay(message.follow_up)}</p>}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICK" : "WANT TO SEE IT?"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>Show me a video <ChevronRight size={14} /></button></div>}</div>)}
+      {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && <button className="coach-follow-up" onClick={() => requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(".coach-compose textarea")?.focus())}>{cleanAiDisplay(message.follow_up)}<span>Answer this</span></button>}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICKS" : "WANT TO SEE IT?"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>{message.video_mode === "direct" ? "Open video picks" : "Show me a video"}<ChevronRight size={14} /></button></div>}</div>)}
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><div className="chat-bubble"><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div></div>}
       <div ref={endRef} />
     </section>
@@ -174,6 +175,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
     {failure && <div className="coach-error" role="alert"><p>{failure.message} Your message was preserved.</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> Retry</button><code>{failure.code}{failure.development?.cause ? ` · ${String(failure.development.cause)}` : ""}</code></div>}
     <div className="coach-compose"><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask about training, technique, recovery, workouts, or food…" aria-label="Ask FightIQ" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
+    <p className="sr-status" aria-live="polite">{sending ? "FightIQ is thinking with your training context." : messages.at(-1)?.role === "assistant" ? "FightIQ replied." : ""}</p>
   </main>;
 }
 

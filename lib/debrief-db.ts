@@ -78,6 +78,8 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
     nextSessionFocus: debrief.next_session_focus,
     answeredCount,
     questionCount: rows.length,
+    memoryUpdated: debrief.status === "complete" && Boolean(debrief.structured_memory_json),
+    coachDetail: debrief.coach_detail,
   };
   if (debrief.status === "complete") return { ...base, status: "complete" as const };
   if (pending) return {
@@ -97,7 +99,7 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
 function safeChoices(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string").slice(0, 4) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string").slice(0, 3) : [];
   } catch { return []; }
 }
 
@@ -131,9 +133,9 @@ export async function finishDebrief(db: D1, entryId: string, ownerId: string) {
   const now = new Date().toISOString();
   await db.batch([
     db.prepare("UPDATE training_followups SET status = 'skipped', answer_source = 'finish', answered_at = ? WHERE entry_id = ? AND owner_id = ? AND status = 'pending'").bind(now, entryId, ownerId),
-    db.prepare(`INSERT INTO training_debriefs (entry_id, owner_id, takeaway, status, question_count, confidence, created_at, updated_at)
-      VALUES (?, ?, 'Your training note is saved.', 'complete', 0, 0, ?, ?)
-      ON CONFLICT(entry_id) DO UPDATE SET status = 'complete', updated_at = excluded.updated_at`)
+    db.prepare(`INSERT INTO training_debriefs (entry_id, owner_id, takeaway, structured_memory_json, next_session_focus, status, question_count, confidence, created_at, updated_at)
+      VALUES (?, ?, 'Your training note is saved.', NULL, NULL, 'complete', 0, 0, ?, ?)
+      ON CONFLICT(entry_id) DO UPDATE SET takeaway = excluded.takeaway, structured_memory_json = NULL, next_session_focus = NULL, status = 'complete', updated_at = excluded.updated_at`)
       .bind(entryId, ownerId, now, now),
   ]);
 }

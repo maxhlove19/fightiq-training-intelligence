@@ -87,6 +87,21 @@ export const coachMessageEnrichments = sqliteTable("coach_message_enrichments", 
   createdAt: text("created_at").notNull(),
 }, (table) => [index("idx_coach_message_enrichments_owner_created").on(table.ownerId, table.createdAt)]);
 
+// One athlete message owns one Coach response. Besides keeping the chat in a
+// sensible turn order, this makes a retry safe when a request finishes on the
+// server after the client lost the response.
+export const coachTurns = sqliteTable("coach_turns", {
+  userMessageId: text("user_message_id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  assistantMessageId: text("assistant_message_id"),
+  status: text("status").notNull().default("pending"),
+  createdAt: text("created_at").notNull(),
+  completedAt: text("completed_at"),
+}, (table) => [
+  uniqueIndex("idx_coach_turns_assistant_message").on(table.assistantMessageId),
+  index("idx_coach_turns_owner_status").on(table.ownerId, table.status, table.createdAt),
+]);
+
 export const workoutPlans = sqliteTable("workout_plans", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),

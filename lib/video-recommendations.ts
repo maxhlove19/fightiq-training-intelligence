@@ -131,7 +131,18 @@ function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnaps
       : index === 0
         ? "It is the closest supporting study for the next layer of your MMA game."
         : "It builds a related skill without pulling you away from the work you logged.";
-  return { why, watchFor: `Watch how the ${first} detail is set before the movement starts.` };
+  const watchFor = video.topics.includes("support foot") || video.topics.includes("pivot")
+    ? "Watch whether the support foot turns before the hip comes through."
+    : video.topics.includes("arm drag")
+      ? "Watch the step to the angle right after the drag, before they can square up."
+      : video.topics.includes("back take")
+        ? "Watch how they keep shoulder control while they take the angle."
+        : video.topics.includes("guard")
+          ? "Watch which frame stays in place as the hips move."
+          : video.topics.includes("footwork")
+            ? "Watch what the lead foot does before the exit."
+            : `Watch the ${first} detail and compare it to the moment you logged.`;
+  return { why, watchFor };
 }
 
 function rankedCurated(memory: MemorySnapshot, refreshCursor: number, excludeIds: Set<string>) {

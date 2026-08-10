@@ -1,6 +1,7 @@
 // This is a safety ceiling, not a prescribed interview length. The model ends the
 // conversation as soon as another answer would not materially change the next test.
-const MAX_CLARIFYING_QUESTIONS = 4;
+const MAX_CLARIFYING_QUESTIONS = 3;
+const evidenceGaps = ["mechanics", "timing", "balance_or_mobility", "side_or_stance", "resistance_or_context", "coach_cue", "attempted_correction", "experiment_outcome", "other"] as const;
 
 export type DebriefMemory = {
   techniques: string[]; positions: string[]; successes: string[]; problems: string[];
@@ -57,8 +58,8 @@ const resultSchema = {
       required: ["prompt", "choices", "target_field", "why_asked"],
       properties: {
         prompt: { type: "string" },
-        choices: { type: "array", minItems: 0, maxItems: 4, items: { type: "string" } },
-        target_field: { type: "string" }, why_asked: { type: "string" },
+        choices: { type: "array", minItems: 0, maxItems: 3, items: { type: "string" } },
+        target_field: { type: "string", enum: ["", ...evidenceGaps] }, why_asked: { type: "string" },
       },
     },
   },
@@ -70,7 +71,7 @@ Rules:
 - Preserve the athlete's raw account. Never invent facts. Treat anything the athlete says a coach/instructor taught as high-value instructor_detail memory, quoted or closely paraphrased, never as your own instruction.
 - Keep reported coach details separate from FightIQ explanations. coach_detail contains only the athlete's report of what their coach said. fightiq_explanation must use uncertainty language when causal reasoning is not certain.
 - Speak like a concise human coach: natural sentences, no Markdown, no headings, no bullets, no report language. Keep each field short.
-- Ask one short question at a time, only while the answer could materially improve the athlete's next experiment. Do not use a fixed question count. Do not repeat facts already stated. When a pre-training experiment exists, first ask how that specific test went.
+- Ask one short question at a time, only while the answer could materially improve the athlete's next experiment. Do not use a fixed question count. Do not repeat facts already stated. When a pre-training experiment exists, first ask how that specific test went. Do not reuse a target_field already asked unless the athlete's answer explicitly left that exact gap unresolved.
 - For vague notes, clarify the observed problem before naming a cause. Useful uncertainty includes what happened, what worked or failed, side/situation, mechanics versus timing/balance/mobility, resistance, an instructor cue, and what the athlete tried.
 - Set intelligence.follow_up_needed true and status question only when a further answer is materially useful. Otherwise set it false and status complete. Never turn a single observation into a confirmed weakness.
 - Keep athlete-reported facts in reported_facts. Put only qualified FightIQ reasoning in fightiq_hypotheses and suspected_cause. Instructor teaching belongs in coach_instructor_cue and memory.instructor_details, not as FightIQ advice.
@@ -80,10 +81,11 @@ Rules:
 - Keep the takeaway and next-session focus concise and directly useful.`;
 
 export async function generateDebrief(args: {
-  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null; fighterBrain?: Record<string, unknown> | null;
 }): Promise<DebriefResult> {
   const nextSequence = args.history.length + 1;
   const allowQuestion = nextSequence <= MAX_CLARIFYING_QUESTIONS;
+  const mustClarifyInitial = args.history.length === 0 && needsInitialClarification(args.entry, args.activeExperiment);
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
       const result = mockDebrief(args.entry, args.history);
@@ -111,8 +113,8 @@ export async function generateDebrief(args: {
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: JSON.stringify({
-            task: args.history.length === 0 ? "Create the initial takeaway and first clarification question." : "Use the answer to update training intelligence. Ask another question only if it materially changes the next experiment; otherwise complete the debrief.",
-            must_ask_question: args.history.length === 0,
+            task: args.history.length === 0 ? "Create the initial takeaway. Ask the first clarification question only if the raw note leaves a material uncertainty." : "Use the answer to update training intelligence. Ask another question only if it materially changes the next experiment; otherwise complete the debrief.",
+            must_ask_question: mustClarifyInitial,
             allow_another_question: allowQuestion,
             next_question_sequence: nextSequence,
             discipline: args.entry.discipline,
@@ -122,6 +124,7 @@ export async function generateDebrief(args: {
             current_debrief: args.current ?? null,
             pre_training_brief_for_this_session: args.preTrainingBrief ?? null,
             active_experiment_for_this_session: args.activeExperiment ?? null,
+            compact_fighter_brain: args.fighterBrain ?? null,
           }) },
         ],
       }),
@@ -155,9 +158,39 @@ export async function generateDebrief(args: {
   let result: DebriefResult;
   try { result = validateDebriefResult(parsed); }
   catch { result = resilientDebrief(args.entry, args.history, args.activeExperiment); }
-  if (args.history.length === 0 && result.status !== "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ did not return the first question.", 502);
+  if (mustClarifyInitial && result.status === "complete") result = requiredInitialQuestion(args.entry, result, args.activeExperiment);
   if (!allowQuestion && result.status === "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ exceeded the question limit.", 502);
   return result;
+}
+
+function needsInitialClarification(entry: Entry, activeExperiment?: Record<string, unknown> | null) {
+  if (activeExperiment && typeof activeExperiment.mission === "string" && activeExperiment.mission.trim()) return true;
+  const note = entry.raw_entry.toLowerCase();
+  const reportsOutcome = /\b(worked|helped|better|worse|couldn['’]?t|could not|failed|lost|stuck|off balance|but|against|sparr|resistance|coach|instructor|told me|said|taught)\b/.test(note);
+  const isPracticeIntent = /\b(working on|practicing|form|drill|drilling|opening|trying to|focus(?:ing)? on)\b/.test(note);
+  return isPracticeIntent && !reportsOutcome;
+}
+
+function requiredInitialQuestion(entry: Entry, result: DebriefResult, activeExperiment?: Record<string, unknown> | null): DebriefResult {
+  const note = entry.raw_entry.toLowerCase();
+  const mission = activeExperiment && typeof activeExperiment.mission === "string" ? activeExperiment.mission : "";
+  const cue = activeExperiment && typeof activeExperiment.cue === "string" ? activeExperiment.cue : "";
+  const kick = /kick|bag|hip|pivot|roundhouse/.test(note);
+  const armDrag = /arm drag/.test(note);
+  const prompt = mission
+    ? cue ? `When you used “${cue},” what changed as you worked on ${mission.toLowerCase()}?` : `What changed when you worked on ${mission.toLowerCase()} today?`
+    : kick ? "When you tried to open your hips, what felt off first: the turn, your balance, or the support foot?"
+      : armDrag ? "After the arm drag, did they square back up before you got the angle, or after?"
+        : "What worked, and what did not, when you tried it?";
+  const choices = mission ? ["It helped", "No clear change", "Something else broke down"] : kick ? ["The hip turn", "My balance", "The support foot"] : armDrag ? ["Before the angle", "After I stepped", "I did not get the drag"] : ["It worked in drills", "It broke under pressure", "Not sure yet"];
+  return {
+    ...result,
+    status: "question",
+    next_session_focus: "",
+    confidence: Math.min(result.confidence, .5),
+    intelligence: { ...result.intelligence, follow_up_needed: true, confidence: Math.min(result.intelligence.confidence, .5) },
+    question: { prompt, choices, target_field: mission ? "experiment_outcome" : kick ? "balance_or_mobility" : armDrag ? "resistance_or_context" : "mechanics", why_asked: "This tells FightIQ what to test instead of guessing." },
+  };
 }
 
 function extractOutputText(payload: Record<string, unknown>): string | null {
@@ -178,7 +211,7 @@ export function validateDebriefResult(value: unknown): DebriefResult {
   if (!isRecord(value.memory) || !isRecord(value.question)) throw invalid();
   const memoryKeys = ["techniques", "positions", "successes", "problems", "concepts", "sparring_observations", "related_topics", "instructor_details", "reported_facts", "fightiq_hypotheses", "what_worked", "what_failed", "experiments"] as const;
   for (const key of memoryKeys) if (!stringArray(value.memory[key])) throw invalid();
-  if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 3 || typeof value.question.target_field !== "string" || typeof value.question.why_asked !== "string") throw invalid();
+  if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 3 || (value.question.target_field !== "" && !evidenceGaps.includes(value.question.target_field as typeof evidenceGaps[number])) || typeof value.question.why_asked !== "string") throw invalid();
   if (!isRecord(value.intelligence)) throw invalid();
   const intelligenceStrings = ["discipline", "technique", "goal", "problem", "suspected_cause", "coach_instructor_cue", "what_worked", "what_failed", "context"] as const;
   if (intelligenceStrings.some((key) => typeof value.intelligence[key] !== "string") || typeof value.intelligence.confidence !== "number" || value.intelligence.confidence < 0 || value.intelligence.confidence > 1 || typeof value.intelligence.follow_up_needed !== "boolean" || !stringArray(value.intelligence.reported_facts) || !stringArray(value.intelligence.fightiq_hypotheses) || !["unknown", "helped", "not_helped", "mixed"].includes(String(value.intelligence.experiment_result))) throw invalid();
@@ -214,12 +247,12 @@ function mockDebrief(entry: Entry, history: History): DebriefResult {
     intelligence: { ...intelligence, follow_up_needed: false, confidence: .72 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const first: Record<string, [string, string[], string]> = {
-    MMA: ["Where did it first start to fall apart?", ["At the entry", "Against the fence", "During the transition", "After I defended"], "first_breakdown"],
-    BJJ: ["What control did you lose first?", ["Frames", "Inside position", "Hip position", "Grip control"], "first_control_lost"],
-    Wrestling: ["When were you getting beaten?", ["On the entry", "During the finish", "After my first defense", "In the scramble"], "breakdown_phase"],
-    Boxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I attacked"], "striking_phase"],
-    "Muay Thai": ["When was the opening showing up?", ["On entry", "In the pocket", "On exit", "In the clinch"], "striking_phase"],
-    Kickboxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit", "After I kicked"], "striking_phase"],
+    MMA: ["Where did it first start to fall apart?", ["At the entry", "Against the fence", "During the transition"], "mechanics"],
+    BJJ: ["What control did you lose first?", ["Frames", "Inside position", "Hip position"], "mechanics"],
+    Wrestling: ["When were you getting beaten?", ["On the entry", "During the finish", "In the scramble"], "timing"],
+    Boxing: ["When was the opening showing up?", ["On entry", "During the exchange", "On exit"], "timing"],
+    "Muay Thai": ["When was the opening showing up?", ["On entry", "In the pocket", "On exit"], "timing"],
+    Kickboxing: ["When was the opening showing up?", ["On entry", "During the exchange", "After I kicked"], "timing"],
   };
   const prompt = first[entry.discipline] ?? first.MMA;
   return { status: "question", summary: entry.raw_entry.slice(0, 180), takeaway: "You have the detail. Now we need to see what changes once the round gets live.", coach_detail: "", fightiq_explanation: "That tells us what to test instead of guessing.", next_session_focus: "", confidence: history.length ? .68 : .48, memory, intelligence, question: { prompt: prompt[0] as string, choices: prompt[1] as string[], target_field: prompt[2] as string, why_asked: "This answer decides what FightIQ should help you test." } };
@@ -232,23 +265,27 @@ function resilientDebrief(entry: Entry, history: History, activeExperiment?: Rec
   const coachMatch = note.match(/(?:coach|instructor)(?: told me| said| taught me)?\s*(?:to )?(.+?)(?:[.!?]|$)/i);
   const technique = kickSession ? "kicks" : entry.discipline;
   const coachDetail = coachMatch?.[1]?.trim() ?? "";
+  const answeredFacts = history.filter((item) => item.status === "answered" && item.answer).map((item) => item.answer as string);
+  const lastAnswer = answeredFacts.at(-1) ?? "";
   const baseMemory: DebriefMemory = {
-    techniques: [technique], positions: [], successes: [], problems: [], concepts: kickSession ? ["hip rotation", "support-foot pivot", "balance"] : [], sparring_observations: [], related_topics: kickSession ? ["round kick mechanics", "hip rotation", "support-foot pivot", "balance"] : [], instructor_details: coachDetail ? [coachDetail] : [], reported_facts: [note], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: activeExperiment && typeof activeExperiment.mission === "string" ? [activeExperiment.mission] : [],
+    techniques: [technique], positions: [], successes: [], problems: [], concepts: kickSession ? ["hip rotation", "support-foot pivot", "balance"] : [], sparring_observations: [], related_topics: kickSession ? ["round kick mechanics", "hip rotation", "support-foot pivot", "balance"] : [], instructor_details: coachDetail ? [coachDetail] : [], reported_facts: [note, ...answeredFacts], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: activeExperiment && typeof activeExperiment.mission === "string" ? [activeExperiment.mission] : [],
   };
   const activeMission = activeExperiment && typeof activeExperiment.mission === "string" ? activeExperiment.mission : "";
   const activeCue = activeExperiment && typeof activeExperiment.cue === "string" ? activeExperiment.cue : "";
-  const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique, goal: kickSession ? "Cleaner kick mechanics" : "", problem: "", suspected_cause: "", coach_instructor_cue: coachDetail, what_worked: "", what_failed: "", context: entry.session_type, confidence: .35, follow_up_needed: history.length === 0, reported_facts: [note], fightiq_hypotheses: [], experiment_result: "unknown" };
+  const answerLower = lastAnswer.toLowerCase();
+  const experimentResult = /\b(helped|better|improved|worked)\b/.test(answerLower) ? "helped" : /\b(no|not|worse|didn't|did not)\b/.test(answerLower) ? "not_helped" : "unknown";
+  const intelligence: TrainingIntelligence = { discipline: entry.discipline, technique, goal: kickSession ? "Cleaner kick mechanics" : "", problem: "", suspected_cause: "", coach_instructor_cue: coachDetail, what_worked: experimentResult === "helped" ? lastAnswer : "", what_failed: experimentResult === "not_helped" ? lastAnswer : "", context: entry.session_type, confidence: .35, follow_up_needed: history.length === 0, reported_facts: [note, ...answeredFacts], fightiq_hypotheses: [], experiment_result: experimentResult };
   if (history.length > 0) return {
-    status: "complete", summary: note.slice(0, 220), takeaway: "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: "FightIQ needs more repeated evidence before calling this a pattern.", next_session_focus: kickSession ? "Use controlled reps and notice whether the support-foot pivot changes your rotation and balance." : "Repeat one clear detail and notice what changes as the pace picks up.", confidence: .58, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: .58 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+    status: "complete", summary: note.slice(0, 220), takeaway: lastAnswer ? `You reported: ${lastAnswer.slice(0, 160)}` : "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: "FightIQ needs more repeated evidence before calling this a pattern.", next_session_focus: kickSession ? "Use controlled reps and notice whether the support-foot pivot changes your rotation and balance." : "Repeat one clear detail and notice what changes as the pace picks up.", confidence: .58, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: .58 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const prompt = activeMission
-    ? `How did ${activeCue || "that cue"} affect ${activeMission.toLowerCase()} today?`
+    ? activeCue ? `When you used “${activeCue},” what changed as you worked on ${activeMission.toLowerCase()}?` : `What changed when you worked on ${activeMission.toLowerCase()} today?`
     : kickSession
       ? "What felt off when you tried to open your hips: rotation, balance, or the support-foot pivot?"
       : "What happened first when the technique stopped working?";
   const choices = activeMission ? ["It helped", "No clear change", "It made something else break down"] : kickSession ? ["Rotation felt stuck", "I lost balance", "My support foot did not turn"] : ["The entry", "The control", "The finish"];
   return {
-    status: "question", summary: note.slice(0, 220), takeaway: activeMission ? "Let’s see whether the experiment changed anything." : "Let’s get one useful detail before deciding what to work on.", coach_detail: coachDetail, fightiq_explanation: "There is not enough evidence yet to name a cause.", next_session_focus: "", confidence: .35, memory: baseMemory, intelligence, question: { prompt, choices, target_field: "clarification", why_asked: "This answer decides whether FightIQ needs another detail or can suggest the next test." },
+    status: "question", summary: note.slice(0, 220), takeaway: activeMission ? "Let’s see whether the experiment changed anything." : "Let’s get one useful detail before deciding what to work on.", coach_detail: coachDetail, fightiq_explanation: "There is not enough evidence yet to name a cause.", next_session_focus: "", confidence: .35, memory: baseMemory, intelligence, question: { prompt, choices, target_field: activeMission ? "experiment_outcome" : kickSession ? "balance_or_mobility" : "mechanics", why_asked: "This answer decides whether FightIQ needs another detail or can suggest the next test." },
   };
 }
 

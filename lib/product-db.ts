@@ -74,6 +74,16 @@ export async function ensureProductSchema(db: D1) {
       created_at TEXT NOT NULL
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS coach_turns (
+      user_message_id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      assistant_message_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL,
+      completed_at TEXT
+    )`),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_turns_assistant_message ON coach_turns (assistant_message_id)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_turns_owner_status ON coach_turns (owner_id, status, created_at)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS workout_plans (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -234,13 +244,17 @@ export function getCoachSuggestions(memory: MemorySnapshot, experiment?: { missi
 export async function getMemorySnapshot(db: D1, ownerId: string): Promise<MemorySnapshot> {
   const profile = await getOrCreateProfile(db, ownerId);
   const result = await db.prepare(`SELECT e.discipline, e.session_type, e.raw_entry, e.created_at,
-      d.takeaway, d.next_session_focus, d.structured_memory_json
+      d.takeaway, d.next_session_focus, d.structured_memory_json, d.status AS debrief_status
     FROM training_entries e LEFT JOIN training_debriefs d ON d.entry_id = e.id AND d.owner_id = e.owner_id
-    WHERE e.owner_id = ? ORDER BY e.created_at DESC LIMIT 20`).bind(ownerId).all<{
+    WHERE e.owner_id = ? ORDER BY e.created_at DESC LIMIT 40`).bind(ownerId).all<{
       discipline: string; session_type: string; raw_entry: string; created_at: string;
-      takeaway: string | null; next_session_focus: string | null; structured_memory_json: string | null;
+      takeaway: string | null; next_session_focus: string | null; structured_memory_json: string | null; debrief_status: string | null;
     }>();
   const rows = result.results ?? [];
+  // A question-stage debrief is private working context, not Fighter Brain
+  // evidence. It is intentionally invisible to Home, Learn, and Coach until
+  // the athlete completes or meaningfully finishes the conversation.
+  const completedRows = rows.filter((row) => row.debrief_status === "complete" && Boolean(row.structured_memory_json));
   const successes: string[] = [];
   const problems: string[] = [];
   const techniques: string[] = [];
@@ -249,7 +263,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const instructorDetails: string[] = [];
   const reportedFacts: string[] = [];
   const hypotheses: string[] = [];
-  for (const row of rows) {
+  for (const row of completedRows) {
     try {
       const memory = JSON.parse(row.structured_memory_json ?? "{}") as Record<string, unknown>;
       if (Array.isArray(memory.successes)) successes.push(...memory.successes.filter((v): v is string => typeof v === "string"));
@@ -266,10 +280,10 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
       }
     } catch { /* malformed historical memory is ignored */ }
   }
-  const latestFocus = rows.find((row) => row.next_session_focus)?.next_session_focus;
+  const latestFocus = completedRows.find((row) => row.next_session_focus)?.next_session_focus;
   const currentFocus = profile.current_focus || latestFocus || "Build a reliable first layer of defense";
   const used = [currentFocus];
-  const improvementCandidate = successes[0] ? titleCase(successes[0]) : rows[0]?.takeaway || "Log a few sessions and FightIQ will identify improvement.";
+  const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
   const counts = (items: string[]) => new Map(items.map((item) => [normalizeInsight(item), (items.filter((other) => normalizeInsight(other) === normalizeInsight(item)).length)]));
   const successCounts = counts(successes);
@@ -279,7 +293,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const emergingStrengths = takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) === 2), 8), used, 3);
   const improvement = isDistinct(improvementCandidate, used)
     ? improvementCandidate
-    : rows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
+    : completedRows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
   used.push(improvement);
   const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
   const evolutionTopic = takeDistinct(topValues([...relatedTopics, ...concepts, ...techniques], 12), used, 1)[0];
@@ -297,7 +311,9 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     instructorDetails: takeDistinct(topValues(instructorDetails, 8), [], 3),
     emergingStrengths,
     oneTimeObservations: takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
-    recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.takeaway, focus: row.next_session_focus, createdAt: row.created_at })),
+    // Recent notes are useful as near-term Learn/Coach context, but unfinished
+    // debriefs deliberately carry no inferred takeaway or focus.
+    recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
   };
 }
 
@@ -336,25 +352,35 @@ export async function startPreTrainingExperiment(db: D1, ownerId: string, sessio
   const brief = await getOrCreatePreTrainingBrief(db, ownerId);
   const now = new Date().toISOString();
   const plan = sessionPlan?.replace(/\s+/g, " ").trim().slice(0, 240) ?? "";
+  // Pressing “I’m training now” starts a distinct experiment. Never mutate a
+  // previous open plan into a new session: that would make later evidence land
+  // on the wrong class.
   await db.prepare(`UPDATE training_experiments SET status = 'complete', outcome = 'inconclusive', completed_at = ?
-    WHERE owner_id = ? AND status = 'active' AND started_at < ?`)
-    .bind(now, ownerId, new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()).run();
-  const existing = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
-    WHERE owner_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(ownerId).first<TrainingExperiment & { started_at: string | null }>();
-  if (existing) {
-    // Starting a new brief is an explicit choice to carry a fresh session plan
-    // into training, so replace a stale plan rather than following up on it.
-    const reason = plan ? `For ${plan}: ${brief.reason}` : existing.reason;
-    const refreshed = reason !== existing.reason;
-    if (refreshed) await db.prepare("UPDATE training_experiments SET reason = ?, started_at = ? WHERE id = ? AND owner_id = ?").bind(reason, now, existing.id, ownerId).run();
-    return { ...existing, reason, startedAt: refreshed ? now : existing.started_at };
-  }
+    WHERE owner_id = ? AND status = 'active'`).bind(now, ownerId).run();
+  const planDomain = trainingDomain(plan);
+  const briefDomain = trainingDomain(`${brief.mission} ${brief.reason}`);
+  const compatible = !planDomain || planDomain === "mma" || !briefDomain || briefDomain === "mma" || planDomain === briefDomain || (planDomain === "grappling" && briefDomain === "wrestling") || (planDomain === "wrestling" && briefDomain === "grappling");
+  const mission = compatible ? brief.mission : `Choose one detail to test in ${plan}`;
+  const cue = compatible ? brief.cue : "Notice the first moment it changes.";
+  const reason = compatible
+    ? (plan ? `For ${plan}: ${brief.reason}` : brief.reason)
+    : `Your ${briefDomain === "grappling" ? "grappling" : "current"} focus is better saved for a matching session. Today, carry one useful detail from ${plan}.`;
   const id = crypto.randomUUID();
-  const reason = plan ? `For ${plan}: ${brief.reason}` : brief.reason;
   await db.prepare(`INSERT INTO training_experiments (id, owner_id, mission, cue, reason, status, started_at, created_at)
     VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`)
     .bind(id, ownerId, brief.mission, brief.cue, reason, now, now).run();
-  return { id, mission: brief.mission, cue: brief.cue, reason, status: "active", startedAt: now, outcome: null };
+  await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND created_at = ? AND consumed_at IS NULL")
+    .bind(now, ownerId, brief.createdAt).run();
+  return { id, mission, cue, reason, status: "active", startedAt: now, outcome: null };
+}
+
+function trainingDomain(value: string) {
+  const lower = value.toLowerCase();
+  if (/muay thai|kickbox|boxing|strik|round kick|teep|jab|cross|hook/.test(lower)) return "striking";
+  if (/wrestl|single leg|double leg|takedown/.test(lower)) return "wrestling";
+  if (/bjj|jiu.?jitsu|grappl|arm drag|guard|mount|back take|frame/.test(lower)) return "grappling";
+  if (/\bmma\b/.test(lower)) return "mma";
+  return "";
 }
 
 export async function getActiveTrainingExperiment(db: D1, ownerId: string) {
@@ -362,8 +388,10 @@ export async function getActiveTrainingExperiment(db: D1, ownerId: string) {
     WHERE owner_id = ? AND status = 'active' AND started_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString()).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
 }
 
-export async function linkActiveExperimentToEntry(db: D1, ownerId: string, entryId: string) {
-  const experiment = await getActiveTrainingExperiment(db, ownerId);
+export async function linkExperimentToEntry(db: D1, ownerId: string, entryId: string, experimentId?: string) {
+  if (!experimentId) return null;
+  const experiment = await db.prepare(`SELECT id, mission, cue, reason, status, started_at, outcome FROM training_experiments
+    WHERE id = ? AND owner_id = ? AND status = 'active' LIMIT 1`).bind(experimentId, ownerId).first<{ id: string; mission: string; cue: string; reason: string; status: string; started_at: string | null; outcome: string | null }>();
   if (!experiment) return null;
   await db.prepare(`INSERT OR IGNORE INTO training_experiment_sessions (entry_id, owner_id, experiment_id, created_at)
     VALUES (?, ?, ?, ?)`)

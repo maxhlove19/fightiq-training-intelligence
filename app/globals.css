@@ -36,7 +36,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
     var(--canvas);
   padding-bottom: calc(var(--nav-height) + 28px);
 }
-.app-frame.home-frame { padding-bottom: 0; }
+.app-frame.home-frame { padding-bottom: calc(var(--nav-height) + 10px); }
 .page {
   width: min(100%, 700px);
   margin: 0 auto;
@@ -210,6 +210,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .takeaway-card { border-left: 2px solid var(--blue); background: linear-gradient(90deg, rgba(29,130,255,.09), rgba(29,130,255,.015)); border-radius: 0 14px 14px 0; padding: 19px 20px; margin-bottom: 28px; }
 .takeaway-card .eyebrow { margin-bottom: 8px; }
 .takeaway-card > p:last-child { margin: 0; color: #dce7f5; font-size: 14px; line-height: 1.55; }
+.logged-coach-cue { margin: 13px 0 0 !important; padding-top: 12px; border-top: 1px solid rgba(74,160,255,.18); color: #bcd3eb !important; font-size: 12px !important; }
+.logged-coach-cue span { display: block; color: var(--blue-bright); font-family: var(--font-geist-mono), monospace; font-size: 10px; font-weight: 700; letter-spacing: .1em; margin-bottom: 5px; }
 .question-card { padding-bottom: 30px; }
 .question-card h2 { font-size: 26px; line-height: 1.2; letter-spacing: -.035em; margin: 0 0 22px; outline: none; }
 .answer-choices { display: grid; gap: 9px; margin-bottom: 18px; }
@@ -292,6 +294,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .chat-message.assistant .chat-bubble p { background: var(--surface); color: #d9e3ef; border: 1px solid var(--line-soft); border-bottom-left-radius: 4px; }
 .chat-message.thinking .chat-bubble p { color: var(--muted); display: flex; align-items: center; gap: 8px; }
 .coach-follow-up { margin: 8px 0 0; padding: 10px 12px; border-left: 2px solid var(--blue-bright); background: rgba(29,130,255,.07); border-radius: 0 10px 10px 0; color: #d9e9fb; font-size: 12px; line-height: 1.5; }
+.coach-follow-up { width: 100%; border-top: 0; border-right: 0; border-bottom: 0; text-align: left; cursor: pointer; font-family: inherit; }
+.coach-follow-up span { display: block; color: var(--blue-bright); font-family: var(--font-geist-mono), monospace; font-size: 10px; font-weight: 700; letter-spacing: .09em; margin-top: 5px; }
 .coach-video-offer { margin-top: 8px; border: 1px solid rgba(94,210,160,.22); background: rgba(94,210,160,.05); border-radius: 12px; padding: 10px 12px; }
 .coach-video-offer > span { display: block; color: var(--green); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .13em; font-weight: 700; }
 .coach-video-offer p { margin: 5px 0 7px; color: #c9d8e8; font-size: 12px; line-height: 1.45; }
@@ -414,7 +418,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .home-page .pre-training-brief > p:not(.eyebrow), .home-page .insight-card > p { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; }
   .home-page .pre-training-brief { margin-top: 10px; }
   .home-page .primary-support { display: none; }
-  .home-page .home-study { display: none; }
+  .home-page .home-study { min-height: 46px; padding: 8px 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

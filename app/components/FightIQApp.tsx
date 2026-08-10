@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- this is a third-party YouTube thumbnail, not an app-owned image asset. */
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleUserRound,
@@ -135,20 +136,19 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
       <p className="subgreeting">Your game is taking shape.</p>
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
-      {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">YOUR TRAINING PLAN IS ACTIVE</p><h2>{activeExperiment.mission}</h2><p><b>Today:</b> {sessionPlanLabel(activeExperiment.reason)}<br />{activeExperiment.reason.replace(/^For\s+.+?:\s*/i, "")}</p><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG HOW IT WENT <ChevronRight size={14} /></button><button className="text-link plan-change-link" onClick={() => setBriefOpen(true)}>CHANGE TODAY’S SESSION <ChevronRight size={14} /></button></div></section>
-        : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE YOUR NEXT SESSION</p><h2>{brief.mission}</h2><p>{brief.reason}</p><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START MY BRIEF <ChevronRight size={14} /></button></div></section>}
+      {activeExperiment ? <section className="pre-training-brief active-plan" aria-label="Active training plan"><p className="eyebrow">TRAINING NOW</p><h2>{activeExperiment.mission}</h2><div><span>ONE CUE</span><strong>{activeExperiment.cue}</strong><button className="text-link" onClick={() => onLog(activeExperiment.reason, activeExperiment.id)}>LOG RESULT <ChevronRight size={14} /></button><button className="text-link plan-change-link" onClick={() => setBriefOpen(true)}>CHANGE SESSION <ChevronRight size={14} /></button></div></section>
+        : brief && <section className="pre-training-brief" aria-label="Before your next session"><p className="eyebrow">BEFORE TRAINING</p><h2>{brief.mission}</h2><div><span>ONE CUE</span><strong>{brief.cue}</strong><button className="text-link" onClick={() => setBriefOpen(true)}>START BRIEF <ChevronRight size={14} /></button></div></section>}
 
       <section className="insight-card home-intelligence-card">
-        <p className="eyebrow">FIGHTIQ INSIGHT</p>
+        <p className="eyebrow">YOUR SIGNAL</p>
         <h2>{insight.title}</h2>
-        <p>{insight.body}</p>
-        <div className="focus-row"><div><span className="focus-label">CURRENT FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>See why <ChevronRight size={14} /></button></div>
+        <div className="focus-row"><div><span className="focus-label">FOCUS</span><strong>{insight.currentFocus}</strong></div><button className="text-link" onClick={onGame}>My Game <ChevronRight size={14} /></button></div>
       </section>
 
       <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
-      <p className="primary-support">Talk or type · FightIQ remembers the detail.</p>
+      <p className="primary-support">Talk or type</p>
 
-      {firstVideo ? <button className="home-study" onClick={onLearn}><span>STUDY NEXT</span><strong>{firstVideo.title}</strong><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with your training.</strong> Log a session to personalize what FightIQ picks.</span><ChevronRight size={17} /></button>}
+      {firstVideo ? <button className="home-study" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<span>STUDY NEXT</span><strong>{firstVideo.title}</strong><ChevronRight size={17} /></button> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with training.</strong></span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
     </main>
   );
@@ -375,8 +375,8 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       <div className="mic-stage"><button className={`mic-button ${listening ? "listening" : ""}`} onClick={toggleListening} aria-label={listening ? "Stop listening" : "Start voice entry"}>{listening ? <X size={34} /> : <Mic size={38} />}</button><span className="record-status">{listening ? "Listening… tap to stop" : speechAvailable ? "Tap to start talking" : "Voice isn’t available in this browser"}</span></div>
       <button className="type-toggle" onClick={() => document.getElementById("transcript")?.focus()}>Type instead</button>
 
-      <span className="field-label">DISCIPLINE</span><div className="chip-row">{disciplines.map((item) => <button key={item} className={`chip ${discipline === item ? "selected" : ""}`} onClick={() => setDiscipline(item)}>{item}</button>)}</div>
-      <span className="field-label">SESSION TYPE <span style={{fontWeight: 500}}>(OPTIONAL)</span></span><div className="chip-row">{sessionTypes.map((item) => <button key={item} className={`chip ${sessionType === item ? "selected" : ""}`} onClick={() => setSessionType(item)}>{item}</button>)}</div>
+      <details className="log-options"><summary>Training details <span>{discipline} · {sessionType}</span></summary><span className="field-label">DISCIPLINE</span><div className="chip-row">{disciplines.map((item) => <button key={item} className={`chip ${discipline === item ? "selected" : ""}`} onClick={() => setDiscipline(item)}>{item}</button>)}</div>
+      <span className="field-label">SESSION TYPE</span><div className="chip-row">{sessionTypes.map((item) => <button key={item} className={`chip ${sessionType === item ? "selected" : ""}`} onClick={() => setSessionType(item)}>{item}</button>)}</div></details>
       <label className="field-label" htmlFor="transcript">WHAT HAPPENED?</label>
       <textarea id="transcript" className="transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="We worked double-leg defense and wall wrestling. Coach told me to keep my head position…" />
       {error && <p className="error-message" role="alert">{error}</p>}

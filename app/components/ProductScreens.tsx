@@ -116,14 +116,13 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
-      <section className="focus-banner"><span>{topicQuery ? "FROM YOUR COACH CHAT" : "CURRENT STUDY FOCUS"}</span><h2>{topicQuery || data.memory.currentFocus}</h2><p>{topicQuery ? "FightIQ narrowed this feed to the exact technique you were discussing." : data.memory.focusReason}</p>{topicQuery && (onReturnToCoach || onReturnToFeed) && <button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Back to Coach" : "Back to my feed"} <ChevronRight size={14} /></button>}</section>
-      <div className="feed-heading"><div><p className="eyebrow">YOUR TECHNIQUE FEED</p><h2>Study what your training is asking for.</h2>{data.learn.refreshed && <p className="refresh-note" role="status">{data.learn.liveDiscoveryAvailable ? "New YouTube studies" : "A fresh vetted rotation"}: {data.learn.studyTopic}</p>}{refreshNotice && <p className="refresh-note" role="status">{refreshNotice}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding studies…" : "Refresh studies"}</button></div>
+      <section className="focus-banner"><span>{topicQuery ? "COACH TOPIC" : "STUDY NOW"}</span><h2>{topicQuery || data.memory.currentFocus}</h2>{topicQuery && (onReturnToCoach || onReturnToFeed) && <button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Coach" : "My feed"} <ChevronRight size={14} /></button>}</section>
+      <div className="feed-heading"><div><p className="eyebrow">VIDEO PICKS</p>{(data.learn.refreshed || refreshNotice) && <p className="refresh-note" role="status">{refreshNotice || "Fresh studies ready."}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding…" : "Refresh"}</button></div>
       <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
         <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
         <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH ON YOUTUBE" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><p>{video.description}</p><details className="why-detail"><summary>Why FightIQ picked this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
       </article>)}</div>
-      <p className="content-note">FightIQ keeps the feed tied to your latest training, then rotates vetted studies when a fresh YouTube match is not available. Videos support—but never replace—your coach.</p>
-      <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">Explore this exact topic on YouTube <ExternalLink size={14} /></a>
+      <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">More on YouTube <ExternalLink size={14} /></a>
     </>}
   </main>;
 }
@@ -194,7 +193,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     {currentFocus && <div className="context-pill"><Target size={14} /><span>Current focus: {currentFocus}</span></div>}
     <section className="coach-thread">
       {loading && <LoadingState label="Loading your conversation…" />}
-      {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p></div>}
+      {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>What do you want to sharpen?</h2></div>}
       {messages.map((message) => {
         const isActiveFollowUp = activeFollowUp?.id === message.id;
         const quickReplies = isActiveFollowUp ? (message.follow_up_choices ?? []).slice(0, 3) : [];
@@ -203,7 +202,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><div className="chat-bubble"><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div></div>}
       <div ref={endRef} />
     </section>
-    {showSuggestions && <section className="coach-suggestions" aria-label="Suggested questions"><span>SUGGESTED FROM YOUR FIGHTER BRAIN</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
+    {showSuggestions && <section className="coach-suggestions" aria-label="Suggested questions"><span>ASK NEXT</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
     {failure && <div className="coach-error" role="alert"><p>{failureText}</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> {failure.code === "COACH_RESPONSE_PENDING" ? "Check for reply" : "Retry"}</button></div>}
     <div className="coach-compose"><textarea ref={composeRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={sendWithKeyboard} placeholder={activeFollowUp ? "Type or talk a different answer…" : "Ask about training, technique, recovery, workouts, or food…"} aria-label="Ask FightIQ" aria-keyshortcuts="Control+Enter Meta+Enter" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
@@ -266,7 +265,7 @@ export function WorkoutScreen({ onBack }: { onBack: () => void }) {
   }
   return <main className="page product-page native-page workout-page"><ScreenHeader title="Workout" kicker="MARTIAL-ART-SPECIFIC" onBack={onBack} />
     {!workout && <>
-      <section className="focus-banner workout-intro"><Dumbbell size={22} /><h2>Support your skill training.</h2><p>Build strength and conditioning around your martial art—and around the fatigue you already carry from practice.</p></section>
+      <section className="focus-banner workout-intro"><Dumbbell size={22} /><h2>Build around training.</h2></section>
       <span className="field-label">MARTIAL ART</span><div className="chip-row">{["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai"].map((item) => <button className={`chip ${discipline === item ? "selected" : ""}`} key={item} onClick={() => setDiscipline(item)}>{item}</button>)}</div>
       <label className="field-label" htmlFor="workout-goal">GOAL</label><select id="workout-goal" className="select-field" value={goal} onChange={(event) => setGoal(event.target.value)}><option>Fight performance</option><option>Strength</option><option>Power</option><option>Conditioning</option><option>Recovery support</option></select>
       <span className="field-label">MARTIAL ARTS FATIGUE</span><div className="choice-stack">{[["low", "Fresh", "No hard session in the last 24 hours"], ["medium", "Some fatigue", "Normal soreness or trained yesterday"], ["high", "Heavy", "Hard rounds, heavy legs, or several recent sessions"]].map(([value, title, note]) => <button className={fatigue === value ? "selected" : ""} key={value} onClick={() => setFatigue(value)}><span>{title}</span><small>{note}</small><Check size={16} /></button>)}</div>

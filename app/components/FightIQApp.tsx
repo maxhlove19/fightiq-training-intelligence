@@ -9,6 +9,7 @@ import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, Wor
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, readDraft, writeDraft } from "../../lib/training-draft";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
+import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
 
 type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food" | "onboarding";
 type SpeechRecognitionLike = {
@@ -47,7 +48,11 @@ type DebriefState = {
   maxQuestions?: number;
   question?: { id: string; sequence: number; prompt: string; choices: string[]; targetField: string };
   safety?: SafetySignal;
+  hold?: HoldView | null;
 };
+
+/** What /api/pre-training/start says back: the plan was accepted, or here is why not. */
+type StartTrainingOutcome = { safety: SafetySignal | null; hold: HoldView | null; conflict: string };
 
 type PreTrainingBrief = { mission: string; reason: string; cue: string };
 
@@ -85,7 +90,7 @@ function useDialogDismiss(onClose: () => void) {
   return closeRef;
 }
 
-function PreTrainingCheckIn({ brief, onClose, onStart, safety }: { brief: PreTrainingBrief; onClose: () => void; onStart: (sessionPlan: string) => Promise<void>; safety: SafetySignal | null }) {
+function PreTrainingCheckIn({ brief, onClose, onStart, safety, hold, conflict }: { brief: PreTrainingBrief; onClose: () => void; onStart: (sessionPlan: string) => Promise<void>; safety: SafetySignal | null; hold: HoldView | null; conflict: string }) {
   const [sessionPlan, setSessionPlan] = useState("");
   const [showBrief, setShowBrief] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -93,6 +98,9 @@ function PreTrainingCheckIn({ brief, onClose, onStart, safety }: { brief: PreTra
   const closeRef = useDialogDismiss(onClose);
   const suggestedSessions = ["MMA class", "BJJ class", "Muay Thai class", "Sparring", "Open mat"];
   const sessionBrief = briefForSession(brief, sessionPlan);
+  // A hold or a fresh head-knock replaces the brief entirely. Showing a mission
+  // underneath one would be FightIQ hedging about the only thing that matters.
+  const blocked = Boolean(safety) || Boolean(hold);
   async function beginTraining() {
     if (!sessionPlan.trim() || starting) return;
     setStarting(true); setError("");
@@ -111,22 +119,28 @@ function PreTrainingCheckIn({ brief, onClose, onStart, safety }: { brief: PreTra
     </> : <>
       <button className="back-to-plan" onClick={() => setShowBrief(false)}><ArrowLeft size={15} /> Change session</button>
       <p className="eyebrow">YOUR QUICK RECAP</p><h2 id="pre-training-title">For {sessionPlan}</h2><p className="brief-intro">This is the one thread to carry in from your recent training.</p>
-      {safety
-        ? <SafetyNotice signal={safety} storageKey={`fightiq-safety-plan-${safety.matched.join("-")}`} />
-        : <><div className="brief-detail"><span>MISSION</span><strong>{sessionBrief.mission}</strong><p>{sessionBrief.reason}</p></div>
+      {safety && <SafetyNotice signal={safety} storageKey={`fightiq-safety-plan-${safety.matched.join("-")}`} />}
+      {hold && <>
+        {conflict && <p className="rtt-conflict" role="alert">{conflict}</p>}
+        <ReturnToTraining hold={hold} compact />
+      </>}
+      {!blocked && <><div className="brief-detail"><span>MISSION</span><strong>{sessionBrief.mission}</strong><p>{sessionBrief.reason}</p></div>
       <div className="brief-cue"><span>ONE CUE</span><strong>{sessionBrief.cue}</strong></div></>}
       {error && <p className="error-message" role="alert">{error}</p>}
-      {!safety && <><button className="primary-button" onClick={() => void beginTraining()} disabled={starting}>{starting ? "SETTING YOUR BRIEF…" : "I’M TRAINING NOW"}</button>
+      {!blocked && <><button className="primary-button" onClick={() => void beginTraining()} disabled={starting}>{starting ? "SETTING YOUR BRIEF…" : "I’M TRAINING NOW"}</button>
       <p className="checkin-note">FightIQ will ask how this went when you log afterward.</p></>}
     </>}
   </section></div>;
 }
 
-function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<SafetySignal | null>; onFinishProfile: () => void }) {
+function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<StartTrainingOutcome>; onFinishProfile: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
   const [planSafety, setPlanSafety] = useState<SafetySignal | null>(null);
+  const [planHold, setPlanHold] = useState<HoldView | null>(null);
+  const [planConflict, setPlanConflict] = useState("");
+  const [hold, setHold] = useState<HoldView | null>(null);
   const [posterIndex, setPosterIndex] = useState(0);
   useEffect(() => {
     const now = new Date();
@@ -151,6 +165,9 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
+  // An open hold is the first thing on this screen and the last thing to be
+  // dismissed by a refresh: it is read back from the server on every visit.
+  useEffect(() => { void fetch("/api/safety/hold").then((response) => response.ok ? response.json() : null).then((data) => setHold((data as { hold?: HoldView | null } | null)?.hold ?? null)).catch(() => undefined); }, []);
   const insight = product?.insight ?? { title: "Build your baseline.", body: "Log today’s training and FightIQ will give you one clear thing to work on next.", currentFocus: "Build your fighter memory" };
   const firstVideo = product?.videos[0];
   const brief = product?.preTrainingBrief;
@@ -171,6 +188,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
+      {hold?.open && <ReturnToTraining hold={hold} onChange={setHold} />}
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
       <section className="home-reference-insight" aria-label="FightIQ insight">
@@ -190,12 +208,18 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
       <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
 
       {firstVideo ? <section className="home-plan-section" aria-label="Your next video"><div className="home-plan-heading"><span>WATCH NEXT</span><button onClick={onLearn}>MORE</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={() => onLog()}><Sparkles size={18} /><span><strong>Log training to get your first video.</strong></span><ChevronRight size={17} /></button>}
-      {briefOpen && brief && <PreTrainingCheckIn brief={brief} safety={planSafety} onClose={() => { setPlanSafety(null); setBriefOpen(false); }} onStart={async (sessionPlan) => {
-        const held = await onStartTraining(sessionPlan);
+      {briefOpen && brief && <PreTrainingCheckIn brief={brief} safety={planSafety} hold={planHold} conflict={planConflict} onClose={() => { setPlanSafety(null); setPlanHold(null); setPlanConflict(""); setBriefOpen(false); }} onStart={async (sessionPlan) => {
+        const outcome = await onStartTraining(sessionPlan);
+        if (outcome.hold) setHold(outcome.hold);
         // A held session keeps the sheet open on the notice rather than
         // confirming a brief the athlete should not be acting on.
-        if (held) { setPlanSafety(held); return; }
-        setPlanSafety(null);
+        if (outcome.safety || outcome.conflict) {
+          setPlanSafety(outcome.safety);
+          setPlanHold(outcome.conflict ? outcome.hold : null);
+          setPlanConflict(outcome.conflict);
+          return;
+        }
+        setPlanSafety(null); setPlanHold(null); setPlanConflict("");
         const response = await fetch("/api/product");
         if (response.ok) setProduct(await response.json() as ProductData);
         setBriefOpen(false);
@@ -251,6 +275,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const [answerMethod, setAnswerMethod] = useState<"text" | "voice">("text");
   const [showCustomAnswer, setShowCustomAnswer] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const restoredRef = useRef(false);
@@ -336,10 +361,18 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   }
 
   async function parseResponse(response: Response) {
-    const data = await response.json() as DebriefState & { error?: { message?: string } };
-    if (!response.ok) throw new Error(data.error?.message ?? "FightIQ couldn’t continue the debrief.");
+    const data = await response.json() as DebriefState & { error?: { message?: string; code?: string } };
+    if (!response.ok) {
+      // The code decides whether "try again" is honest advice or a lie. A
+      // deployment with no model key will fail this way for ever.
+      setErrorCode(data.error?.code ?? "");
+      // The safety card and the hold come back on the error too, because
+      // neither of them ever depended on the model. Keep them on screen.
+      if (data.safety || data.hold) setDebrief((current) => ({ ...(current ?? { entryId: entryId ?? "", status: "error" as const }), safety: data.safety, hold: data.hold }));
+      throw new Error(data.error?.message ?? "FightIQ couldn’t continue the debrief.");
+    }
     setDebrief(data);
-    setError("");
+    setError(""); setErrorCode("");
     if (data.status === "question") { debriefPollAttemptsRef.current = 0; setDebriefPhase("question"); }
     else if (data.status === "complete") { debriefPollAttemptsRef.current = 0; setDebriefPhase("complete"); }
     else if (data.status === "error") { debriefPollAttemptsRef.current = 0; setDebriefPhase("error"); }
@@ -414,6 +447,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training debrief</h1></header>
       {debrief?.safety && entryId && <SafetyNotice signal={debrief.safety} storageKey={`fightiq-safety-${entryId}`} />}
+      {debrief?.hold?.open && <ReturnToTraining hold={debrief.hold} onChange={(next) => setDebrief((current) => current ? { ...current, hold: next } : current)} />}
       <section className="debrief-loading" aria-live="polite"><span className="thinking-mark"><Sparkles size={25} /></span><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ is finding the useful detail.</h2><p>You can leave at any time. Your training entry is already saved.</p></section>
     </main>
   );
@@ -422,7 +456,12 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Training saved</h1></header>
       {debrief?.safety && entryId && <SafetyNotice signal={debrief.safety} storageKey={`fightiq-safety-${entryId}`} />}
-      <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ needs another try.</h2><p>{error || "The debrief couldn’t be prepared right now."}</p><button className="primary-button" onClick={() => entryId && startDebrief(entryId)}><RefreshCw size={18} /> RETRY DEBRIEF</button><button className="quiet-button" onClick={() => respond("finish")}>Finish for now</button></div>
+      {debrief?.hold?.open && <ReturnToTraining hold={debrief.hold} onChange={(next) => setDebrief((current) => current ? { ...current, hold: next } : current)} />}
+      {errorCode === "AI_NOT_CONFIGURED"
+        // Retrying this cannot work, and saying "try again" to someone whose
+        // deployment is missing a key wastes their evening. Say what it is.
+        ? <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>The reading half isn’t switched on yet.</h2><p>Every session you log is being kept, in full. What is missing is the connection FightIQ uses to read them back to you — that is a setting on this deployment, not something you did. Once it is added, open any past session and the debrief will run on it.</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
+        : <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ needs another try.</h2><p>{error || "The debrief couldn’t be prepared right now."}</p><button className="primary-button" onClick={() => entryId && startDebrief(entryId)}><RefreshCw size={18} /> RETRY DEBRIEF</button><button className="quiet-button" onClick={() => respond("finish")}>Finish for now</button></div>}
     </main>
   );
 
@@ -430,6 +469,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><div><p className="question-progress">A QUICK FOLLOW-UP</p><h1 className="page-title">Training debrief</h1></div></header>
       {debrief.safety && entryId && <SafetyNotice signal={debrief.safety} storageKey={`fightiq-safety-${entryId}`} />}
+      {debrief.hold?.open && <ReturnToTraining hold={debrief.hold} onChange={(next) => setDebrief((current) => current ? { ...current, hold: next } : current)} />}
       <section className="takeaway-card"><p className="eyebrow">KEY TAKEAWAY</p><p>{debrief.takeaway}</p>{debrief.coachDetail && <p className="logged-coach-cue"><span>COACH CUE YOU LOGGED</span>{debrief.coachDetail}</p>}</section>
       <section className="question-card">
         <p className="eyebrow">QUICK QUESTION</p>
@@ -447,8 +487,9 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     <main className="page analysis-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Debrief complete</h1></header>
       {debrief?.safety && entryId && <SafetyNotice signal={debrief.safety} storageKey={`fightiq-safety-${entryId}`} />}
-      <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">{debrief?.memoryUpdated ? "MEMORY UPDATED" : "SESSION SAVED"}</p><h2>{debrief?.memoryUpdated ? "Got it." : "Your note is safe."}</h2>{debrief?.summary && <div className="result-block"><span>SUMMARY</span><p>{debrief.summary}</p></div>}<div className="result-block"><span>{debrief?.memoryUpdated ? "KEY INSIGHT" : "SAVED NOTE"}</span><p>{debrief?.takeaway ?? "Your training note has been saved."}</p></div>{debrief?.nextSessionFocus && (debrief.safety?.holdTraining
-        ? <div className="next-focus held"><span>NEXT SESSION</span><strong>On hold until you have been checked.</strong><small>FightIQ keeps what it learned about your technique. It will not tell you what to go and train off the back of this session.</small></div>
+      {debrief?.hold?.open && <ReturnToTraining hold={debrief.hold} onChange={(next) => setDebrief((current) => current ? { ...current, hold: next } : current)} />}
+      <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">{debrief?.memoryUpdated ? "MEMORY UPDATED" : "SESSION SAVED"}</p><h2>{debrief?.memoryUpdated ? "Got it." : "Your note is safe."}</h2>{debrief?.summary && <div className="result-block"><span>SUMMARY</span><p>{debrief.summary}</p></div>}<div className="result-block"><span>{debrief?.memoryUpdated ? "KEY INSIGHT" : "SAVED NOTE"}</span><p>{debrief?.takeaway ?? "Your training note has been saved."}</p></div>{debrief?.nextSessionFocus && (debrief.hold?.open && !debrief.hold.allowsSkillWork
+        ? <div className="next-focus held"><span>NEXT SESSION</span><strong>On hold — step {debrief.hold.stage.step} of {debrief.hold.totalSteps}.</strong><small>FightIQ keeps what it learned about your technique. It will not tell you what to go and train until you are further up the ladder.</small></div>
         : <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>)}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
     </main>
   );
@@ -502,15 +543,17 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
     else if (name === "Workout") setScreen("workout");
     else if (name === "Food") setScreen("food");
   }
-  async function startTraining(sessionPlan: string): Promise<SafetySignal | null> {
+  async function startTraining(sessionPlan: string): Promise<StartTrainingOutcome> {
     const response = await fetch("/api/pre-training/start", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionPlan }) });
-    const payload = await response.json() as { experiment?: unknown; safety?: SafetySignal; error?: { message?: string } };
+    const payload = await response.json() as { experiment?: unknown; safety?: SafetySignal; hold?: HoldView | null; conflict?: string; error?: { message?: string } };
     if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t start that training brief.");
-    // Setting a mission is FightIQ telling someone to go and train. If the plan
-    // itself describes a head knock, the brief is replaced by the notice.
-    if (payload.safety?.holdTraining) return payload.safety;
-    setToast("Brief set. Tell FightIQ how it went after training.");
-    return null;
+    // Setting a mission is FightIQ telling someone to go and train. Two things
+    // stop it: a head knock in the plan itself, and a hold opened days ago that
+    // this session would break.
+    const conflict = payload.conflict ?? "";
+    const outcome: StartTrainingOutcome = { safety: payload.safety?.holdTraining ? payload.safety : null, hold: payload.hold ?? null, conflict };
+    if (!outcome.safety && !conflict) setToast("Brief set. Tell FightIQ how it went after training.");
+    return outcome;
   }
   if (onboardingStatus === "loading") return <main className="setup-loading"><p className="wordmark">FIGHT<span>IQ</span></p><p>Welcome back, {displayName}.<br />Checking your athlete profile…</p></main>;
   if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;

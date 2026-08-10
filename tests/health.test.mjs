@@ -29,7 +29,8 @@ test("a missing model key is degraded, not down — notes still save", () => {
   const report = summariseHealth({ ...all(true), sessionAnalysis: false });
   assert.equal(report.status, "degraded");
   assert.equal(report.httpStatus, 200);
-  assert.ok(report.notes.some((note) => /Sessions still save/.test(note)));
+  assert.ok(report.notes.some((note) => /Sessions still save and are kept in full/.test(note)));
+  assert.ok(report.notes.some((note) => /nothing is lost/.test(note)), "the note has to say the athlete loses nothing");
 });
 
 test("no YouTube key is a supported way to run, and the note says so", () => {

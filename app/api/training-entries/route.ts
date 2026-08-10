@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { ensureProductSchema, linkExperimentToEntry } from "../../../lib/product-db";
+import { openHoldForNote } from "../../../lib/hold-db";
+import { scanTrainingNote } from "../../../lib/safety-signals";
 
 export const dynamic = "force-dynamic";
 
@@ -32,5 +34,16 @@ export async function POST(request: Request) {
   // A log only belongs to the pre-training experiment the athlete explicitly
   // started. A later, unrelated log must never consume an old plan.
   await linkExperimentToEntry(env.DB, ownerId, id, experimentId || undefined);
+
+  // A note that describes a head knock opens a hold here, at the moment the note
+  // is saved, rather than in the debrief. The debrief needs a model and a
+  // network; this must not. Failing to open a hold cannot cost the athlete the
+  // note they just wrote, so it is allowed to fail on its own.
+  const safety = scanTrainingNote(rawEntry);
+  if (safety.holdTraining && safety.level !== "illness_or_load") {
+    try {
+      await openHoldForNote(env.DB, ownerId, { reason: safety.level === "head_impact" ? "head_impact" : "acute_injury", entryId: id, matched: safety.matched });
+    } catch { /* the note is saved; the hold is re-opened by the next read of it */ }
+  }
   return Response.json({ id }, { status: 201 });
 }

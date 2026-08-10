@@ -5,6 +5,9 @@ import {
 } from "../../../../../../lib/debrief-db";
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../../lib/debrief-server";
 import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, persistFighterBrainEvidence, updateExperimentForEntry } from "../../../../../../lib/product-db";
+import { getOpenHold } from "../../../../../../lib/hold-db";
+import { describeHold, trainingPermission } from "../../../../../../lib/return-to-training";
+import { scanTrainingNote } from "../../../../../../lib/safety-signals";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
@@ -21,6 +24,18 @@ export async function POST(request: Request, context: Context) {
   const entry = await getOwnedEntry(db, id, ownerId);
   if (!entry) return apiError("NOT_FOUND", "Training entry not found.", 404);
 
+  // Every reply from this route replaces the debrief state the screen is holding,
+  // so it has to carry the safety card and the hold with it. Dropping them here
+  // used to make both vanish the moment the athlete answered a question.
+  const safety = scanTrainingNote(entry.raw_entry);
+  const openHold = await getOpenHold(db, ownerId);
+  const holdView = openHold ? describeHold(openHold, new Date()) : null;
+  const held = safety.holdTraining || !trainingPermission(openHold, new Date()).allowsSkillWork;
+  const state = async (status?: number) => Response.json(
+    { ...await getDebriefState(db, id, ownerId), safety, hold: holdView },
+    status ? { status } : undefined,
+  );
+
   let body: Body;
   try { body = await request.json(); } catch { return apiError("INVALID_REQUEST", "Invalid response.", 400); }
   const action = body.action;
@@ -29,14 +44,14 @@ export async function POST(request: Request, context: Context) {
     // lease as generation so a late model response cannot overwrite the
     // athlete's explicit decision to stop here.
     const leaseId = await claimDebriefGeneration(db, id, ownerId);
-    if (!leaseId) return Response.json(await getDebriefState(db, id, ownerId), { status: 202 });
+    if (!leaseId) return state(202);
     try {
       const finished = await finishDebrief(db, id, ownerId);
       if (finished.structuredMemory) await persistFighterBrainEvidence(db, ownerId, entry, finished.structuredMemory, finished.confidence);
       await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
         .bind(new Date().toISOString(), ownerId).run();
       await updateExperimentForEntry(db, ownerId, id, "inconclusive", "The athlete finished the debrief before there was enough evidence to judge the experiment.");
-      return Response.json(await getDebriefState(db, id, ownerId));
+      return state();
     } finally { await releaseDebriefGeneration(db, id, ownerId, leaseId); }
   }
   if (action !== "answer" && action !== "skip") return apiError("INVALID_REQUEST", "Choose answer, skip, or finish.", 422);
@@ -51,7 +66,7 @@ export async function POST(request: Request, context: Context) {
   const inputMethod = typeof body.inputMethod === "string" && allowedInputMethods.has(body.inputMethod) ? body.inputMethod : "text";
   const now = new Date().toISOString();
   const leaseId = await claimDebriefGeneration(db, id, ownerId);
-  if (!leaseId) return Response.json(await getDebriefState(db, id, ownerId), { status: 202 });
+  if (!leaseId) return state(202);
   const consumed = await db.prepare(`UPDATE training_followups SET answer = ?, answer_source = ?, status = ?, answered_at = ?
     WHERE id = ? AND entry_id = ? AND owner_id = ? AND status = 'pending'`)
     .bind(action === "skip" ? null : answer, action === "skip" ? "skip" : inputMethod, action === "skip" ? "skipped" : "answered", now, questionId, id, ownerId).run();
@@ -74,13 +89,16 @@ export async function POST(request: Request, context: Context) {
       recent_training: memory.recentTraining.slice(0, 3).map((item) => ({ discipline: item.discipline, note: item.note.slice(0, 500), takeaway: item.takeaway, focus: item.focus })),
     };
     const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
-    await persistDebriefResult(db, id, ownerId, result, history.length + 1);
+    // The hold has to be passed here too. Without it, answering a follow-up
+    // re-wrote the debrief with a next-session drill the hold had just removed.
+    await persistDebriefResult(db, id, ownerId, result, history.length + 1, held);
     if (result.status === "complete") await updateExperimentForEntry(db, ownerId, id, result.intelligence.experiment_result, result.summary);
-    return Response.json(await getDebriefState(db, id, ownerId));
+    return state();
   } catch (error) {
     await markDebriefError(db, id, ownerId);
-    if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { entrySaved: true, answerSaved: true, development: error.development });
+    const carried = { entrySaved: true, answerSaved: true, safety, hold: holdView };
+    if (error instanceof DebriefAIError) return apiError(error.code, error.message, error.status, { ...carried, development: error.development });
     console.error("Unexpected FightIQ debrief response failure", error);
-    return apiError("AI_UNAVAILABLE", "Your answer was saved, but FightIQ could not continue yet.", 503, { entrySaved: true, answerSaved: true });
+    return apiError("AI_UNAVAILABLE", "Your answer was saved, but FightIQ could not continue yet.", 503, carried);
   } finally { await releaseDebriefGeneration(db, id, ownerId, leaseId); }
 }

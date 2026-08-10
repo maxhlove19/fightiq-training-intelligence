@@ -89,9 +89,24 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 
 ## Going Live
 
-Read `/api/health` straight after a deploy. It answers the only question that
-matters at that moment — is this deployment actually configured — with booleans
-and no secrets:
+Run the preflight against the deployed host. It reads `/api/health`, names every
+setting in plain words, and exits non-zero when the app cannot store a session:
+
+```bash
+npm run preflight -- https://<your-host>
+
+FightIQ preflight · https://<your-host>
+Status: DEGRADED (HTTP 200)
+
+  ok   Session storage (D1 binding: DB)
+  ok   Schema applied and readable
+ off   Session analysis (OPENAI_API_KEY)
+  ok   Meal photos (R2 binding: UPLOADS)
+ off   Live video search (YOUTUBE_API_KEY)
+```
+
+`/api/health` is the same information as JSON, with booleans and no secrets, for
+a monitor to poll:
 
 ```bash
 curl -s https://<your-host>/api/health
@@ -102,8 +117,10 @@ curl -s https://<your-host>/api/health
 `status` is one of:
 
 - **`ok`** (HTTP 200) — everything an athlete touches works.
-- **`degraded`** (HTTP 200) — sessions save, but the debrief and Coach will show
-  a retry instead of an answer. Almost always a missing or exhausted model key.
+- **`degraded`** (HTTP 200) — sessions save and are kept in full, but nothing
+  reads them back. Almost always a missing or exhausted model key. Athletes are
+  told the reading half is not switched on, rather than being offered a retry
+  that cannot work. Adding the key makes every past session readable.
 - **`down`** (HTTP 503) — no database, or the schema could not be applied.
   Nothing can be saved or read. Point a monitor at this.
 
@@ -112,7 +129,7 @@ curl -s https://<your-host>/api/health
 | Setting | Required | Without it |
 | --- | --- | --- |
 | D1 binding `DB` | Yes | The app is down. Every screen fails. |
-| `OPENAI_API_KEY` | For analysis | Notes still save and are never lost; the debrief and Coach show "your note is safe" and a retry. |
+| `OPENAI_API_KEY` | For analysis | Notes still save and are never lost; the debrief says the reading half is not switched on. Set this and past sessions become readable. |
 | R2 binding `UPLOADS` | For meal photos | Everything else works; photos cannot be stored. |
 | `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
@@ -130,13 +147,40 @@ Adding a table means adding it to `lib/schema.ts` and nowhere else.
 against a fresh in-memory database, so a query written against a table that
 does not exist fails in CI rather than on someone's first screen.
 
+### The return-to-training hold
+
+A note that describes a head knock or an injury does more than raise a card.
+`app/api/training-entries/route.ts` opens a hold at the moment the note is
+saved — before any model runs, so it survives an unreachable API — and that hold
+stays in force across sessions and devices until it is walked off.
+
+`lib/return-to-training.ts` owns the rules and is the only thing that can move a
+hold: a stepwise ladder, a minimum of 24 hours per step, back a step when
+symptoms return, and no contact step at all until the athlete records that a
+professional cleared them in person. While a hold is open, `/api/pre-training/start`
+refuses to set a mission the hold does not allow, and the debrief withholds a
+next-session drill.
+
+Every guard lives in `applyHoldAction`, not in a disabled button, so a replayed
+or hand-written request gets the same refusal the UI would give.
+`tests/return-to-training.test.mjs` covers it from the outside: given a hold and
+a clock, what does the app allow?
+
+FightIQ does not clear anyone, and the copy says so on every screen. Where a
+commission has imposed a no-contact suspension, that suspension is longer than
+this ladder and it is the one that counts.
+
 ### Before you point real athletes at it
 
 - `npm test` — build, then the unit and boot suites.
-- `curl /api/health` on the deployed host and confirm `status` is `ok`.
+- `npm run preflight -- https://<your-host>` and confirm it exits 0.
+- Set `OPENAI_API_KEY` before launch. Without it the app is honest and loses
+  nothing, but it does not do the thing it is for.
 - Open the app as a user who has never logged anything. You should land on
   onboarding, not an error.
 - Log one session end to end and confirm the debrief returns.
+- Log a session containing "got rocked, still foggy" and confirm the hold opens,
+  the home screen leads with it, and a sparring plan is refused.
 
 ## Useful Commands
 

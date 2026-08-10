@@ -234,4 +234,20 @@ export const APP_SCHEMA: string[] = [
       PRIMARY KEY (owner_id, video_id)
     )`,
   "CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)",
+  `CREATE TABLE IF NOT EXISTS training_holds (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      entry_id TEXT,
+      matched_json TEXT NOT NULL DEFAULT '[]',
+      opened_at TEXT NOT NULL,
+      step INTEGER NOT NULL DEFAULT 1,
+      step_entered_at TEXT NOT NULL,
+      medical_cleared_at TEXT,
+      cleared_at TEXT,
+      setbacks INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )`,
+  // Reads are always "the open hold for this athlete", so cleared_at leads.
+  "CREATE INDEX IF NOT EXISTS idx_training_holds_owner_open ON training_holds (owner_id, cleared_at, opened_at)",
 ];

@@ -218,6 +218,14 @@ export async function ensureProductSchema(db: D1) {
   if (!columnNames.has("onboarding_completed_at")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN onboarding_completed_at TEXT"));
   if (!columnNames.has("athlete_setup_json")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN athlete_setup_json TEXT NOT NULL DEFAULT '{}'"));
   if (profileMigrations.length) await db.batch(profileMigrations);
+  // This table existed before follow-up chips were introduced. CREATE TABLE
+  // IF NOT EXISTS does not alter existing tables, so upgrade legacy athlete
+  // data before Coach reads from it.
+  const enrichmentColumns = await db.prepare("PRAGMA table_info(coach_message_enrichments)").all<{ name: string }>();
+  const enrichmentColumnNames = new Set((enrichmentColumns.results ?? []).map((column) => column.name));
+  if (!enrichmentColumnNames.has("follow_up_choices_json")) {
+    await db.prepare("ALTER TABLE coach_message_enrichments ADD COLUMN follow_up_choices_json TEXT NOT NULL DEFAULT '[]'").run();
+  }
   await db.prepare("PRAGMA optimize").run();
 }
 

@@ -634,3 +634,196 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .macro-summary { display: grid; grid-template-columns: 1fr auto; align-items: center; }
 
 @media (min-width: 640px) { .page { padding-inline: 18px; } .learn-video { display: grid; grid-template-columns: 132px 1fr; } .learn-video .real-video-thumb { min-height: 112px; } }
+
+/* Reference direction: a tight native fight console, not a soft dashboard.
+   The visual system below deliberately overrides the early component styles
+   so every destination reads as one focused phone screen. */
+:root {
+  --canvas: #02050b;
+  --surface: #060b14;
+  --surface-2: #09111e;
+  --line: #142139;
+  --line-soft: rgba(111, 145, 190, .16);
+  --blue: #006dff;
+  --blue-bright: #1681ff;
+  --blue-wash: rgba(0, 109, 255, .11);
+  --muted: #7f91aa;
+  --muted-2: #51627a;
+  --ink: #e8f1ff;
+  --nav-height: 70px;
+}
+
+html, body, .app-frame { background: var(--canvas); }
+body { letter-spacing: 0; font-size: 13px; }
+.app-frame { max-width: 430px; margin: 0 auto; background-image: none; padding-bottom: calc(var(--nav-height) + 18px); }
+.page { width: 100%; padding: 13px 12px 24px; }
+.native-page, .analysis-page, .log-page { min-height: calc(100dvh - var(--nav-height)); }
+
+/* Common chrome */
+.app-header { min-height: 27px; margin: 0 0 13px; }
+.wordmark { font-size: 10px; letter-spacing: .1em; font-weight: 800; }
+.app-status, .eyebrow, .field-label, .question-progress { font-size: 7px; letter-spacing: .12em; }
+.app-status { color: #40536e; }
+.avatar, .icon-button, .round-action { width: 25px; height: 25px; border-radius: 5px; border-color: #1b2b43; background: #070e19; }
+.page-header { min-height: 29px; gap: 8px; margin: 0 0 13px; padding: 0 0 9px; border-bottom: 1px solid #101d30; }
+.page-title { font-size: 16px; letter-spacing: -.025em; font-weight: 650; }
+.text-link { color: var(--blue-bright); padding: 3px 0; font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .04em; font-weight: 700; }
+.primary-button { min-height: 42px; border-radius: 5px; background: var(--blue); box-shadow: none; font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .08em; }
+.secondary-button { min-height: 42px; border-radius: 5px; border-color: #20314a; background: #0a1220; font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: .06em; }
+
+/* Home: one status strip, one mission, one log action. */
+.home-page { padding-top: 11px; }
+.home-page .date-line { color: #4f6380; font-size: 7px; letter-spacing: .12em; }
+.home-page .greeting { font-size: 19px; line-height: 1.05; font-weight: 630; }
+.home-page .subgreeting { margin: 3px 0 10px; color: #657993; font-size: 9px; }
+.finish-profile-banner { min-height: 42px; margin-bottom: 8px; padding: 8px 9px; border-radius: 5px; border-color: #204d86; background: #071527; }
+.finish-profile-banner strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; font-size: 9px; }
+.pre-training-brief, .insight-card, .focus-banner, .game-hero, .macro-summary { border-radius: 5px; box-shadow: none; background-image: none; }
+.home-page .pre-training-brief { padding: 11px; margin-bottom: 7px; border-color: #1a4e8e; background: #061426; }
+.pre-training-brief::before { width: 2px; background: var(--blue); }
+.home-page .pre-training-brief h2 { margin: 2px 0 8px; font-size: 14px; line-height: 1.18; }
+.home-page .pre-training-brief > div { padding-top: 8px; }
+.home-page .pre-training-brief span { color: #4d9dff; font-family: var(--font-geist-mono), monospace; font-size: 7px; }
+.home-page .pre-training-brief strong { font-size: 10px; font-weight: 600; }
+.home-intelligence-card { margin-bottom: 8px; padding: 11px !important; border-color: #152743; background: #060d18; }
+.home-page .insight-card h2 { margin: 0 0 8px; font-size: 14px; line-height: 1.2; }
+.focus-row { min-height: 31px; padding-top: 7px; border-top-color: #112039; }
+.focus-label { margin-bottom: 2px; font-size: 7px; color: #527093; }
+.focus-row strong { max-width: 235px; font-size: 9px; line-height: 1.25; font-weight: 560; }
+.home-log-button { min-height: 43px !important; border-radius: 5px; padding: 0 11px; }
+.home-page .primary-support { margin: 4px 0 7px; color: #526986; font-size: 7px; }
+.home-study { min-height: 52px; border-radius: 5px; border-color: #15243a; background: #050a12; }
+.home-study img { height: 52px; width: 72px; filter: saturate(.72) contrast(1.08) brightness(.78); }
+.home-study strong { color: #c8d8ee; font-size: 10px; }
+
+/* Navigation is a thin control deck, anchored like the reference. */
+.bottom-nav { height: var(--nav-height); max-width: 430px; padding: 6px 5px max(5px, env(safe-area-inset-bottom)); border-top-color: #112039; background: #030711; }
+.nav-button { min-width: 0; gap: 2px; color: #60728b; font-size: 6px; letter-spacing: .05em; }
+.nav-button svg { width: 16px; height: 16px; stroke-width: 1.6; }
+.nav-button.active { color: var(--blue-bright); }
+.nav-button.center { top: -18px; }
+.nav-center-icon { width: 42px; height: 42px; border: 3px solid #030711; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 1px rgba(28,133,255,.6), 0 6px 15px rgba(0,87,214,.35); }
+.nav-center-icon svg { width: 19px; height: 19px; }
+
+/* Log & debrief: controls take the visual weight, copy is secondary. */
+.log-page .record-intro { padding-bottom: 8px; border-bottom-color: #111e31; }
+.log-page .record-intro p { margin: 3px 0 0; color: #8a9db5; font-size: 9px; }
+.log-page .mic-stage { min-height: 202px; margin: 11px 0 7px; border-radius: 5px; border-color: #142846; background: #030a15; }
+.log-page .mic-stage::before { content: ""; position: absolute; inset: 26px; border: 1px solid rgba(0,109,255,.16); border-radius: 50%; }
+.log-page .mic-button { z-index: 1; width: 80px; height: 80px; border: 1px solid #2d91ff; background: #006dff; box-shadow: 0 0 0 8px rgba(0,109,255,.09); }
+.log-page .record-status { font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .06em; }
+.log-page .type-toggle { margin: 0 auto 12px; font-size: 9px; }
+.log-options { margin-bottom: 11px; border-radius: 5px; border-color: #14243a; background: #050b14; }
+.log-options summary { padding: 9px; font-family: var(--font-geist-mono), monospace; font-size: 8px; color: #9db3ce; }
+.log-page .chip { border-radius: 4px; padding: 6px 8px; font-size: 9px; }
+.log-page .transcript { min-height: 110px; border-radius: 5px; border-color: #173052; background: #050b14; padding: 11px; font-size: 11px; }
+.log-page .save-row { margin-top: 7px; }
+.analysis-page .takeaway-card, .analysis-page .success-card { border-radius: 5px; }
+.analysis-page .takeaway-card { padding: 11px; border-color: #1a467a; background: #061426; }
+.analysis-page .question-card h2 { font-size: 18px; line-height: 1.2; }
+.analysis-page .answer-choices button { min-height: 40px; border-radius: 5px; font-size: 10px; }
+
+/* Learn becomes a visual study reel: thumbnails first, labels second. */
+.product-page { padding-bottom: 83px; }
+.focus-banner { margin-bottom: 12px; padding: 11px; border-color: #17345a; background: #06111f; }
+.focus-banner > span { font-family: var(--font-geist-mono), monospace; font-size: 7px; color: #539eff; letter-spacing: .12em; }
+.focus-banner h2 { margin: 4px 0 0; font-size: 15px; line-height: 1.18; }
+.feed-heading { min-height: 22px; margin-bottom: 7px; }
+.feed-heading .text-link { border: 1px solid #1d4e89; border-radius: 4px; padding: 5px 7px; background: #071a30; }
+.video-feed { gap: 6px; }
+.learn-video { grid-template-columns: 126px 1fr; min-height: 93px; border-radius: 5px; border-color: #122138; background: #050a12; }
+.learn-video .real-video-thumb { min-height: 93px; }
+.learn-video .video-copy { padding: 8px 8px 6px; }
+.learn-video .video-copy h3 { margin: 3px 0 0; color: #d8e5f5; font-size: 10px; line-height: 1.23; font-weight: 610; }
+.learn-video .video-type { font-family: var(--font-geist-mono), monospace; font-size: 6px; color: #5b9fff; }
+.learn-video .why-detail { margin-top: 4px; padding-top: 4px; border: 0; }
+.learn-video .why-detail summary, .learn-video .watch-link { font-family: var(--font-geist-mono), monospace; font-size: 7px; }
+.learn-video .watch-link { display: none; }
+.learn-video .play { width: 27px; height: 27px; background: rgba(0,109,255,.92); border: 0; border-radius: 50%; }
+.explore-link { font-family: var(--font-geist-mono), monospace; font-size: 8px; }
+
+/* Coach uses a console thread rather than speech bubbles. */
+.coach-page .page-header { margin-bottom: 7px; }
+.context-pill { max-width: 100%; margin: -3px 0 9px; border-radius: 4px; border-color: #17345a; background: #061426; padding: 5px 7px; font-size: 8px; }
+.coach-empty { margin: 5vh auto 0; }
+.coach-empty .coming-icon { width: 39px; height: 39px; border-radius: 5px; border-color: #1d3d67; background: #061426; }
+.coach-empty h2 { font-size: 17px; }
+.chat-message { max-width: 94%; margin-bottom: 9px; }
+.chat-message > span, .coach-suggestions > span { font-size: 7px; }
+.chat-bubble p { padding: 9px 10px; border-radius: 5px; font-size: 10px; line-height: 1.45; }
+.chat-message.user .chat-bubble p { background: #006dff; }
+.chat-message.assistant .chat-bubble p { background: #060c16; border-color: #152641; }
+.coach-suggestions { padding: 9px 0 4px; border-top-color: #122138; }
+.coach-suggestions .prompt-list { grid-template-columns: 1fr; gap: 5px; margin-top: 7px; }
+.coach-suggestions .prompt-list button { min-height: 34px; border-radius: 4px; border-color: #14243a; background: #050b14; font-size: 9px; }
+.coach-compose { padding: 7px 0 max(7px, env(safe-area-inset-bottom)); border-top-color: #13223a; background: #02050b; }
+.coach-compose textarea { min-height: 45px; border-radius: 5px; padding: 9px 72px 9px 10px; border-color: #1b3151; background: #050b14; font-size: 10px; }
+.compose-send { right: 6px; bottom: 8px; width: 29px; height: 29px; border-radius: 4px; }
+.coach-compose .answer-mic { right: 39px; bottom: 8px; width: 29px; height: 29px; border-radius: 4px; }
+
+/* My Game, Workout, Food: compact data screens with meaningful separation. */
+.game-hero { padding: 11px; border-color: #1a467a; background: #061426; }
+.game-hero h2 { margin: 0; font-size: 16px; }
+.game-grid { gap: 6px; }
+.game-card { min-height: 76px; padding: 9px; border-radius: 5px; border-color: #13223a; background: #050b14; }
+.game-card.wide { min-height: 57px; }
+.game-card > span, .build-next span { font-family: var(--font-geist-mono), monospace; font-size: 7px; }
+.game-card strong, .game-card p { font-size: 9px; }
+.game-card strong::before { width: 4px; height: 4px; margin-right: 4px; }
+.build-next { padding: 10px; margin: 7px 0 11px; border-radius: 0 5px 5px 0; background: #061426; }
+.build-next h3 { margin: 3px 0 0; font-size: 11px; }
+.workout-page .focus-banner { min-height: 46px; margin-bottom: 10px; }
+.workout-page .focus-banner h2 { font-size: 14px; }
+.select-field, .choice-stack button { border-radius: 5px; }
+.choice-stack button { min-height: 43px; padding: 7px 9px; }
+.choice-stack button span { font-size: 10px; }
+.choice-stack button small { font-size: 8px; }
+.exercise-card, .plan-step { border-radius: 5px; }
+.macro-summary { padding: 10px; margin-bottom: 8px; border-color: #1a467a; background: #061426; }
+.macro-summary strong { font-size: 18px; }
+.macro-mini { padding-top: 8px; margin-top: 8px; }
+.macro-settings, .food-log-card, .estimate-card { border-radius: 5px; border-color: #14243a; background: #050b14; }
+.food-log-card, .estimate-card { padding: 11px; }
+.food-log-card h2, .estimate-card h2 { margin: -2px 0 10px; font-size: 15px; }
+.food-page .photo-picker, .food-page .answer-compose textarea, .food-preview { border-radius: 5px; }
+
+/* Setup and the central action tray use the same flat control language. */
+.sheet-backdrop { background: rgba(0,2,7,.76); backdrop-filter: blur(7px); }
+.action-sheet { width: min(100%, 430px); padding: 10px 12px max(16px, env(safe-area-inset-bottom)); border-color: #1b2c45; border-radius: 12px 12px 0 0; background: #0a111d; }
+.sheet-handle { width: 24px; height: 2px; margin-bottom: 9px; background: #465976; }
+.action-sheet h2 { margin-bottom: 13px; font-size: 16px; font-weight: 590; }
+.sheet-close { width: 34px; height: 34px; border-radius: 50%; border-color: #2676df; background: #071426; }
+.sheet-grid { gap: 8px; }
+.sheet-action { min-height: 80px; gap: 6px; padding: 12px; border-radius: 6px; border-color: #1b2b43; background: #0d1623; }
+.sheet-action strong { font-size: 11px; }
+.sheet-action span { font-size: 8px; }
+
+.onboarding-shell { max-width: 430px; margin: 0 auto; padding: 16px 12px 28px; background: var(--canvas); }
+.onboarding-top { margin-bottom: 10px; font-size: 7px; }
+.onboarding-progress { height: 2px; margin-bottom: 17px; border-radius: 0; background: #102039; }
+.onboarding-card { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.onboarding-card h1 { margin-bottom: 6px; font-size: 23px; letter-spacing: -.045em; }
+.onboarding-card > p:not(.eyebrow):not(.error-message) { margin-bottom: 15px; color: #879ab2; font-size: 10px; line-height: 1.45; }
+.setup-chip-grid { gap: 6px; margin: 12px 0 15px; }
+.setup-chip-grid.compact { margin: 6px 0 13px; }
+.setup-chip-grid button, .setup-choice-stack button { min-height: 41px; padding: 8px 9px; border-radius: 5px; border-color: #162942; background: #060d18; font-size: 10px; }
+.setup-chip-grid button.selected, .setup-choice-stack button.selected { border-color: #167cff; background: #061b37; box-shadow: inset 0 0 0 1px rgba(22,124,255,.2); }
+.setup-choice-stack { gap: 5px; margin: 6px 0 13px; }
+.setup-label { margin: 13px 0 6px; font-size: 7px; color: #607795; }
+.setup-input, .setup-number-grid input { min-height: 41px; border-radius: 5px; border-color: #1a2d47; background: #050b14; font-size: 11px; }
+.setup-number-grid { gap: 6px; margin-top: 8px; }
+.setup-review { gap: 9px; padding: 11px; border-radius: 5px; border-color: #1a467a; background: #061426; }
+.setup-review strong { font-size: 10px; }
+.onboarding-actions { margin-top: 17px; }
+.setup-back { font-size: 10px; }
+.setup-next { min-width: 132px; min-height: 42px; }
+
+/* Dense reading guardrails for persistent history and long suggestions. */
+.chat-message.assistant .chat-bubble p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
+.coach-suggestions .prompt-list button { overflow: hidden; }
+.coach-suggestions .prompt-list button:not(:focus-visible) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+
+@media (max-height: 900px) and (max-width: 639px) {
+  .home-page .home-study { min-height: 52px; padding: 0 10px 0 0; }
+  .home-study img { height: 52px; }
+}

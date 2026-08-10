@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
-  LoaderCircle, MessageCircle, Mic, Pencil, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
+  LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
 
 type SpeechRecognitionLike = {
@@ -90,11 +90,48 @@ function LoadingState({ label = "Reading your FightIQ memory…" }: { label?: st
   return <div className="inline-loading" role="status"><LoaderCircle size={22} className="spin" /><span>{label}</span></div>;
 }
 
+type StudyVideo = ProductData["videos"][number];
+
+// The study plays here rather than on YouTube. Sending an athlete out to a
+// recommendation feed to watch one detail is how a study session ends up
+// somewhere else entirely, so the video and the thing to look for stay in the
+// same frame. Nothing is requested from YouTube until the athlete hits play.
+function StudyCard({ video, playing, onPlay, onClose }: { video: StudyVideo; playing: boolean; onPlay: () => void; onClose: () => void }) {
+  const embed = `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+  return <article className={playing ? "learn-video studying" : "learn-video"}>
+    {playing
+      ? <div className="study-frame">
+          <iframe
+            src={embed}
+            title={video.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+          <button type="button" className="study-close" onClick={onClose} aria-label="Close this study"><X size={16} /></button>
+        </div>
+      : <button type="button" className="real-video-thumb" onClick={onPlay} aria-label={`Play ${video.title}`}>
+          <img src={video.thumbnail} alt="" />
+          <span className="video-source">{video.duration}</span>
+          <span className="play"><Play size={20} fill="currentColor" /></span>
+        </button>}
+    <div className="video-copy">
+      <span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH" : ""}</span>
+      <h3>{video.title}</h3>
+      <p className="creator-line">{video.creator}</p>
+      {/* the detail to look for stays on screen while the footage runs */}
+      <p className="watch-for"><b>Watch for</b> {video.watchFor}</p>
+      <details className="why-detail"><summary>Why this <ChevronRight size={14} /></summary><p>{video.why}</p></details>
+      <a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Open on YouTube <ExternalLink size={14} /></a>
+    </div>
+  </article>;
+}
+
 export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { studyTopic?: string | null; onReturnToFeed?: () => void; onReturnToCoach?: () => void }) {
   const topicQuery = studyTopic?.trim() ?? "";
   const baseUrl = topicQuery ? `/api/product?topic=${encodeURIComponent(topicQuery)}` : "/api/product";
   const { data, error, reload } = useProductData(baseUrl);
   const [refreshing, setRefreshing] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [refreshState, setRefreshState] = useState({ topic: "", cursor: 0, notice: "" });
   const refreshCursor = refreshState.topic === topicQuery ? refreshState.cursor : 0;
   const refreshNotice = refreshState.topic === topicQuery ? refreshState.notice : "";
@@ -118,10 +155,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     {data && <>
       {topicQuery && <div className="coach-topic-return"><button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Back to Coach" : "Back to my feed"} <ChevronRight size={14} /></button></div>}
       <div className="feed-heading"><div><p className="eyebrow">{topicQuery ? "COACH VIDEO PICKS" : "FOR YOUR NEXT STUDY"}</p>{(data.learn.refreshed || refreshNotice) && <p className="refresh-note" role="status">{refreshNotice || "Fresh studies ready."}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding…" : "Refresh"}</button></div>
-      <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
-        <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
-        <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><details className="why-detail"><summary>Why this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
-      </article>)}</div>
+      <div className="video-feed">{data.videos.map((video) => <StudyCard key={video.id} video={video} playing={playingId === video.id} onPlay={() => setPlayingId(video.id)} onClose={() => setPlayingId(null)} />)}</div>
       <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">More on YouTube <ExternalLink size={14} /></a>
     </>}
   </main>;

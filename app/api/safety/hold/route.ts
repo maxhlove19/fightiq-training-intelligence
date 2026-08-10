@@ -1,6 +1,7 @@
 import { actOnOpenHold, getOpenHold } from "../../../../lib/hold-db";
 import { ensureProductSchema, getProductOwnerId, getProductRuntime, productError } from "../../../../lib/product-db";
 import { describeHold, type HoldAction } from "../../../../lib/return-to-training";
+import { readJsonObject } from "../../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +27,8 @@ export async function POST(request: Request) {
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
 
-  let body: { action?: unknown; symptomFree?: unknown } = {};
-  try { body = await request.json() as { action?: unknown; symptomFree?: unknown }; } catch { return productError("INVALID_REQUEST", "That step could not be read.", 400); }
+  const body = await readJsonObject(request) as { action?: unknown; symptomFree?: unknown } | null;
+  if (!body) return productError("INVALID_REQUEST", "That step could not be read.", 400);
   const action = typeof body.action === "string" ? body.action : "";
   if (!ACTIONS.has(action)) return productError("INVALID_ACTION", "That is not a step this hold has.", 422);
 

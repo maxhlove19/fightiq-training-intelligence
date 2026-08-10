@@ -226,10 +226,13 @@ export function validateDebriefResult(value: unknown): DebriefResult {
   for (const key of memoryKeys) if (!stringArray(value.memory[key])) throw invalid();
   if (typeof value.question.prompt !== "string" || !stringArray(value.question.choices) || value.question.choices.length > 3 || (value.question.target_field !== "" && !evidenceGaps.includes(value.question.target_field as typeof evidenceGaps[number])) || typeof value.question.why_asked !== "string") throw invalid();
   if (!isRecord(value.intelligence)) throw invalid();
+  // Narrowed once, so every check below is against a known shape rather than a
+  // fresh unchecked property read off an unknown.
+  const intelligence = value.intelligence;
   const intelligenceStrings = ["discipline", "technique", "goal", "problem", "suspected_cause", "coach_instructor_cue", "what_worked", "what_failed", "context"] as const;
-  if (intelligenceStrings.some((key) => typeof value.intelligence[key] !== "string") || typeof value.intelligence.confidence !== "number" || value.intelligence.confidence < 0 || value.intelligence.confidence > 1 || typeof value.intelligence.follow_up_needed !== "boolean" || !stringArray(value.intelligence.reported_facts) || !stringArray(value.intelligence.fightiq_hypotheses) || !["unknown", "helped", "not_helped", "mixed"].includes(String(value.intelligence.experiment_result))) throw invalid();
-  if (value.status === "question" && (!value.question.prompt.trim() || value.intelligence.follow_up_needed !== true)) throw invalid();
-  if (value.status === "complete" && value.intelligence.follow_up_needed !== false) throw invalid();
+  if (intelligenceStrings.some((key) => typeof intelligence[key] !== "string") || typeof intelligence.confidence !== "number" || intelligence.confidence < 0 || intelligence.confidence > 1 || typeof intelligence.follow_up_needed !== "boolean" || !stringArray(intelligence.reported_facts) || !stringArray(intelligence.fightiq_hypotheses) || !["unknown", "helped", "not_helped", "mixed"].includes(String(intelligence.experiment_result))) throw invalid();
+  if (value.status === "question" && (!(value.question.prompt as string).trim() || intelligence.follow_up_needed !== true)) throw invalid();
+  if (value.status === "complete" && intelligence.follow_up_needed !== false) throw invalid();
   const result = value as DebriefResult;
   const clean = (text: string) => text.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s{0,3}#{1,6}\s*/gm, "").replace(/^\s*[-*]\s+/gm, "").trim();
   result.summary = clean(result.summary); result.takeaway = clean(result.takeaway); result.coach_detail = clean(result.coach_detail);

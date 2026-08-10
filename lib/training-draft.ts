@@ -12,7 +12,22 @@ export type TrainingDraft = {
   discipline: string;
   sessionType: string;
   savedAt: string;
+  /**
+   * One id for this note, generated once and kept until the server has it.
+   *
+   * Gym wifi loses responses, not requests. Without this, a save that actually
+   * succeeded but whose reply never arrived became a second identical session
+   * the moment the athlete pressed retry — and duplicates quietly distort the
+   * weekly review and everything read from it.
+   */
+  clientKey: string;
 };
+
+/** A fresh id for a note about to be written. */
+export function newClientKey(): string {
+  try { return crypto.randomUUID(); }
+  catch { return `k-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e9).toString(36)}`; }
+}
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
@@ -34,6 +49,8 @@ export function readDraft(storage: StorageLike | null | undefined): TrainingDraf
     discipline: typeof draft.discipline === "string" && draft.discipline ? draft.discipline : "MMA",
     sessionType: typeof draft.sessionType === "string" && draft.sessionType ? draft.sessionType : "Class",
     savedAt: typeof draft.savedAt === "string" && draft.savedAt ? draft.savedAt : new Date(0).toISOString(),
+    // A draft written before this existed still restores; it just gets a key now.
+    clientKey: typeof draft.clientKey === "string" && draft.clientKey ? draft.clientKey : newClientKey(),
   };
 }
 

@@ -1,7 +1,6 @@
 import { env } from "cloudflare:workers";
 import { getChatGPTUser } from "../app/chatgpt-auth";
-import { applyColumns, type D1 } from "./debrief-db";
-import { APP_SCHEMA } from "./schema";
+import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
 
 export type FighterProfile = {
@@ -73,8 +72,7 @@ export function getProductRuntime() {
 export async function ensureProductSchema(db: D1) {
   // One list owns the schema. Every entry point applies all of it, so no route
   // can be the only reason a table exists.
-  await db.batch(APP_SCHEMA.map((statement) => db.prepare(statement)));
-  await applyColumns(db);
+  await applySchema(db);
 }
 
 export async function getOrCreateProfile(db: D1, ownerId: string): Promise<FighterProfile> {

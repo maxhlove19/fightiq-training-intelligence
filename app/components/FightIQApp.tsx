@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
 import { AthleteOnboarding } from "./AthleteOnboarding";
-import { clearDraft, draftAge, readDraft, writeDraft } from "../../lib/training-draft";
+import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
 
@@ -262,6 +262,9 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   const [sessionType, setSessionType] = useState(() => restored?.sessionType ?? sessionTypeForPlan(activePlan));
   const [transcript, setTranscript] = useState(() => restored?.text ?? "");
   const [draftNotice, setDraftNotice] = useState(() => (restored ? `Restored the note you didn’t get to save · ${draftAge(restored.savedAt)}` : ""));
+  // One id for this note for as long as it exists unsaved. A retry after a lost
+  // reply sends the same one, so the server can tell a retry from a new session.
+  const clientKeyRef = useRef(restored?.clientKey ?? newClientKey());
   const [offlineHold, setOfflineHold] = useState(false);
   const [listening, setListening] = useState(false);
   const [answerListening, setAnswerListening] = useState(false);
@@ -286,7 +289,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   useEffect(() => {
     if (entryId) return;
     const timer = window.setTimeout(() => {
-      writeDraft(window.localStorage, { text: transcript, discipline, sessionType, savedAt: new Date().toISOString() });
+      writeDraft(window.localStorage, { text: transcript, discipline, sessionType, savedAt: new Date().toISOString(), clientKey: clientKeyRef.current });
     }, 400);
     return () => window.clearTimeout(timer);
   }, [transcript, discipline, sessionType, entryId]);
@@ -341,11 +344,13 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     if (!transcript.trim() || saving) return;
     setSaving(true); setError(""); setDraftNotice("");
     try {
-      const response = await fetch("/api/training-entries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, sessionType, rawEntry: transcript.trim(), ...(activeExperimentId ? { experimentId: activeExperimentId } : {}) }) });
+      const response = await fetch("/api/training-entries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, sessionType, rawEntry: transcript.trim(), clientKey: clientKeyRef.current, ...(activeExperimentId ? { experimentId: activeExperimentId } : {}) }) });
       if (!response.ok) throw new Error("save failed");
       const data = await response.json() as { id: string };
       setEntryId(data.id);
       setOfflineHold(false);
+      // The note is on the server. The next one starts a new identity.
+      clientKeyRef.current = newClientKey();
       clearDraft(window.localStorage);
       window.history.replaceState({}, "", `/?debrief=${encodeURIComponent(data.id)}`);
       await startDebrief(data.id);

@@ -2,6 +2,7 @@ import { answerCoach, ProductAIError } from "../../../lib/product-ai";
 import { scanTrainingNote } from "../../../lib/safety-signals";
 import type { D1 } from "../../../lib/debrief-db";
 import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { readJsonObject } from "../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -101,8 +102,8 @@ export async function POST(request: Request) {
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db, apiKey, allowMockAi } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
-  let body: { question?: unknown; messageId?: unknown; chatId?: unknown };
-  try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid question.", 400); }
+  const body = await readJsonObject(request) as { question?: unknown; messageId?: unknown; chatId?: unknown } | null;
+  if (!body) return productError("INVALID_REQUEST", "Invalid question.", 400);
   const question = typeof body.question === "string" ? body.question.trim() : "";
   const requestedMessageId = typeof body.messageId === "string" ? body.messageId.trim() : "";
   const requestedChatId = typeof body.chatId === "string" ? body.chatId.trim() : "";

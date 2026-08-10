@@ -8,6 +8,7 @@ import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, persistF
 import { getOpenHold } from "../../../../../../lib/hold-db";
 import { describeHold, trainingPermission } from "../../../../../../lib/return-to-training";
 import { scanTrainingNote } from "../../../../../../lib/safety-signals";
+import { readJsonObject } from "../../../../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
@@ -36,8 +37,8 @@ export async function POST(request: Request, context: Context) {
     status ? { status } : undefined,
   );
 
-  let body: Body;
-  try { body = await request.json(); } catch { return apiError("INVALID_REQUEST", "Invalid response.", 400); }
+  const body = await readJsonObject(request) as Body | null;
+  if (!body) return apiError("INVALID_REQUEST", "Invalid response.", 400);
   const action = body.action;
   if (action === "finish") {
     // Finish is a real write, not just a UI dismissal. It shares the same

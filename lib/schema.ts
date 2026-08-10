@@ -9,7 +9,7 @@
 // table here is the only place it needs to go — and tests/schema-boot.test.mjs
 // proves every query in the codebase still parses against it.
 
-export const APP_SCHEMA: string[] = [
+export const APP_TABLES: string[] = [
   `CREATE TABLE IF NOT EXISTS training_debriefs (
       entry_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -25,7 +25,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_training_debriefs_owner_status ON training_debriefs (owner_id, status)",
   `CREATE TABLE IF NOT EXISTS training_followups (
       id TEXT PRIMARY KEY NOT NULL,
       entry_id TEXT NOT NULL,
@@ -43,8 +42,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       answered_at TEXT
     )`,
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_training_followups_entry_sequence ON training_followups (entry_id, sequence)",
-  "CREATE INDEX IF NOT EXISTS idx_training_followups_owner_status ON training_followups (owner_id, status)",
   `CREATE TABLE IF NOT EXISTS training_entries (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -52,9 +49,9 @@ export const APP_SCHEMA: string[] = [
       session_type TEXT NOT NULL,
       raw_entry TEXT NOT NULL,
       input_method TEXT NOT NULL,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      client_key TEXT
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_training_entries_owner_created ON training_entries (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS fighter_profiles (
       owner_id TEXT PRIMARY KEY NOT NULL,
       onboarding_completed_at TEXT,
@@ -82,8 +79,6 @@ export const APP_SCHEMA: string[] = [
       observed_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)",
-  "CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)",
   `CREATE TABLE IF NOT EXISTS fighter_focus_recommendations (
       owner_id TEXT PRIMARY KEY NOT NULL,
       focus TEXT NOT NULL,
@@ -92,7 +87,6 @@ export const APP_SCHEMA: string[] = [
       entry_id TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)",
   `CREATE TABLE IF NOT EXISTS debrief_generation_leases (
       entry_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -100,7 +94,6 @@ export const APP_SCHEMA: string[] = [
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)",
   `CREATE TABLE IF NOT EXISTS coach_messages (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -109,7 +102,6 @@ export const APP_SCHEMA: string[] = [
       content TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS coach_chats (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -117,7 +109,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)",
   `CREATE TABLE IF NOT EXISTS coach_message_enrichments (
       assistant_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -128,7 +119,6 @@ export const APP_SCHEMA: string[] = [
       video_prompt TEXT,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS coach_turns (
       user_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -138,8 +128,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       completed_at TEXT
     )`,
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_turns_assistant_message ON coach_turns (assistant_message_id)",
-  "CREATE INDEX IF NOT EXISTS idx_coach_turns_owner_status ON coach_turns (owner_id, status, created_at)",
   `CREATE TABLE IF NOT EXISTS workout_plans (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -152,7 +140,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       completed_at TEXT
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_workout_plans_owner_created ON workout_plans (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS workout_setups (
       owner_id TEXT PRIMARY KEY NOT NULL,
       equipment_json TEXT NOT NULL DEFAULT '[]',
@@ -177,8 +164,6 @@ export const APP_SCHEMA: string[] = [
       next_load_value REAL,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_workout_performances_owner_exercise_created ON workout_performances (owner_id, exercise_key, created_at)",
-  "CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_performances_workout_exercise ON workout_performances (workout_id, exercise_key)",
   `CREATE TABLE IF NOT EXISTS nutrition_entries (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -192,7 +177,6 @@ export const APP_SCHEMA: string[] = [
       photo_key TEXT,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_nutrition_entries_owner_created ON nutrition_entries (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS pre_training_briefs (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -203,7 +187,6 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       consumed_at TEXT
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_pre_training_briefs_owner_created ON pre_training_briefs (owner_id, created_at)",
   `CREATE TABLE IF NOT EXISTS training_experiments (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -218,14 +201,12 @@ export const APP_SCHEMA: string[] = [
       created_at TEXT NOT NULL,
       completed_at TEXT
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)",
   `CREATE TABLE IF NOT EXISTS training_experiment_sessions (
       entry_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
       experiment_id TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_training_experiment_sessions_owner_experiment ON training_experiment_sessions (owner_id, experiment_id)",
   `CREATE TABLE IF NOT EXISTS video_recommendation_history (
       owner_id TEXT NOT NULL,
       video_id TEXT NOT NULL,
@@ -233,7 +214,6 @@ export const APP_SCHEMA: string[] = [
       served_at TEXT NOT NULL,
       PRIMARY KEY (owner_id, video_id)
     )`,
-  "CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)",
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -249,9 +229,45 @@ export const APP_SCHEMA: string[] = [
       setbacks INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )`,
+];
+
+// Indexes are applied after APP_COLUMNS, never alongside the tables. An index
+// over a column that APP_COLUMNS adds cannot be created until that column
+// exists, and on a database that predates the column it does not. Creating it
+// in the same batch as the tables took every request in the app down with
+// "no such column" — while a brand-new database was perfectly fine, which is
+// why tests/schema-boot.test.mjs now upgrades an old database as well as
+// building a new one.
+export const APP_INDEXES: string[] = [
+  "CREATE INDEX IF NOT EXISTS idx_training_debriefs_owner_status ON training_debriefs (owner_id, status)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_training_followups_entry_sequence ON training_followups (entry_id, sequence)",
+  "CREATE INDEX IF NOT EXISTS idx_training_followups_owner_status ON training_followups (owner_id, status)",
+  "CREATE INDEX IF NOT EXISTS idx_training_entries_owner_created ON training_entries (owner_id, created_at)",
+  // NULLs are distinct in SQLite, so entries saved without a key are unaffected.
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_training_entries_owner_client_key ON training_entries (owner_id, client_key)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)",
+  "CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)",
+  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)",
+  "CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)",
+  "CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)",
+  "CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_turns_assistant_message ON coach_turns (assistant_message_id)",
+  "CREATE INDEX IF NOT EXISTS idx_coach_turns_owner_status ON coach_turns (owner_id, status, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_workout_plans_owner_created ON workout_plans (owner_id, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_workout_performances_owner_exercise_created ON workout_performances (owner_id, exercise_key, created_at)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_performances_workout_exercise ON workout_performances (workout_id, exercise_key)",
+  "CREATE INDEX IF NOT EXISTS idx_nutrition_entries_owner_created ON nutrition_entries (owner_id, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_pre_training_briefs_owner_created ON pre_training_briefs (owner_id, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_training_experiment_sessions_owner_experiment ON training_experiment_sessions (owner_id, experiment_id)",
+  "CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)",
   // Reads are always "the open hold for this athlete", so cleared_at leads.
   "CREATE INDEX IF NOT EXISTS idx_training_holds_owner_open ON training_holds (owner_id, cleared_at, opened_at)",
 ];
+
+/** Everything, in order, for anything building a database from nothing. */
+export const APP_SCHEMA: string[] = [...APP_TABLES, ...APP_INDEXES];
 
 /**
  * Columns added to tables that already exist somewhere. SQLite has no
@@ -263,4 +279,5 @@ export const APP_SCHEMA: string[] = [
  */
 export const APP_COLUMNS: Array<{ table: string; column: string; definition: string }> = [
   { table: "training_holds", column: "cleared_reason", definition: "TEXT" },
+  { table: "training_entries", column: "client_key", definition: "TEXT" },
 ];

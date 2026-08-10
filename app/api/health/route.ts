@@ -15,7 +15,9 @@ export async function GET() {
       // Applying the schema is idempotent and is what every request does anyway,
       // so this both checks and repairs a database that has never been written to.
       await ensureProductSchema(runtime.db);
-      await runtime.db.prepare("SELECT id FROM training_entries LIMIT 1").all();
+      // `WHERE 1 = 0` proves the table and the column exist without this
+      // unauthenticated endpoint ever touching a row that belongs to somebody.
+      await runtime.db.prepare("SELECT id FROM training_entries WHERE 1 = 0").all();
       schema = true;
     } catch { schema = false; }
   }

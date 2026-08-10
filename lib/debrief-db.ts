@@ -1,4 +1,4 @@
-import { APP_COLUMNS, APP_SCHEMA } from "./schema";
+import { APP_COLUMNS, APP_INDEXES, APP_TABLES } from "./schema";
 
 export type D1 = D1Database;
 
@@ -15,8 +15,20 @@ export async function applyColumns(db: D1) {
 }
 
 export async function ensureDebriefSchema(db: D1) {
-  await db.batch(APP_SCHEMA.map((statement) => db.prepare(statement)));
+  await applySchema(db);
+}
+
+/**
+ * Tables, then columns, then indexes — in that order, always.
+ *
+ * An index over a column that APP_COLUMNS adds cannot be created before that
+ * column exists. Doing it in one batch worked on a new database and 500'd every
+ * request on an existing one.
+ */
+export async function applySchema(db: D1) {
+  await db.batch(APP_TABLES.map((statement) => db.prepare(statement)));
   await applyColumns(db);
+  await db.batch(APP_INDEXES.map((statement) => db.prepare(statement)));
 }
 
 export async function getOwnedEntry(db: D1, entryId: string, ownerId: string) {

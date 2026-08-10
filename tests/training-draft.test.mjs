@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DRAFT_KEY, clearDraft, draftAge, readDraft, writeDraft } from "../lib/training-draft.ts";
+import { DRAFT_KEY, clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../lib/training-draft.ts";
 
 function fakeStorage(initial = {}) {
   const store = { ...initial };
@@ -12,7 +12,7 @@ function fakeStorage(initial = {}) {
   };
 }
 
-const draft = { text: "Rolled six rounds, kept losing the underhook.", discipline: "BJJ", sessionType: "Open mat", savedAt: "2026-08-10T18:00:00.000Z" };
+const draft = { text: "Rolled six rounds, kept losing the underhook.", discipline: "BJJ", sessionType: "Open mat", savedAt: "2026-08-10T18:00:00.000Z", clientKey: "draft-key-1" };
 
 test("a note written on the device comes back intact", () => {
   const storage = fakeStorage();
@@ -69,4 +69,25 @@ test("the age reads the way an athlete would say it", () => {
   assert.equal(draftAge(at(60 * 30), now), "yesterday");
   assert.equal(draftAge(at(60 * 24 * 3), now), "3 days ago");
   assert.equal(draftAge("not a date", now), "earlier");
+});
+
+// A save that succeeded but whose reply never arrived used to become a second
+// identical session the moment the athlete pressed retry.
+test("a restored draft keeps the identity the unsent note already had", () => {
+  const storage = fakeStorage();
+  writeDraft(storage, { text: "Switch kicks", discipline: "Muay Thai", sessionType: "Class", savedAt: new Date().toISOString(), clientKey: "key-abc" });
+  assert.equal(readDraft(storage).clientKey, "key-abc");
+});
+
+test("a draft written before keys existed still restores, and gets one", () => {
+  const storage = fakeStorage();
+  storage.setItem("fightiq-training-draft-v1", JSON.stringify({ text: "Old note", discipline: "BJJ", sessionType: "Open mat", savedAt: new Date().toISOString() }));
+  const draft = readDraft(storage);
+  assert.equal(draft.text, "Old note");
+  assert.ok(draft.clientKey.length > 4, "an old draft should still get an identity");
+});
+
+test("two notes never share an identity", () => {
+  const keys = new Set(Array.from({ length: 200 }, () => newClientKey()));
+  assert.equal(keys.size, 200);
 });

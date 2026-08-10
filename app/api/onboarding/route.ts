@@ -1,6 +1,7 @@
 import { calculateStartingMacros, validateOnboarding } from "../../../lib/athlete-onboarding";
 import { ensureProductSchema, getProductOwnerId, getProductRuntime, productError } from "../../../lib/product-db";
 import { startingFocus } from "../../../lib/session-cue";
+import { readJsonObject } from "../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,8 @@ export async function POST(request: Request) {
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
-  let body: unknown;
-  try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid athlete setup.", 400); }
+  const body: unknown = await readJsonObject(request);
+  if (!body) return productError("INVALID_REQUEST", "Invalid athlete setup.", 400);
   const validation = validateOnboarding(body);
   if (!validation.input) return productError("INVALID_ONBOARDING", validation.error ?? "Check your athlete setup.", 422);
   await ensureProductSchema(db);

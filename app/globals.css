@@ -774,6 +774,30 @@ body { letter-spacing: 0; font-size: 13px; }
 .build-next h3 { margin: 3px 0 0; font-size: 11px; }
 .workout-page .focus-banner { min-height: 46px; margin-bottom: 10px; }
 .workout-page .focus-banner h2 { font-size: 14px; }
+.workout-setup { padding: 13px 0 6px; }
+.workout-setup h2 { margin: 0 0 5px; font-size: 19px; letter-spacing: -.035em; }
+.workout-setup > p:not(.eyebrow) { margin: 0 0 12px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.workout-setup select, .lift-result select { width: 100%; min-height: 40px; border: 1px solid #1a2d47; border-radius: 5px; background: #050b14; color: var(--ink); padding: 0 9px; font-size: 10px; }
+.workout-limitations { display: block; width: 100%; min-height: 68px; resize: vertical; padding: 10px; }
+.workout-gear { width: 100%; margin: 0 0 10px; padding: 9px 10px; border: 1px solid #17345a; border-radius: 5px; background: #06111f; color: var(--ink); display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; text-align: left; cursor: pointer; }
+.workout-gear span { color: #539eff; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .12em; }
+.workout-gear strong { overflow: hidden; max-width: 260px; color: #c6d7ec; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.workout-gear svg { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--blue-bright); }
+.exercise-card.detailed { align-items: start; }
+.exercise-card.detailed h3 { margin-bottom: 4px; }
+.exercise-card.detailed strong { color: #e5f0ff; font-size: 11px; }
+.exercise-card.detailed p { margin: 7px 0 0; color: #98abc4; font-size: 9px; line-height: 1.45; }
+.exercise-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.exercise-meta span { padding: 3px 5px; border: 1px solid #193353; border-radius: 3px; color: #63a9ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .06em; }
+.exercise-card details { margin-top: 7px; }
+.exercise-card summary { display: flex; align-items: center; gap: 2px; color: #559dff; cursor: pointer; font-size: 8px; }
+.workout-complete { margin: 10px 0; padding: 11px; border: 1px solid #1a467a; border-radius: 5px; background: #061426; }
+.workout-complete h3 { margin: 0 0 4px; font-size: 14px; }
+.workout-complete > p:not(.eyebrow) { margin: 0 0 10px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.lift-result { margin: 8px 0; padding: 8px; border: 1px solid #163154; border-radius: 4px; background: #050b14; }
+.lift-result strong { display: block; margin-bottom: 7px; color: #dce9fa; font-size: 10px; }
+.lift-result > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.lift-result input { min-width: 0; min-height: 38px; border: 1px solid #1a2d47; border-radius: 4px; background: #030912; color: var(--ink); padding: 0 8px; font-size: 10px; }
 .select-field, .choice-stack button { border-radius: 5px; }
 .choice-stack button { min-height: 43px; padding: 7px 9px; }
 .choice-stack button span { font-size: 10px; }

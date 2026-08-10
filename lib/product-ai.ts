@@ -17,6 +17,8 @@ export type CoachReply = {
   video: CoachVideoOffer;
 };
 
+export type WorkoutPersonalization = { priorityKeys: string[]; loadNote: string };
+
 async function safetyIdentifier(ownerId: string) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`fightiq:${ownerId}`));
   return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 48);
@@ -250,6 +252,33 @@ function compactNutrition(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const nutrition = value as Record<string, unknown>;
   return { totals: nutrition.totals ?? null, entry_count: Array.isArray(nutrition.entries) ? nutrition.entries.length : 0 };
+}
+
+const workoutPersonalizationSchema = {
+  type: "object", additionalProperties: false, required: ["priority_keys", "load_note"], properties: {
+    priority_keys: { type: "array", minItems: 0, maxItems: 5, items: { type: "string" } },
+    load_note: { type: "string" },
+  },
+};
+
+// Strength selection stays bounded by the equipment-aware safety library. AI
+// can only prioritize among those valid choices and phrase the athlete-specific
+// rationale, so an upstream model failure can never invent a risky movement.
+export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: string; memory: MemorySnapshot; discipline: string; fatigue: string; limitations: string; availableKeys: string[] }) : Promise<WorkoutPersonalization | null> {
+  if (!args.apiKey?.trim() || !args.availableKeys.length) return null;
+  try {
+    const payload = await responseRequest(args.apiKey, args.ownerId, {
+      max_output_tokens: 180,
+      text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_workout_personalization", strict: true, schema: workoutPersonalizationSchema } },
+      input: [{ role: "system", content: "You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue." }, { role: "user", content: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
+    });
+    const text = extractOutputText(payload); if (!text) return null;
+    const value = JSON.parse(text) as { priority_keys?: unknown; load_note?: unknown };
+    if (!Array.isArray(value.priority_keys) || typeof value.load_note !== "string") return null;
+    const priorityKeys = value.priority_keys.filter((key): key is string => typeof key === "string" && args.availableKeys.includes(key)).filter((key, index, values) => values.indexOf(key) === index).slice(0, 5);
+    const loadNote = cleanCoachText(value.load_note).replace(/[\r\n]+/g, " ").slice(0, 155);
+    return loadNote ? { priorityKeys, loadNote } : null;
+  } catch { return null; }
 }
 
 export type MealEstimate = {

@@ -156,6 +156,39 @@ export const workoutPlans = sqliteTable("workout_plans", {
   completedAt: text("completed_at"),
 }, (table) => [index("idx_workout_plans_owner_created").on(table.ownerId, table.createdAt)]);
 
+// Workout setup stays separate from the general athlete profile so the first
+// app visit never turns into a gym-equipment questionnaire.
+export const workoutSetups = sqliteTable("workout_setups", {
+  ownerId: text("owner_id").primaryKey(),
+  equipmentJson: text("equipment_json").notNull().default("[]"),
+  location: text("location").notNull().default(""),
+  defaultDurationMinutes: integer("default_duration_minutes").notNull().default(35),
+  unit: text("unit").notNull().default("lb"),
+  limitations: text("limitations").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+// We only ask for the final useful set of a progression lift. This gives the
+// next workout a real anchor without requiring the athlete to log every set.
+export const workoutPerformances = sqliteTable("workout_performances", {
+  id: text("id").primaryKey(),
+  workoutId: text("workout_id").notNull(),
+  ownerId: text("owner_id").notNull(),
+  exerciseKey: text("exercise_key").notNull(),
+  completedSets: integer("completed_sets").notNull().default(0),
+  completedReps: integer("completed_reps"),
+  loadValue: real("load_value"),
+  unit: text("unit").notNull().default("lb"),
+  effort: text("effort").notNull().default("not_logged"),
+  nextAction: text("next_action").notNull(),
+  nextLoadValue: real("next_load_value"),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  index("idx_workout_performances_owner_exercise_created").on(table.ownerId, table.exerciseKey, table.createdAt),
+  uniqueIndex("idx_workout_performances_workout_exercise").on(table.workoutId, table.exerciseKey),
+]);
+
 export const nutritionEntries = sqliteTable("nutrition_entries", {
   id: text("id").primaryKey(),
   ownerId: text("owner_id").notNull(),

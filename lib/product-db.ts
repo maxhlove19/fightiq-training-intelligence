@@ -156,6 +156,32 @@ export async function ensureProductSchema(db: D1) {
       completed_at TEXT
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_workout_plans_owner_created ON workout_plans (owner_id, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS workout_setups (
+      owner_id TEXT PRIMARY KEY NOT NULL,
+      equipment_json TEXT NOT NULL DEFAULT '[]',
+      location TEXT NOT NULL DEFAULT '',
+      default_duration_minutes INTEGER NOT NULL DEFAULT 35,
+      unit TEXT NOT NULL DEFAULT 'lb',
+      limitations TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS workout_performances (
+      id TEXT PRIMARY KEY NOT NULL,
+      workout_id TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      exercise_key TEXT NOT NULL,
+      completed_sets INTEGER NOT NULL DEFAULT 0,
+      completed_reps INTEGER,
+      load_value REAL,
+      unit TEXT NOT NULL DEFAULT 'lb',
+      effort TEXT NOT NULL DEFAULT 'not_logged',
+      next_action TEXT NOT NULL,
+      next_load_value REAL,
+      created_at TEXT NOT NULL
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_workout_performances_owner_exercise_created ON workout_performances (owner_id, exercise_key, created_at)"),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_performances_workout_exercise ON workout_performances (workout_id, exercise_key)"),
     db.prepare(`CREATE TABLE IF NOT EXISTS nutrition_entries (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,

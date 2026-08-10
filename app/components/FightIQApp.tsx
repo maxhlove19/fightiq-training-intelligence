@@ -22,6 +22,14 @@ type SpeechRecognitionLike = {
 
 const disciplines = ["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai", "Kickboxing", "Judo", "Other"];
 const sessionTypes = ["Class", "Drilling", "Sparring", "Open mat", "Private"];
+const homePosterImages = [
+  "/fighter-posters/blue-corner.jpg",
+  "/fighter-posters/grappling-room.jpg",
+  "/fighter-posters/kick-room.jpg",
+  "/fighter-posters/mat-room.jpg",
+  "/fighter-posters/cage-room.jpg",
+];
+const homePosterStorageKey = "fightiq-last-home-poster";
 
 type DebriefState = {
   entryId: string;
@@ -113,6 +121,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
+  const [posterIndex, setPosterIndex] = useState(0);
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -122,6 +131,18 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
       date: new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(now),
       greeting: hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
     });
+  }, []);
+  useEffect(() => {
+    let next = 0;
+    try {
+      const previous = Number(window.sessionStorage.getItem(homePosterStorageKey));
+      const alternatives = homePosterImages.map((_, index) => index).filter((index) => index !== previous);
+      next = alternatives[Math.floor(Math.random() * alternatives.length)] ?? 0;
+      window.sessionStorage.setItem(homePosterStorageKey, String(next));
+    } catch { next = Math.floor(Math.random() * homePosterImages.length); }
+    // This runs after hydration, so a new app visit gets a fresh poster without an SSR mismatch.
+    const frame = window.requestAnimationFrame(() => setPosterIndex(next));
+    return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
   const insight = product?.insight ?? { title: "FightIQ is learning your game.", body: "Log today’s training and FightIQ will turn it into a useful pattern, one insight, and a clear next focus.", currentFocus: "Build your fighter memory" };
@@ -154,8 +175,8 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
           <div className="home-card-focus"><span>CURRENT FOCUS</span><strong>{insight.currentFocus}</strong><p>{product?.memory.focusReason || "The most useful detail to test in your next session."}</p></div>
           <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
         </div>
-        <div className={`home-insight-media ${firstVideo?.thumbnail ? "has-video" : ""}`} aria-hidden="true">
-          {firstVideo?.thumbnail && <img src={firstVideo.thumbnail} alt="" />}
+        <div className="home-insight-media" aria-hidden="true">
+          <img src={homePosterImages[posterIndex]} alt="" decoding="async" />
         </div>
       </section>
 

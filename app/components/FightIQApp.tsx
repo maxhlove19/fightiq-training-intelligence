@@ -145,7 +145,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
     return () => window.cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
-  const insight = product?.insight ?? { title: "FightIQ is learning your game.", body: "Log today’s training and FightIQ will turn it into a useful pattern, one insight, and a clear next focus.", currentFocus: "Build your fighter memory" };
+  const insight = product?.insight ?? { title: "Build your baseline.", body: "Log today’s training and FightIQ will give you one clear thing to work on next.", currentFocus: "Build your fighter memory" };
   const firstVideo = product?.videos[0];
   const brief = product?.preTrainingBrief;
   const activeExperiment = product?.activeExperiment;
@@ -157,7 +157,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const completedSessions = weeklyTarget ? Math.min(weeklySessions, weeklyTarget) : weeklySessions;
   const focusProgress = weeklyTarget ? Math.min(100, Math.round((weeklySessions / weeklyTarget) * 100)) : 0;
   const focusMeterStyle = { "--focus-progress": `${focusProgress}%` } as CSSProperties;
-  const briefLabel = activeExperiment ? "TRAINING NOW" : "BEFORE YOUR NEXT SESSION";
+  const briefLabel = activeExperiment ? "TRAINING NOW" : "TRAIN NEXT";
   const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
   return (
     <main className="page home-page native-page">
@@ -169,11 +169,10 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
 
       <section className="home-reference-insight" aria-label="FightIQ insight">
         <div className="home-insight-copy">
-          <p className="eyebrow">FIGHTIQ INSIGHT <span aria-hidden="true">↗</span></p>
-          <h2>{insight.title}</h2>
+          <p className="eyebrow">YOUR FOCUS</p>
+          <h2>{insight.currentFocus || insight.title}</h2>
           <p className="home-insight-body">{insight.body}</p>
-          <div className="home-card-focus"><span>CURRENT FOCUS</span><strong>{insight.currentFocus}</strong><p>{product?.memory.focusReason || "The most useful detail to test in your next session."}</p></div>
-          <button className="home-insight-link" onClick={onGame}>SEE WHY THIS MATTERS <ChevronRight size={14} /></button>
+          <button className="home-insight-link" onClick={onGame}>MY GAME <ChevronRight size={14} /></button>
         </div>
         <div className="home-insight-media" aria-hidden="true">
           <img src={homePosterImages[posterIndex]} alt="" decoding="async" />
@@ -183,9 +182,8 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
       {brief && <button className={`home-brief-rail ${activeExperiment ? "active" : ""}`} onClick={() => activeExperiment ? onLog(activeExperiment.reason, activeExperiment.id) : setBriefOpen(true)}><span>{briefLabel}</span><strong>{briefDetail}</strong><em>{activeExperiment ? "LOG THE RESULT" : "START BRIEF"}</em><ChevronRight size={15} /></button>}
 
       <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
-      <p className="primary-support">TALK OR TYPE · FIGHTIQ REMEMBERS THE DETAIL</p>
 
-      {firstVideo ? <section className="home-plan-section" aria-label="Today’s personal plan"><div className="home-plan-heading"><span>TODAY’S PERSONAL PLAN</span><button onClick={onLearn}>SEE ALL</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><span>VIDEO</span><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Your feed starts with training.</strong></span><ChevronRight size={17} /></button>}
+      {firstVideo ? <section className="home-plan-section" aria-label="Your next video"><div className="home-plan-heading"><span>WATCH NEXT</span><button onClick={onLearn}>MORE</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={onLog}><Sparkles size={18} /><span><strong>Log training to get your first video.</strong></span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} onClose={() => setBriefOpen(false)} onStart={async (sessionPlan) => { await onStartTraining(sessionPlan); const response = await fetch("/api/product"); if (response.ok) setProduct(await response.json() as ProductData); setBriefOpen(false); }} />}
     </main>
   );

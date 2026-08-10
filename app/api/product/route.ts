@@ -51,9 +51,7 @@ export async function GET(request: Request) {
     onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
     insight: {
-      title: latestCompletedTraining
-        ? "FightIQ updated your training picture."
-        : memory.recurringProblems[0]?.includes("No recurring") ? "FightIQ is learning your patterns." : "Your game is showing a pattern.",
+      title: latestCompletedTraining?.focus || memory.currentFocus || "Build your baseline.",
       body: latestCompletedTraining?.takeaway || memory.focusReason,
       currentFocus: memory.currentFocus,
     },

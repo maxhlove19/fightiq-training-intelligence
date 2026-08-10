@@ -862,3 +862,63 @@ body { letter-spacing: 0; font-size: 13px; }
   .home-page .home-study { min-height: 52px; padding: 0 10px 0 0; }
   .home-study img { height: 52px; }
 }
+
+/* Reference-screen pass: every destination shares the same low-profile,
+   blue-on-black native apparatus. Home gets the top-left screen composition. */
+.page-header, .app-header { border-color: #122039; }
+.page-header::before { content: ""; width: 2px; height: 13px; background: #0875ff; opacity: .88; }
+.page-header:has(.icon-button)::before { display: none; }
+.page-header > div { min-width: 0; }
+.page-header .page-title { line-height: 1; }
+.product-page .page-header, .analysis-page .page-header, .log-page .page-header { margin-top: 1px; }
+
+.home-page { padding-top: 12px; }
+.home-header { min-height: 31px; margin-bottom: 11px; }
+.home-header-tools { display: flex; align-items: center; gap: 10px; }
+.home-ready-dot { width: 6px; height: 6px; border-radius: 50%; background: #20d875; box-shadow: 0 0 0 3px rgba(32,216,117,.07); }
+.home-date { margin-bottom: 3px; color: #4e6788; }
+.home-page .greeting { font-size: 20px; font-weight: 610; letter-spacing: -.035em; }
+.home-page .subgreeting { margin: 3px 0 12px; color: #6f849f; font-size: 10px; }
+.home-page .finish-profile-banner { margin-bottom: 8px; }
+.home-page .finish-profile-banner { grid-template-columns: auto 1fr auto; min-height: 24px; padding: 4px 0; border: 0; border-bottom: 1px solid #16345c; border-radius: 0; background: transparent; }
+.home-page .finish-profile-banner span { align-self: center; color: #4c92e4; font-size: 6px; }
+.home-page .finish-profile-banner strong { color: #6e88a6; font-size: 8px; font-weight: 500; }
+.home-page .finish-profile-banner svg { grid-column: 3; grid-row: 1; width: 13px; height: 13px; }
+.home-game-snapshot { overflow: hidden; margin-bottom: 9px; border-top: 1px solid #183559; border-right: 1px solid #10243d; border-bottom: 1px solid #10243d; border-left: 2px solid #0875ff; background: #050c16; }
+.home-snapshot-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 11px 10px 9px; }
+.home-snapshot-top .eyebrow { margin-bottom: 5px; color: #4e9cff; }
+.home-snapshot-top h2 { display: -webkit-box; max-width: 236px; overflow: hidden; margin: 0; color: #dce8f8; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; line-height: 1.18; font-weight: 560; }
+.home-game-link { flex: 0 0 auto; border: 0; background: transparent; color: #4c9eff; padding: 2px 0; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .06em; }
+.home-focus-line { display: grid; grid-template-columns: 45px 1fr; gap: 8px; align-items: start; min-height: 35px; padding: 8px 10px; border-top: 1px solid #12223a; background: #07101d; }
+.home-focus-line span, .home-training-line > span { color: #4a78a8; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 700; letter-spacing: .1em; }
+.home-focus-line strong { display: -webkit-box; overflow: hidden; color: #b8cae1; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 9px; line-height: 1.25; font-weight: 540; }
+.home-training-line { position: relative; display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; padding: 9px 10px 10px; border-top: 1px solid #12223a; background: #061426; }
+.home-training-line.active { background: #07182a; border-top-color: rgba(37,213,120,.32); }
+.home-training-line > span { grid-column: 1; color: #4d9dff; }
+.home-training-line.active > span { color: #58d9a1; }
+.home-training-line strong { display: -webkit-box; overflow: hidden; color: #d4e1f1; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 11px; line-height: 1.22; font-weight: 580; }
+.home-training-line em { display: -webkit-box; overflow: hidden; color: #8196b0; -webkit-box-orient: vertical; -webkit-line-clamp: 1; font-size: 8px; font-style: normal; }
+.home-training-line button { grid-column: 2; grid-row: 1 / span 3; align-self: center; border: 0; background: transparent; color: #52a2ff; padding: 4px 0 4px 5px; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .05em; white-space: nowrap; }
+.home-log-button { margin-top: 0; min-height: 44px !important; border-radius: 3px; background: #0875ff; }
+.home-page .primary-support { margin: 5px 0 9px; text-align: center; color: #4f6684; font-size: 6px; letter-spacing: .1em; }
+.home-personal-plan { display: grid; grid-template-columns: 84px 1fr auto; grid-template-rows: auto; min-height: 72px; padding: 0 10px 0 0; border-radius: 3px; border-color: #142640; background: #050b14; }
+.home-personal-plan img { grid-row: auto; width: 84px; height: 72px; filter: saturate(.75) contrast(1.08) brightness(.8); }
+.home-personal-plan > div { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 3px; }
+.home-personal-plan span { color: #468fe4; font-family: var(--font-geist-mono), monospace; font-size: 7px; letter-spacing: .09em; }
+.home-personal-plan strong { display: -webkit-box; overflow: hidden; color: #d8e5f6; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 10px; line-height: 1.2; }
+.home-personal-plan small { display: -webkit-box; overflow: hidden; color: #5f7693; -webkit-box-orient: vertical; -webkit-line-clamp: 1; font-size: 7px; }
+.home-personal-plan svg { grid-column: 3; grid-row: auto; }
+
+/* Uniform screen rhythm: lists and controls should sit on a precise 1px grid. */
+.focus-banner, .game-hero, .macro-summary, .food-log-card, .estimate-card,
+.learn-video, .game-card, .choice-stack button, .exercise-card, .plan-step,
+.macro-settings, .log-options, .log-page .mic-stage, .analysis-page .takeaway-card,
+.analysis-page .success-card, .answer-choices button, .chat-message.assistant .chat-bubble p,
+.coach-suggestions .prompt-list button { box-shadow: none; }
+.focus-banner > span, .game-card > span, .macro-summary span, .exercise-number,
+.plan-step span, .food-page .eyebrow { color: #438ee7; }
+.focus-banner, .game-hero, .macro-summary { border-left: 2px solid #0875ff; }
+.game-card.problem { border-left: 2px solid #d89b40; }
+.choice-stack button.selected, .chip.selected { border-color: #187cff; background: #061a34; }
+.select-field, .settings-body select, .setup-input, .setup-number-grid input,
+.answer-compose textarea, .coach-compose textarea { border-color: #18304f; background: #040a13; }

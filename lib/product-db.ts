@@ -99,6 +99,7 @@ export async function ensureProductSchema(db: D1) {
       assistant_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
       follow_up TEXT NOT NULL,
+      follow_up_choices_json TEXT NOT NULL DEFAULT '[]',
       video_mode TEXT NOT NULL DEFAULT 'none',
       video_topic TEXT,
       video_prompt TEXT,

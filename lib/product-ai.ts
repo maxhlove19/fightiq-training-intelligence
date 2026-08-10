@@ -13,6 +13,7 @@ export type CoachVideoOffer = {
 export type CoachReply = {
   reply: string;
   followUp: string;
+  followUpChoices: string[];
   video: CoachVideoOffer;
 };
 
@@ -57,10 +58,11 @@ export function cleanCoachText(value: string) {
 const coachReplySchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "follow_up", "video"],
+  required: ["reply", "follow_up", "follow_up_choices", "video"],
   properties: {
     reply: { type: "string" },
     follow_up: { type: "string" },
+    follow_up_choices: { type: "array", minItems: 0, maxItems: 3, items: { type: "string" } },
     video: {
       type: "object",
       additionalProperties: false,
@@ -78,7 +80,7 @@ function coachReplyFrom(value: unknown): CoachReply {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   const reply = value as Record<string, unknown>;
   const video = reply.video;
-  if (typeof reply.reply !== "string" || typeof reply.follow_up !== "string" || !video || typeof video !== "object" || Array.isArray(video)) {
+  if (typeof reply.reply !== "string" || typeof reply.follow_up !== "string" || !Array.isArray(reply.follow_up_choices) || !reply.follow_up_choices.every((choice) => typeof choice === "string") || !video || typeof video !== "object" || Array.isArray(video)) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
   const offer = video as Record<string, unknown>;
@@ -87,17 +89,24 @@ function coachReplyFrom(value: unknown): CoachReply {
   }
   const replySentences = cleanCoachText(reply.reply).replace(/\?+/g, ".").split(/(?<=[.!])\s+/).filter(Boolean).slice(0, 2).join(" ");
   const rawFollowUp = cleanCoachText(reply.follow_up).replace(/[.\s]+$/g, "");
+  const followUp = rawFollowUp ? `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?` : "";
+  const rawChoices = reply.follow_up_choices as string[];
+  const followUpChoices = rawChoices
+    .map((choice) => cleanCoachText(choice).replace(/[.?!\s]+$/g, "").slice(0, 96))
+    .filter((choice, index, values) => choice.length > 1 && values.findIndex((item) => item.toLowerCase() === choice.toLowerCase()) === index)
+    .slice(0, 3);
   const videoMode = offer.mode as CoachVideoOffer["mode"];
   const cleaned = {
     reply: replySentences.slice(0, 420),
-    followUp: `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?`,
+    followUp,
+    followUpChoices,
     // A no-video answer should not carry stale or speculative video text into
     // the saved conversation. That keeps a later turn's context truthful.
     video: videoMode === "none"
       ? { mode: videoMode, topic: "", prompt: "" }
       : { mode: videoMode, topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
   };
-  if (!cleaned.reply || cleaned.followUp === "?" || cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3 || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
+  if (!cleaned.reply || (cleaned.followUp && cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3) || (cleaned.followUp && cleaned.followUpChoices.length !== 3) || (!cleaned.followUp && cleaned.followUpChoices.length > 0) || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
   return cleaned;
@@ -152,6 +161,7 @@ export async function answerCoach(args: {
       return {
         reply: `I have your current focus as ${args.memory.currentFocus}. I want to understand where it is breaking down before I suggest a change.`,
         followUp: "What is the first thing you notice going wrong when you try it?",
+        followUpChoices: ["The setup feels off", "It breaks during the move", "I lose it when the pace picks up"],
         video: { mode: "none", topic: "", prompt: "" },
       } satisfies CoachReply;
     }
@@ -163,9 +173,9 @@ export async function answerCoach(args: {
     input: [
       { role: "system", content: `You are FightIQ Coach, a thoughtful MMA-first coach who remembers the athlete's training. Sound like a good coach in a real conversation: calm, curious, observant, and concise. Never sound like a report, therapist, motivational speaker, or content creator.
 
-Use the response JSON exactly. reply is one or two short, plain-language sentences and must not contain a question. follow_up is exactly one short, direct question ending in a question mark. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
+Use the response JSON exactly. reply is one or two short, plain-language sentences and must not contain a question. follow_up is either an empty string or one short, direct question ending in a question mark. When follow_up is present, follow_up_choices must contain exactly three short, distinct answer statements the athlete can tap. They should be plausible direct replies, not questions, advice, or generic labels. When follow_up is empty, follow_up_choices must be empty. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
 
-First decide whether a missing detail would change your advice. For technique, training, recovery, or strategy questions with meaningful uncertainty, say only what is clear, then ask the one missing question. Do not guess the cause or prescribe a drill first. When enough context is already present, answer it directly, then ask one natural question that would help tailor what comes next. Never ask more than one question and never repeat an answer already in the supplied context. A direct safety response still needs a gentle, relevant question when it is safe to continue.
+First decide whether a missing detail would change your advice. For technique, training, recovery, or strategy questions with meaningful uncertainty, say only what is clear, then ask the one missing question. Do not guess the cause or prescribe a drill first. When enough context is already present, answer directly and set follow_up to an empty string. Never ask more than one question and never repeat an answer already in the supplied context. A direct safety response may ask one gentle, relevant question only when it is safe and useful to continue.
 
 Conversation continuity matters more than sounding clever. If the latest assistant turn in recent_conversation included a follow_up and the athlete's new message answers it, acknowledge the reported detail and build from it. Do not reset to a generic baseline question or ask the same thing again. Make the next question the smallest uncertainty that would genuinely change what you recommend. Do not use vague prompts like "what do you think?" or "how did that feel?" when the context gives you a more specific thing to ask. Keep the athlete's own language where it helps them recognize the moment.
 

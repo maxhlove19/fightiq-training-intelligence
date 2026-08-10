@@ -1,0 +1,1 @@
+ALTER TABLE `coach_message_enrichments` ADD `follow_up_choices_json` text DEFAULT '[]' NOT NULL;

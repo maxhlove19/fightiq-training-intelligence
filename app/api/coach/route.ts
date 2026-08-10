@@ -4,19 +4,39 @@ import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, 
 
 export const dynamic = "force-dynamic";
 
-type StoredAssistant = { id: string; role: "assistant"; content: string; created_at: string; follow_up: string | null; video_mode: "none" | "offer" | "direct" | null; video_topic: string | null; video_prompt: string | null };
+type StoredAssistant = { id: string; role: "assistant"; content: string; created_at: string; follow_up: string | null; follow_up_choices_json: string | null; video_mode: "none" | "offer" | "direct" | null; video_topic: string | null; video_prompt: string | null };
+type StoredCoachMessage = Omit<StoredAssistant, "role"> & { role: "user" | "assistant" };
 type CoachConversationContext = { follow_up: string | null; video_topic: string | null };
+
+function safeFollowUpChoices(value: string | null) {
+  try {
+    const parsed = JSON.parse(value ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((choice): choice is string => typeof choice === "string" && choice.trim().length > 1).map((choice) => choice.trim()).slice(0, 3)
+      : [];
+  } catch { return []; }
+}
+
+function coachMessageForClient(message: StoredCoachMessage) {
+  const followUp = message.follow_up?.trim() || null;
+  return {
+    id: message.id, role: message.role, content: message.content, created_at: message.created_at,
+    follow_up: followUp,
+    follow_up_choices: followUp ? safeFollowUpChoices(message.follow_up_choices_json) : [],
+    video_mode: message.video_mode, video_topic: message.video_topic, video_prompt: message.video_prompt,
+  };
+}
 
 async function completedTurnResponse(db: D1, ownerId: string, userMessageId: string, userContent: string, userCreatedAt: string) {
   const assistant = await db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
-      enrichments.follow_up, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
+      enrichments.follow_up, enrichments.follow_up_choices_json, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
     FROM coach_turns turns
     INNER JOIN coach_messages messages ON messages.id = turns.assistant_message_id AND messages.owner_id = turns.owner_id
     LEFT JOIN coach_message_enrichments enrichments ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = messages.owner_id
     WHERE turns.user_message_id = ? AND turns.owner_id = ? AND turns.status = 'complete' LIMIT 1`)
     .bind(userMessageId, ownerId).first<StoredAssistant>();
   if (!assistant) return null;
-  return { user: { id: userMessageId, role: "user" as const, content: userContent, created_at: userCreatedAt }, assistant };
+  return { user: { id: userMessageId, role: "user" as const, content: userContent, created_at: userCreatedAt }, assistant: coachMessageForClient(assistant) };
 }
 
 export async function GET() {
@@ -27,7 +47,7 @@ export async function GET() {
   await ensureProductSchema(db);
   const [messages, memory, activeExperiment, conversationContext] = await Promise.all([
     db.prepare(`SELECT messages.id, messages.role, messages.content, messages.created_at,
-        enrichments.follow_up, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
+        enrichments.follow_up, enrichments.follow_up_choices_json, enrichments.video_mode, enrichments.video_topic, enrichments.video_prompt
       FROM (
       SELECT id, role, content, created_at FROM coach_messages WHERE owner_id = ? ORDER BY created_at DESC LIMIT 60
       ) messages LEFT JOIN coach_message_enrichments enrichments
@@ -36,17 +56,14 @@ export async function GET() {
     getMemorySnapshot(db, ownerId),
     getActiveTrainingExperiment(db, ownerId),
     db.prepare(`SELECT enrichments.follow_up, enrichments.video_topic
-      FROM (
-        SELECT id, owner_id FROM coach_messages
-        WHERE owner_id = ? AND role = 'assistant'
-        ORDER BY created_at DESC LIMIT 1
-      ) messages
-      INNER JOIN coach_message_enrichments enrichments
+      FROM coach_messages messages
+      LEFT JOIN coach_message_enrichments enrichments
         ON enrichments.assistant_message_id = messages.id AND enrichments.owner_id = messages.owner_id
-      `).bind(ownerId).first<CoachConversationContext>(),
+      WHERE messages.owner_id = ?
+      ORDER BY messages.created_at DESC LIMIT 1`).bind(ownerId).first<CoachConversationContext>(),
   ]);
   return Response.json({
-    messages: messages.results ?? [],
+    messages: (messages.results ?? []).map((message) => coachMessageForClient(message as StoredCoachMessage)),
     currentFocus: memory.currentFocus,
     // Coach can be left for a video and reopened. Keep the suggestions attached
     // to the last actual conversation turn instead of falling back to generic
@@ -143,9 +160,9 @@ export async function POST(request: Request) {
       db.prepare("INSERT INTO coach_messages (id, owner_id, role, content, created_at) VALUES (?, ?, 'assistant', ?, ?)")
         .bind(assistantMessageId, ownerId, answer.reply, assistantCreatedAt),
       db.prepare(`INSERT INTO coach_message_enrichments (
-        assistant_message_id, owner_id, follow_up, video_mode, video_topic, video_prompt, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`)
-        .bind(assistantMessageId, ownerId, answer.followUp, answer.video.mode, answer.video.topic || null, answer.video.prompt || null, assistantCreatedAt),
+        assistant_message_id, owner_id, follow_up, follow_up_choices_json, video_mode, video_topic, video_prompt, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .bind(assistantMessageId, ownerId, answer.followUp, JSON.stringify(answer.followUpChoices), answer.video.mode, answer.video.topic || null, answer.video.prompt || null, assistantCreatedAt),
       db.prepare("UPDATE coach_turns SET assistant_message_id = ?, status = 'complete', completed_at = ? WHERE user_message_id = ? AND owner_id = ?")
         .bind(assistantMessageId, assistantCreatedAt, userMessageId, ownerId),
     ]);
@@ -153,7 +170,7 @@ export async function POST(request: Request) {
       user: { id: userMessageId, role: "user", content: question, created_at: userCreatedAt },
       assistant: {
         id: assistantMessageId, role: "assistant", content: answer.reply, created_at: assistantCreatedAt,
-        follow_up: answer.followUp, video_mode: answer.video.mode, video_topic: answer.video.topic || null, video_prompt: answer.video.prompt || null,
+        follow_up: answer.followUp || null, follow_up_choices: answer.followUpChoices, video_mode: answer.video.mode, video_topic: answer.video.topic || null, video_prompt: answer.video.prompt || null,
       },
       suggestions: getCoachSuggestions(
         memory,

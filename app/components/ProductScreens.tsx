@@ -126,7 +126,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
   </main>;
 }
 
-type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string; follow_up?: string | null; video_mode?: "none" | "offer" | "direct" | null; video_topic?: string | null; video_prompt?: string | null };
+type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string; follow_up?: string | null; follow_up_choices?: string[]; video_mode?: "none" | "offer" | "direct" | null; video_topic?: string | null; video_prompt?: string | null };
 type CoachFailure = { messageId: string; question: string; code: string; message: string };
 
 function messageParagraphs(value: string) {
@@ -182,7 +182,9 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
       void send();
     }
   }
-  const latestFollowUp = [...messages].reverse().find((message) => message.role === "assistant" && Boolean(message.follow_up))?.follow_up;
+  const latestMessage = messages.at(-1);
+  const activeFollowUp = latestMessage?.role === "assistant" && latestMessage.follow_up?.trim() ? latestMessage : null;
+  const showSuggestions = suggestions.length > 0 && !activeFollowUp && !sending && !failure;
   const failureText = failure?.message.toLowerCase().includes("preserved")
     ? failure.message
     : failure ? `${failure.message} Your message was preserved.` : "";
@@ -191,14 +193,18 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     <section className="coach-thread">
       {loading && <LoadingState label="Loading your conversation…" />}
       {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>Ask about your game.</h2><p>FightIQ can use your training, current focus, workouts, and nutrition when they matter to the answer.</p></div>}
-      {messages.map((message) => <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && <button className="coach-follow-up" onClick={focusCompose} aria-label={`Answer FightIQ's question: ${cleanAiDisplay(message.follow_up)}`}>{cleanAiDisplay(message.follow_up)}<span>Answer this</span></button>}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICKS" : "SEE THE DETAIL"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>{message.video_mode === "direct" ? "Open video picks" : "Show me a video"}<ChevronRight size={14} /></button></div>}</div>)}
+      {messages.map((message) => {
+        const isActiveFollowUp = activeFollowUp?.id === message.id;
+        const quickReplies = isActiveFollowUp ? (message.follow_up_choices ?? []).slice(0, 3) : [];
+        return <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && (isActiveFollowUp ? <section className="coach-follow-up" aria-label={`FightIQ asks: ${cleanAiDisplay(message.follow_up)}`}><p>{cleanAiDisplay(message.follow_up)}</p>{quickReplies.length === 3 && <><span>CHOOSE THE CLOSEST ANSWER</span><div className="coach-quick-replies">{quickReplies.map((choice) => <button key={choice} onClick={() => void send(choice)} disabled={sending}>{cleanAiDisplay(choice)}<ChevronRight size={15} /></button>)}<button className="not-sure" onClick={() => void send("Not sure")} disabled={sending}>Not sure<ChevronRight size={15} /></button></div></>}<button className="coach-type-answer" onClick={focusCompose}>Type or talk instead</button></section> : <div className="coach-follow-up resolved"><p>{cleanAiDisplay(message.follow_up)}</p></div>)}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICKS" : "SEE THE DETAIL"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>{message.video_mode === "direct" ? "Open video picks" : "Show me a video"}<ChevronRight size={14} /></button></div>}</div>;
+      })}
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><div className="chat-bubble"><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div></div>}
       <div ref={endRef} />
     </section>
-    {suggestions.length > 0 && <section className="coach-suggestions" aria-label="Suggested questions"><span>{latestFollowUp ? "CONTINUE THE CONVERSATION" : "SUGGESTED FROM YOUR FIGHTER BRAIN"}</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
+    {showSuggestions && <section className="coach-suggestions" aria-label="Suggested questions"><span>SUGGESTED FROM YOUR FIGHTER BRAIN</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
     {failure && <div className="coach-error" role="alert"><p>{failureText}</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> {failure.code === "COACH_RESPONSE_PENDING" ? "Check for reply" : "Retry"}</button></div>}
-    <div className="coach-compose"><textarea ref={composeRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={sendWithKeyboard} placeholder={latestFollowUp ? "Reply to FightIQ, or ask anything…" : "Ask about training, technique, recovery, workouts, or food…"} aria-label="Ask FightIQ" aria-keyshortcuts="Control+Enter Meta+Enter" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
+    <div className="coach-compose"><textarea ref={composeRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={sendWithKeyboard} placeholder={activeFollowUp ? "Type or talk a different answer…" : "Ask about training, technique, recovery, workouts, or food…"} aria-label="Ask FightIQ" aria-keyshortcuts="Control+Enter Meta+Enter" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
     <p className="sr-status" aria-live="polite">{sending ? "FightIQ is thinking with your training context." : messages.at(-1)?.role === "assistant" ? "FightIQ replied." : ""}</p>
   </main>;
 }

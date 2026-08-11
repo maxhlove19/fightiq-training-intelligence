@@ -34,7 +34,7 @@ export const DELETABLE_TABLES: string[] = [
   "training_entries",
   "fighter_profiles",
   "fighter_brain_evidence",
-  "fighter_focus_recommendations",
+  "fighter_focus_recommendation_log",
   "debrief_generation_leases",
   "coach_messages",
   "coach_chats",

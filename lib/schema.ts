@@ -79,13 +79,23 @@ export const APP_TABLES: string[] = [
       observed_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
-  `CREATE TABLE IF NOT EXISTS fighter_focus_recommendations (
-      owner_id TEXT PRIMARY KEY NOT NULL,
+  // What FightIQ suggested, as a record rather than a current value.
+  //
+  // The old table was keyed on owner_id and upserted, the same class of bug as
+  // the focus and the bodyweight before they got their own history: one good
+  // debrief could overwrite the suggestion behind it, so there was never a
+  // record of what FightIQ had told somebody or when. Renamed rather than
+  // altered in place, because SQLite cannot drop a primary key: an owner_id
+  // still holding a row under the old name is simply never read again, the
+  // same way a stale focus is retired rather than migrated.
+  `CREATE TABLE IF NOT EXISTS fighter_focus_recommendation_log (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
       focus TEXT NOT NULL,
       reason TEXT NOT NULL,
       confidence REAL NOT NULL,
       entry_id TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      created_at TEXT NOT NULL
     )`,
   `CREATE TABLE IF NOT EXISTS debrief_generation_leases (
       entry_id TEXT PRIMARY KEY NOT NULL,
@@ -335,7 +345,7 @@ export const APP_INDEXES: string[] = [
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_training_entries_owner_client_key ON training_entries (owner_id, client_key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)",
   "CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)",
-  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)",
+  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendation_log_owner_created ON fighter_focus_recommendation_log (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)",

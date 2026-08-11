@@ -463,8 +463,8 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     }>(),
     db.prepare(`SELECT owner_id, entry_id, category, canonical_key, label, source, confidence, observed_at
       FROM fighter_brain_evidence WHERE owner_id = ? ORDER BY observed_at DESC LIMIT 240`).bind(ownerId).all<BrainEvidence>(),
-    db.prepare("SELECT focus, reason, confidence, entry_id, updated_at FROM fighter_focus_recommendations WHERE owner_id = ? LIMIT 1")
-      .bind(ownerId).first<{ focus: string; reason: string; confidence: number; entry_id: string; updated_at: string }>(),
+    db.prepare("SELECT focus, reason, confidence, entry_id, created_at FROM fighter_focus_recommendation_log WHERE owner_id = ? ORDER BY created_at DESC LIMIT 1")
+      .bind(ownerId).first<{ focus: string; reason: string; confidence: number; entry_id: string; created_at: string }>(),
   ]);
   const rows = result.results ?? [];
   const evidence = evidenceResult.results ?? [];

@@ -90,16 +90,9 @@ export const fighterBrainEvidence = sqliteTable("fighter_brain_evidence", {
   index("idx_fighter_brain_evidence_owner_category_observed").on(table.ownerId, table.category, table.observedAt),
 ]);
 
-// The athlete's manually edited focus always wins. This is FightIQ's evolving
-// recommendation, kept separately so one good session cannot overwrite intent.
-export const fighterFocusRecommendations = sqliteTable("fighter_focus_recommendations", {
-  ownerId: text("owner_id").primaryKey(),
-  focus: text("focus").notNull(),
-  reason: text("reason").notNull(),
-  confidence: real("confidence").notNull(),
-  entryId: text("entry_id").notNull(),
-  updatedAt: text("updated_at").notNull(),
-}, (table) => [index("idx_fighter_focus_recommendations_updated").on(table.updatedAt)]);
+// fighter_focus_recommendation_log (lib/schema.ts) has no entry here, the same
+// as focus_periods, athlete_weigh_ins and model_usage: this file is behind
+// lib/schema.ts, which is the schema the app actually runs on. See DEPLOY.md.
 
 export const debriefGenerationLeases = sqliteTable("debrief_generation_leases", {
   entryId: text("entry_id").primaryKey(),

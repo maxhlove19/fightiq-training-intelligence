@@ -46,6 +46,16 @@ test("both prompts handle the athlete who writes four words", () => {
   assert.match(debrief, /[Nn]ever imply the note was too short/, "the debrief shames a short note");
 });
 
+test("day one is a different job, not a smaller one", () => {
+  // An athlete on their first session is the whole business. They have nothing
+  // logged, and the app has to be worth keeping anyway.
+  for (const [name, source] of both) {
+    assert.match(source, /sessions_logged/, `${name} cannot tell a first session from a hundredth`);
+    assert.match(source, /never refer to sessions that (do not exist|are not in front of you)/, `${name} may invent a history it never saw`);
+    assert.match(source, /needs? more data|need more data/i, `${name} does not rule out stalling for more data`);
+  }
+});
+
 test("a vague question still gets a specific answer", () => {
   assert.match(coach, /Vague question, specific answer/);
   assert.match(coach, /Lean on their history/);

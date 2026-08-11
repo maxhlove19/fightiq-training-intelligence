@@ -43,6 +43,18 @@ export const emptyAthleteSetup: AthleteSetup = {
 export type MemorySnapshot = {
   /** What the athlete said they train. On day one it is the only signal there is. */
   disciplines: string[];
+  /** Their own words for where they are. A beginner and a competitor need different answers to the same question. */
+  experienceLevel: string;
+  /** Whether a fight is coming. It changes what is worth working on. */
+  competitionIntent: string;
+  /**
+   * Sessions in here, counted up to forty.
+   *
+   * Zero and one are the numbers that matter: they are the moment somebody
+   * decides whether this app is worth keeping, and the moment it has the least
+   * to work with. Everything above three reads the same.
+   */
+  sessionsLogged: number;
   currentFocus: string;
   focusReason: string;
   strongestAreas: string[];
@@ -429,8 +441,12 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const nextEvolution = evolutionTopic
     ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
+  const setup = getAthleteSetup(profile);
   return {
-    disciplines: getAthleteSetup(profile).disciplines,
+    disciplines: setup.disciplines,
+    experienceLevel: setup.experienceLevel,
+    competitionIntent: setup.competitionIntent,
+    sessionsLogged: rows.length,
     currentFocus,
     focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],

@@ -74,6 +74,10 @@ export async function POST(_request: Request, context: Context) {
     const [experiment, memory] = await Promise.all([getExperimentForEntry(db, ownerId, id), getMemorySnapshot(db, ownerId)]);
     const experimentContext = experiment ? { mission: experiment.mission, cue: experiment.cue, reason: experiment.reason } : null;
     const fighterBrain = {
+      // The debrief prompt is told to pitch at the athlete's level and to know
+      // whether this is their first session. Both have to actually be sent.
+      sessions_logged: memory.sessionsLogged,
+      athlete_level: { experience: memory.experienceLevel, competing: memory.competitionIntent, disciplines: memory.disciplines },
       current_focus: memory.currentFocus,
       recurring_problems: memory.recurringProblems.slice(0, 3),
       emerging_strengths: memory.emergingStrengths.slice(0, 3),

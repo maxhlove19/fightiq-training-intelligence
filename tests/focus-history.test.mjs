@@ -141,11 +141,11 @@ test("the backfill only applies to the very first period", async () => {
   assert.equal(current.source, "stated");
 });
 
-test("a focus set today has lasted a day, not zero days", async () => {
+test("a focus with no sessions yet reports zero days rather than a guessed one", async () => {
   const db = await fresh();
   await recordFocus(db, "owner", { focus: "Win the grip first", reason: "", source: "fightiq", now: new Date().toISOString() });
   const [period] = await getFocusHistory(db, "owner");
-  assert.ok(period.spanDays >= 1);
+  assert.equal(period.days, 0);
 });
 
 test("a better explanation for the same focus updates it rather than restarting it", async () => {

@@ -74,6 +74,28 @@ test("the first real session retires the opening brief immediately", async () =>
   assert.equal(openingFromMemory(await getMemorySnapshot(db, "owner")), null);
 });
 
+test("a brief still carrying the old mid-word cut is regenerated, not reused", async () => {
+  // Rows written before lib/clip.ts existed were hard-sliced at 72 characters
+  // with no ellipsis, so a stored one can be stuck reading "note what stays
+  // consis" forever unless it is recognised as stale and rebuilt.
+  const db = await athlete();
+  const first = await getOrCreatePreTrainingBrief(db, "owner");
+  const legacyMission = "Repeat ankle locks with controlled resistance and note what stays consis";
+  assert.equal(legacyMission.length, 72);
+  // Same source_focus and created_at as the reused row: the only thing wrong
+  // with it is the shape of the mission itself.
+  await db.prepare("UPDATE pre_training_briefs SET mission = ? WHERE owner_id = 'owner' AND created_at = ?")
+    .bind(legacyMission, first.createdAt).run();
+
+  const second = await getOrCreatePreTrainingBrief(db, "owner");
+  assert.notEqual(second.mission, legacyMission);
+  // The corrupted row was retired rather than left to be read again, the same
+  // way a stale source_focus retires one.
+  const retired = await db.prepare("SELECT consumed_at FROM pre_training_briefs WHERE owner_id = 'owner' AND created_at = ?")
+    .bind(first.createdAt).first();
+  assert.ok(retired.consumed_at);
+});
+
 test("a focus the athlete typed themselves drives the brief", async () => {
   const db = await athlete({ currentFocus: "Sharper boxing entries" });
   const brief = await getOrCreatePreTrainingBrief(db, "owner");

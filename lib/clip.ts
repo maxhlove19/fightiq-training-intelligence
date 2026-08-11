@@ -46,3 +46,13 @@ export function sentence(value: string): string {
   if (!clean) return clean;
   return /[.!?…]$/.test(clean) ? clean : `${clean}.`;
 }
+
+/**
+ * True for a string still carrying the old hard 72-character mission cut:
+ * no ellipsis, stopped mid-word. `clipLabel` never produces that shape, so a
+ * stored row matching it predates this file and needs regenerating rather
+ * than displaying as-is.
+ */
+export function looksHardTruncated(value: string): boolean {
+  return value.length === 72 && !value.endsWith("…") && /\w$/.test(value);
+}

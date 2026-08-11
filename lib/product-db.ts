@@ -3,7 +3,7 @@ import { currentOwnerId } from "./current-athlete";
 import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
 import { openingBrief, openingFromMemory } from "./first-session";
-import { clip, clipLabel, sentence } from "./clip";
+import { clip, clipLabel, looksHardTruncated, sentence } from "./clip";
 import { recordFocus, type FocusSource } from "./focus-history";
 import { isUsableWeight, recordWeighIn } from "./weight-history";
 
@@ -639,7 +639,7 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
   // finished, so without this a new athlete's first brief was built from an
   // empty profile — and then cached for eighteen hours, telling a Muay Thai
   // athlete about something from a sport they do not train.
-  if (existing && existing.source_focus === focus) {
+  if (existing && existing.source_focus === focus && !looksHardTruncated(existing.mission)) {
     const refreshedCue = briefCue(existing.mission);
     if (refreshedCue !== existing.cue) await db.prepare("UPDATE pre_training_briefs SET cue = ? WHERE owner_id = ? AND created_at = ?").bind(refreshedCue, ownerId, existing.created_at).run();
     return { mission: existing.mission, reason: existing.reason, cue: refreshedCue, sourceFocus: existing.source_focus, createdAt: existing.created_at };

@@ -30,8 +30,6 @@ export type FocusPeriod = {
   sessions: number;
   /** Distinct calendar days trained inside it. Two sessions in one night is one day. */
   days: number;
-  /** How long it has been live, or was live. At least 1, because a focus set today has lasted a day. */
-  spanDays: number;
   disciplines: Array<{ name: string; sessions: number }>;
   /** The last thing a completed debrief said inside the period. What they left it saying. */
   closingTakeaway: string | null;
@@ -125,20 +123,19 @@ export async function getFocusHistory(db: D1, ownerId: string, limit = 24): Prom
       byDiscipline.set(name.toLowerCase(), existing);
     }
     const closing = [...inside].reverse().find((entry) => entry.debrief_status === "complete" && entry.takeaway);
-    const endedAt = period.ended_at;
-    const finished = endedAt ? Date.parse(endedAt) : Date.now();
-    const elapsed = finished - Date.parse(period.started_at);
     return {
       id: period.id,
       focus: period.focus,
       reason: period.reason,
       source: (["stated", "fightiq", "opening", "backfilled"].includes(period.source) ? period.source : "fightiq") as FocusSource,
       startedAt: period.started_at,
-      endedAt,
+      endedAt: period.ended_at,
       sessions: inside.length,
+      // Distinct calendar days trained, the same unit the seven day card and
+      // the lifetime line already use. This screen used to mix that with how
+      // long the period had been live in calendar time, which are both
+      // defensible numbers and disagreed with each other in the same sentence.
       days: new Set(inside.map((entry) => dayKey(entry.created_at))).size,
-      // A focus set this morning has lasted a day, not zero days.
-      spanDays: Math.max(1, Math.ceil(elapsed / 86_400_000) || 1),
       disciplines: [...byDiscipline.values()].sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name)),
       closingTakeaway: closing?.takeaway ?? null,
     };

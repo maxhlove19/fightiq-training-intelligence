@@ -11,6 +11,13 @@
   // built by copying hosting.json would deploy and then fail on static assets
   // and on image optimisation. That is why this was enumerated from the source.
   //
+  // Those same two hosting.json keys used to be turned into placeholder D1 and
+  // R2 bindings by vite.config.ts, under the same names as the real ones below,
+  // and the build emitted both. `wrangler deploy` refuses that outright, which
+  // is the good outcome: the placeholder sorted first and its database id was
+  // all zeros. vite.config.ts now skips the placeholders whenever this file
+  // exists, and tests/worker-bindings.test.mjs fails if either ever comes back.
+  //
   // Every value written as REPLACE_ME is a placeholder. Nothing here is a
   // secret, an account id or a database id, and none of those belong in this
   // repository. CLOUDFLARE-SETUP.md says where each real value is found.

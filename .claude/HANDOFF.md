@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:49:13.242Z (run by hand).
+Written automatically at 2026-08-11T20:08:27.622Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,17 +8,27 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-9mvzzu`
-- HEAD: `3080961` "Fix the day count, the glyph, and a stale-brief edge case on My Game"
+- Branch: `claude/cloudflare-deploy-path`
+- HEAD: `fad84ce` "Merge pull request #25 from maxhlove19/claude/magical-darwin-9mvzzu"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work
+## Uncommitted work, 7 file(s)
 
-None. The working tree is clean.
+This is the part that disappears if the container is reclaimed.
+
+- `M CLOUDFLARE-SETUP.md`
+- ` M package-lock.json`
+- ` M package.json`
+- ` M vite.config.ts`
+- ` M wrangler.jsonc`
+- `?? build/wrangler-log-path.ts`
+- `?? tests/worker-bindings.test.mjs`
 
 ## What this branch is probably against
 
-Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
+Inferred from the branch name, so treat it as a hint rather than a fact:
+
+> 1. **Never merge.** Never push to `main`. Never deploy.
 
 ## What was verified
 
@@ -44,7 +54,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Read goals.md, take the top unblocked item, and start one branch for it.
+Commit or discard the uncommitted work above before starting anything new.
 
 ---
 

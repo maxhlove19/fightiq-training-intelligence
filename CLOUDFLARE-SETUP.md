@@ -133,14 +133,115 @@ and everything else are unaffected.
 
 ## 7. Deploy
 
+This step used to be two commands and it did not work. Running it on a real Mac
+produced five failures in sequence. Four of the five were defects in this
+repository and are now fixed in it; this section is written so that a fresh
+clone does not meet them again, and so that you can recognise them if you do.
+
+### 7a. Check the setup before touching the account
+
 ```
-npm run build
+npx @vinext/cloudflare deploy --dry-run
+```
+
+This validates and then stops. It does not build, does not upload and does not
+need you to be logged in, so it costs nothing to run first.
+
+**You should see:** `Project: fightiq`, `Router: App Router`, and
+`Dry run complete. No build or deploy performed.`
+
+**You should also see a notice** saying `next/image is served unoptimized` and
+suggesting `--image-optimization=cloudflare-images`. **That notice is expected
+and is not a problem.** It is inferred from the Vite config alone, and this app
+does its own image optimisation in `worker/index.ts:36`, which handles
+`/_vinext/image` through the IMAGES binding. Following the suggestion would add
+a second mechanism on top of a working one. Leave it.
+
+**If instead it says `Missing @cloudflare/vite-plugin in your Vite config`:**
+you are on a clone from before this was fixed. `git pull` and try again. The
+plugin was in fact present the whole time, but it was imported dynamically
+inside the config factory, where a tool reading the file as text cannot see it.
+It is now imported at the top level of `vite.config.ts`, and the import ordering
+that the dynamic import existed to protect lives in `build/wrangler-log-path.ts`.
+
+### 7b. Deploy
+
+```
 npx @vinext/cloudflare deploy
 ```
 
-The first command takes a couple of minutes and ends with `Build complete.`
+One command, not two. **It runs its own build first**, so a separate
+`npm run build` beforehand is wasted time. More to the point, and this is the
+part that costs people an afternoon, **anything you edit inside `dist/` between
+the two is regenerated and thrown away.** `dist/server/wrangler.json` in particular cannot
+be fixed by hand. Fix `wrangler.jsonc` or `vite.config.ts` instead.
 
-**You should see:** the deploy print a URL ending in `.workers.dev`. Open it.
+**You should see:** the upload report a size in KiB, then a URL ending in
+`.workers.dev`.
+
+> **Not yet verified.** As this is written, a run has uploaded successfully and
+> no run has completed. Nothing below step 8 has been observed working on
+> Cloudflare. Treat step 8 as the test that tells you, not as a formality.
+
+### If `vinext init` gets suggested to you
+
+You should not need it: the plugin, the dependency and the versions it would set
+up are all committed. But the deploy tool suggests it in its own error text, so
+if you do run `npx vinext init --platform=cloudflare`, it asks five questions
+before it does anything. Here are the answers this project wants and what each
+one costs, because being stopped by an unexpected prompt is how people abandon a
+checklist.
+
+| Prompt | Answer | Why, and what it costs |
+| --- | --- | --- |
+| CDN cache | **1, Workers Cache** | The default and the only one needing no extra binding. |
+| Data cache | **2, None** | Not the default. The default is Cloudflare KV, which adds a third binding whose namespace id must be created and pasted in before any deploy will work. Nothing in this app asks for a data cache. Costs nothing. |
+| Image optimization | **1, Cloudflare Images** | Transformations are free on the Free plan; only *storing* inside Images is paid, and this app stores nothing there. |
+| Pre-render all static routes | **n** | Every screen is per-athlete, so there is nothing static to pre-render, and it adds a build step that fails without a database. |
+| Experimental Workers Cache pre-warm | **n** | Experimental steps in the deploy path make every later failure ambiguous. |
+
+**Warning: `vinext init` rewrites `vite.config.ts`.** That file carries three
+things it does not know about: the `sites()` plugin, the import-ordering rule at
+the top, and the condition that stops `.openai/hosting.json` from injecting
+duplicate bindings. If you let it rewrite the file, check `git diff` before
+building, and expect to put those back.
+
+It also writes an import of `@vinext/cloudflare` into the config **without
+adding the package to `package.json`**, so the next build dies with
+`ERR_MODULE_NOT_FOUND` on an import the tool itself just wrote. That is why this
+repository pins `@vinext/cloudflare` as a dev dependency rather than relying on
+init.
+
+### If `npm install` fails with ERESOLVE
+
+`@vinext/cloudflare@1.0.0-beta.5` requires peer `vinext ^1.0.0-beta.5`. This
+project used to pin `vinext@1.0.0-beta.2`, which is three pre-releases behind and
+does not satisfy it.
+
+**Do not use `--legacy-peer-deps`.** It does not fix anything; it silences the
+check and leaves the Cloudflare plugin running against a framework it was not
+built for, which moves the failure somewhere much harder to read. Both packages
+are now pinned to `1.0.0-beta.5` together, and they should be bumped together.
+
+### If the deploy says a binding is assigned twice
+
+The message is `DB assigned to multiple D1 Database bindings`, or the same for
+`UPLOADS` and R2, or it asks you to enable R2 for a bucket named
+`site-creator-r2` that you never created.
+
+That was this repository's fault and it is fixed. `vite.config.ts` read
+`.openai/hosting.json`, whose `"d1": "DB"` and `"r2": "UPLOADS"` keys made the
+build synthesise placeholder bindings under the same names as the real ones in
+`wrangler.jsonc`. It now skips that whenever a `wrangler.jsonc` is present.
+
+**Worth understanding rather than skipping**, because it is the most dangerous
+thing found in this whole exercise: the placeholder sorted *first* in both
+lists, and its database id was all zeros. Cloudflare refusing the deploy is the
+good outcome. Had it merged first-wins instead, the deploy would have succeeded,
+the app would have looked completely fine, and every session logged would have
+gone to a database that is not anybody's. `tests/worker-bindings.test.mjs` now
+fails if a duplicate binding or a `site-creator-` placeholder ever reaches the
+build again.
 
 ---
 
@@ -148,6 +249,11 @@ The first command takes a couple of minutes and ends with `Build complete.`
 
 Do not judge this by the page looking right. A working old build looks exactly
 like a working new one.
+
+**Nothing in this step has been observed on Cloudflare yet.** It describes what
+the app returns and what each field means, all of which is read from the code in
+`lib/health.ts`. Whether a Cloudflare deploy actually reaches it is the open
+question, and this step is where you find out.
 
 Open `<your-url>/api/health`.
 

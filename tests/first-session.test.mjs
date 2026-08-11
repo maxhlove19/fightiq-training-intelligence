@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { FIRST_WEEK_CARDS, firstWeekPlan, openingBrief, openingGreeting } from "../lib/first-session.ts";
+import { FIRST_WEEK_CARDS, firstWeekPlan, isPlaceholderMemory, openingBrief, openingGreeting, unlockCards } from "../lib/first-session.ts";
 
 const brief = (over = {}) => openingBrief({ disciplines: ["Muay Thai"], experienceLevel: "Building fundamentals", ...over });
 
@@ -128,4 +128,38 @@ test("the house style survives here too", () => {
   const source = readFileSync("lib/first-session.ts", "utf8");
   const offenders = source.split("\n").filter((line) => !line.trim().startsWith("//") && !line.trim().startsWith("*") && /[—–]/.test(line));
   assert.deepEqual(offenders, [], "dashes reached the copy an athlete reads first");
+});
+
+test("an empty card counts down instead of reporting a blank", () => {
+  // "Still learning your strongest areas" tells an athlete nothing is there.
+  // A countdown is the same fact and makes the wait feel like the product
+  // working rather than the product empty.
+  assert.match(unlockCards(0).strengths, /Three more sessions/);
+  assert.match(unlockCards(1).strengths, /Two more sessions/);
+  assert.match(unlockCards(2).strengths, /One more session/);
+  assert.match(unlockCards(1).problems, /One more session/);
+  for (const text of Object.values(unlockCards(1))) assert.doesNotMatch(text, /NaN|undefined/);
+});
+
+test("once the count is met, an empty card is a finding rather than a delay", () => {
+  // Eleven sessions and still nothing confirmed does not mean "two more
+  // sessions". It means nothing has repeated, which is worth saying plainly.
+  const settled = unlockCards(11);
+  assert.doesNotMatch(settled.strengths, /more session/);
+  assert.doesNotMatch(settled.problems, /more session/);
+  assert.match(settled.strengths, /three sessions running/);
+});
+
+test("the app's own placeholders are recognised wherever they appear", () => {
+  // These decide whether a card has content, so a missed one puts a placeholder
+  // on screen next to real findings.
+  for (const placeholder of [
+    "Still learning your strongest areas",
+    "No recurring problem confirmed yet",
+    "Log a few completed sessions and FightIQ will identify improvement.",
+    "FightIQ needs another completed debrief to confirm a distinct improvement.",
+  ]) assert.equal(isPlaceholderMemory(placeholder), true, placeholder);
+  for (const real of ["Support foot turns late", "Guard retention under pressure", ""]) {
+    assert.equal(isPlaceholderMemory(real), false, real);
+  }
 });

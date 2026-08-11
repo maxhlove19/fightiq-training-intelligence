@@ -177,6 +177,46 @@ export const FIRST_WEEK_CARDS = {
   improvement: "Improvement needs a before and an after. Tonight is the before.",
 } as const;
 
+/** How much repeated evidence each claim needs before FightIQ will make it. */
+const EVIDENCE_NEEDED = { strengths: 3, problems: 2 } as const;
+
+function countdown(needed: number, sessionsLogged: number, whenReady: string, whatItNames: string): string {
+  const remaining = Math.max(0, needed - Math.max(0, sessionsLogged));
+  if (remaining === 0) return whenReady;
+  const word = remaining === 1 ? "One more session" : `${remaining === 2 ? "Two" : remaining === 3 ? "Three" : remaining} more sessions`;
+  return `${word} and FightIQ can ${whatItNames}.`;
+}
+
+/**
+ * What an empty card is waiting for, said as a countdown rather than a blank.
+ *
+ * "Still learning your strongest areas" tells an athlete nothing is there.
+ * "Two more sessions and FightIQ can name your strongest position" is the same
+ * fact and makes the wait feel like the product working. Once the count is met
+ * and there is still nothing, the honest answer is that nothing has repeated
+ * yet, which is a finding rather than a delay.
+ */
+export function unlockCards(sessionsLogged: number) {
+  return {
+    strengths: countdown(EVIDENCE_NEEDED.strengths, sessionsLogged, FIRST_WEEK_CARDS.strengths, "name your strongest position"),
+    problems: countdown(EVIDENCE_NEEDED.problems, sessionsLogged, FIRST_WEEK_CARDS.problems, "tell a pattern from a bad night"),
+    improvement: sessionsLogged < 2
+      ? FIRST_WEEK_CARDS.improvement
+      : "Nothing has changed enough to call improvement yet. It needs the same thing to get better twice.",
+  };
+}
+
+/**
+ * Whether a memory string is one of the app's own "nothing yet" placeholders.
+ *
+ * These are generated well away from the screen, so the card cannot ask the
+ * snapshot whether it is empty. Matching the phrasings is contained and tested,
+ * and the alternative is an empty state that only ever appears on day one.
+ */
+export function isPlaceholderMemory(value: string): boolean {
+  return /still learning|no recurring problem|log a few completed sessions|needs? another completed debrief|needs? more repeated evidence|session is saved with the detail|training note is saved/i.test(value ?? "");
+}
+
 /**
  * What the next few sessions actually unlock, with a date attached.
  *

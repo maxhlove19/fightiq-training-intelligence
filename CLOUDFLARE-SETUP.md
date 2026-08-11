@@ -6,8 +6,9 @@ A checklist for one person, in order. You do not need to write code.
 stop at that step rather than continuing, because the later steps will fail in
 ways that are harder to read.
 
-Steps marked **[PAID]** cannot be done on a free account. Steps marked
-**[SKIPPABLE]** can be left out and the app still runs, with one feature off.
+Steps marked **[SKIPPABLE]** can be left out and the app still runs, with one
+feature off. Nothing here needs a paid plan. One optional step needs a card on
+file without charging it, and it says so.
 
 ---
 
@@ -176,12 +177,13 @@ part that costs people an afternoon, **anything you edit inside `dist/` between
 the two is regenerated and thrown away.** `dist/server/wrangler.json` in particular cannot
 be fixed by hand. Fix `wrangler.jsonc` or `vite.config.ts` instead.
 
-**You should see:** the upload report a size in KiB, then a URL ending in
-`.workers.dev`.
+**You should see:** the upload report a size in KiB, around 1300.
 
-> **Not yet verified.** As this is written, a run has uploaded successfully and
-> no run has completed. Nothing below step 8 has been observed working on
-> Cloudflare. Treat step 8 as the test that tells you, not as a formality.
+**What happens next depends on your account, and one outcome looks like total
+failure while being nothing of the kind.** If the deploy prints a
+`.workers.dev` URL, go to step 9. If it instead exits 1 straight after a
+successful upload, that is expected on an account that has never deployed a
+worker, and **step 8 is the fix**. Do not undo anything.
 
 ### If `vinext init` gets suggested to you
 
@@ -239,34 +241,124 @@ thing found in this whole exercise: the placeholder sorted *first* in both
 lists, and its database id was all zeros. Cloudflare refusing the deploy is the
 good outcome. Had it merged first-wins instead, the deploy would have succeeded,
 the app would have looked completely fine, and every session logged would have
-gone to a database that is not anybody's. `tests/worker-bindings.test.mjs` now
-fails if a duplicate binding or a `site-creator-` placeholder ever reaches the
-build again.
+gone to a database that is not anybody's.
+
+### If the deploy says a compatibility flag is set twice
+
+`Compatibility flag specified multiple times: nodejs_compat`, error code 10021,
+and the upload is rejected.
+
+**This is the same failure in a third disguise**, and it is why it is worth
+recognising the shape rather than memorising the three cases. Two suppliers
+declared one thing: `wrangler.jsonc` listed `nodejs_compat`, and the Cloudflare
+plugin adds it too from `localBindingConfig` in `vite.config.ts`. The build
+emitted `["nodejs_compat", "nodejs_compat"]`.
+
+Fixed by emptying `compatibility_flags` in `wrangler.jsonc`. **The empty array is
+deliberate and the flag must not be put back there.** It is still required and it
+still arrives, once, from the plugin.
+
+`tests/worker-bindings.test.mjs` now fails if a duplicate binding, a
+`site-creator-` placeholder, or a second `nodejs_compat` ever reaches the build
+again, and equally if the last remaining `nodejs_compat` is removed.
 
 ---
 
-## 8. Check it actually worked
+## 8. Publish the URL
+
+**Do not skip this because step 7 ended in an error.** If the upload succeeded
+and the deploy then exited 1, you are one toggle away from a working app, and
+nothing in the error message says so.
+
+The failure looks like this: the worker uploads, and then the deploy stops
+because the account has no `workers.dev` subdomain. It asks whether to register
+one and immediately answers itself:
+
+```
+Using fallback value in non-interactive context: no
+```
+
+then exits 1.
+
+**Do not try to answer that prompt.** It cannot be answered. It behaves the same
+way in a real terminal with no redirection, because the deploy wrapper does not
+pass a TTY through to wrangler, so the question is unanswerable from the command
+line no matter what you do.
+
+**The dashboard link the error prints, `/workers/onboarding`, returns a 404.**
+Ignore it. Go here instead:
+
+1. In the dashboard, open **Workers and Pages**.
+2. Click your worker, `fightiq`.
+3. Open the **Domains** tab.
+4. Find the box called **Worker URL**. It has a **Production** row with a toggle,
+   and **the toggle is off by default**. That is the whole problem.
+5. Switch it on.
+
+**You should see:** the toggle switch on, the worker published, and a **Visit**
+button appear. Your URL has the shape `worker-name.subdomain.workers.dev`, where
+the subdomain is the one your account just registered. The Domains tab shows
+yours; it is not written down anywhere in this repository.
+
+Open it. **You should see:** the landing page, with the hero image, three cards
+and a **Start free** button.
+
+That page is the ASSETS binding proving itself. If the page renders, static
+assets are being served, which is the binding `.openai/hosting.json` never knew
+about and which a config built by copying it would have missed entirely.
+
+---
+
+## 9. Check it actually worked
 
 Do not judge this by the page looking right. A working old build looks exactly
 like a working new one.
 
-**Nothing in this step has been observed on Cloudflare yet.** It describes what
-the app returns and what each field means, all of which is read from the code in
-`lib/health.ts`. Whether a Cloudflare deploy actually reaches it is the open
-question, and this step is where you find out.
-
 Open `<your-url>/api/health`.
 
-**You should see:** JSON containing `"status":"ok"` and a `checks` block. In it:
+### Read this before you read the output
 
-- `"database": true` and `"schema": true` are the two that matter. If either is
-  false, the database is not connected and nothing will save. Go back to step 3.
-- `"sessionAnalysis": true` means the Anthropic key is set. False means step 4
-  did not take.
-- `"photoUploads"` is `true` if you did step 6 and `false` if you skipped it.
-  Both are correct outcomes.
-- `"liveVideoSearch": false` is expected and fine. It means the optional YouTube
-  key is not set, and Learn serves curated studies.
+**You will see `"status": "degraded"`, and that is the correct result here. It is
+not a failure and you have not broken anything.**
+
+This matters more than anything else in this step, because "degraded" is a word
+that makes people stop and start undoing their work. In this app it means one
+specific thing and nothing else, from `lib/health.ts:39`: the database is working
+and `ANTHROPIC_API_KEY` is not set. That is exactly where the checklist leaves
+you if you have not done step 4, which costs money and is a deliberate decision
+rather than an oversight. The endpoint still returns HTTP 200.
+
+Only `"status": "down"` means the app cannot function, and that is the database,
+not the key.
+
+### What was actually returned
+
+Verbatim from a real deploy of this app, in a browser:
+
+| Field | Value | What it means |
+| --- | --- | --- |
+| `status` | `degraded` | Correct at this point. See above. |
+| `database` | `true` | **The one that matters most.** |
+| `schema` | `true` | **The other one.** |
+| `sessionAnalysis` | `false` | Step 4 not done. The Anthropic key costs money. |
+| `photoUploads` | `false` | Step 6 skipped. No R2, so no meal photos. |
+| `liveVideoSearch` | `false` | Optional YouTube key not set. Learn serves curated studies. |
+
+**`database: true` and `schema: true` are the two that prove the deploy is real.**
+They are also the specific evidence that the D1 binding survived the placeholder
+collision described in step 7: the app is talking to the `fightiq` database, not
+to an all-zeros id, and it has created its own tables there. If either is
+`false`, nothing will save. Go back to step 3.
+
+The three `false` values are all expected outcomes of a checklist followed
+honestly, not faults to fix.
+
+**You should also see a `notes` array** explaining each `false` in plain
+language. It was checked on a phone and reads properly there.
+
+**Then go back to the dashboard, Storage and Databases, D1**, and look at the
+`fightiq` database. At step 3 it had 0 tables. It should not any more: the app
+creates its own schema the first time it is reached.
 
 Then open `<your-url>/api/admin/cost?days=30`.
 
@@ -277,7 +369,7 @@ failed.** It is only a problem if `/api/health` also fails.
 
 ---
 
-## 9. Optional extras, any time later
+## 10. Optional extras, any time later
 
 **[SKIPPABLE]** Each of these adds one feature and none are needed to run.
 
@@ -305,6 +397,15 @@ them. That is a deliberate decision, and the reasoning is written down in
 Run `npx wrangler whoami` first. Most failures at any step are the terminal
 being logged out or logged into the wrong account.
 
-The deployment identifier at `<your-url>/.well-known/sites-deployment-id` is the
-fastest way to confirm whether a later redeploy actually replaced the running
-build. One request, one string, and it either changed or it did not.
+**To confirm a later redeploy actually replaced the running build**, use:
+
+```
+npx wrangler deployments status
+```
+
+This matters because a deploy that silently did nothing looks exactly like a
+deploy that worked, and that has already happened once on the other platform.
+
+**Do not use `<your-url>/.well-known/sites-deployment-id` here.** That path was
+served by the other platform, not by this app, so on Cloudflare it returns
+nothing. Anywhere it is still written down, it is describing the old host.

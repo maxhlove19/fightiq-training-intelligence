@@ -49,6 +49,21 @@ test("no binding name is declared twice in the generated wrangler config", { ski
   assert.deepEqual(duplicated, [], `these binding names are declared more than once: ${duplicated.join(", ")}`);
 });
 
+// The same duplicate-supplier failure as the bindings, in its third disguise,
+// and the one that actually stopped an upload: wrangler rejects the whole deploy
+// with "Compatibility flag specified multiple times: nodejs_compat" [code:
+// 10021]. It is supplied once, by localBindingConfig in vite.config.ts, and
+// wrangler.jsonc ships an empty compatibility_flags on purpose. This fails if
+// either side changes: two of them, or none.
+test("nodejs_compat is supplied exactly once", { skip: built ? false : "run `npm run build` first" }, () => {
+  const flags = read(generated).compatibility_flags ?? [];
+  assert.deepEqual(
+    flags.filter((flag) => flag === "nodejs_compat"),
+    ["nodejs_compat"],
+    `nodejs_compat must appear once, not ${flags.filter((f) => f === "nodejs_compat").length} times: ${JSON.stringify(flags)}`
+  );
+});
+
 test("no site-creator placeholder reaches the deployed config", { skip: built ? false : "run `npm run build` first" }, () => {
   const config = read(generated);
   const blob = JSON.stringify({ d1: config.d1_databases, r2: config.r2_buckets });

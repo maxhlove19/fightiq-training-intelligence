@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T20:08:27.622Z (run by hand).
+Written automatically at 2026-08-11T20:14:43.717Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -9,20 +9,17 @@ cannot be wrong about what it does say.
 ## Where the work is
 
 - Branch: `claude/cloudflare-deploy-path`
-- HEAD: `fad84ce` "Merge pull request #25 from maxhlove19/claude/magical-darwin-9mvzzu"
-- No upstream. Nothing has been pushed from this branch.
+- HEAD: `40bf13e` "Make the Cloudflare deploy path actually run"
+- Tracking `origin/claude/cloudflare-deploy-path`, pushed
 
-## Uncommitted work, 7 file(s)
+## Uncommitted work, 4 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
 - `M CLOUDFLARE-SETUP.md`
-- ` M package-lock.json`
-- ` M package.json`
+- ` M tests/worker-bindings.test.mjs`
 - ` M vite.config.ts`
 - ` M wrangler.jsonc`
-- `?? build/wrangler-log-path.ts`
-- `?? tests/worker-bindings.test.mjs`
 
 ## What this branch is probably against
 

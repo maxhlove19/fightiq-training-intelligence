@@ -46,7 +46,14 @@ const hasWranglerConfig =
   existsSync(new URL("wrangler.json", import.meta.url));
 
 /**
- * Bindings for local development only.
+ * Bindings for local development, and the single supplier of nodejs_compat.
+ *
+ * The compatibility flag is NOT dev-only despite living here, and this is worth
+ * knowing before editing either side: wrangler.jsonc deliberately ships an empty
+ * `compatibility_flags`, because declaring the flag in both places made the
+ * build emit it twice and wrangler rejected the upload with "Compatibility flag
+ * specified multiple times: nodejs_compat" [code: 10021]. One supplier, and this
+ * is it.
  *
  * The d1 and r2 entries come from `.openai/hosting.json` and exist so that
  * `vinext dev` has a Miniflare database and bucket to work against. Their

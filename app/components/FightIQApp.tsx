@@ -9,6 +9,7 @@ import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, Wor
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
 import { openingGreeting } from "../../lib/first-session";
+import { clearOfflineCache } from "./OfflineReady";
 import { disciplineFromSetup, notePlaceholder, sessionTypeFromSetup } from "../../lib/log-defaults";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
@@ -151,6 +152,7 @@ function SignOutButton({ name, provider }: { name: string; provider: AuthProvide
   return <button className="avatar home-profile" aria-label="Sign out" title="Sign out" disabled={busy} onClick={async () => {
     setBusy(true);
     try { await fetch("/api/auth/signout", { method: "POST" }); } catch { /* the cookie may already be gone */ }
+    clearOfflineCache();
     window.location.href = "/";
   }}>{initial}</button>;
 }
@@ -164,6 +166,12 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
   const [planConflict, setPlanConflict] = useState("");
   const [hold, setHold] = useState<HoldView | null>(null);
   const [posterIndex, setPosterIndex] = useState(0);
+  const [unsent, setUnsent] = useState<{ savedAt: string; words: number } | null>(null);
+  useEffect(() => {
+    const draft = readDraft(typeof window === "undefined" ? null : window.localStorage);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUnsent(draft ? { savedAt: draft.savedAt, words: draft.text.trim().split(/\s+/).length } : null);
+  }, []);
   useEffect(() => {
     const now = new Date();
     const hour = now.getHours();
@@ -218,6 +226,12 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">{openingGreeting(product ? product.sessionsLogged : 3)}</p>
       {hold?.open && <ReturnToTraining hold={hold} onChange={setHold} />}
+      {unsent && <button className="unsent-note" onClick={() => onLog()}>
+        <span>NOT SENT YET</span>
+        <strong>{unsent.words} {unsent.words === 1 ? "word" : "words"} from {draftAge(unsent.savedAt)}, still on this phone.</strong>
+        <em>FINISH IT</em>
+        <ChevronRight size={15} />
+      </button>}
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
       {opening ? (
@@ -333,10 +347,18 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
   useEffect(() => () => { recognitionRef.current?.stop(); if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current); }, []);
   useEffect(() => {
     if (entryId) return;
-    const timer = window.setTimeout(() => {
-      writeDraft(window.localStorage, { text: transcript, discipline, sessionType, savedAt: new Date().toISOString(), clientKey: clientKeyRef.current });
-    }, 400);
-    return () => window.clearTimeout(timer);
+    const save = () => writeDraft(window.localStorage, { text: transcript, discipline, sessionType, savedAt: new Date().toISOString(), clientKey: clientKeyRef.current });
+    const timer = window.setTimeout(save, 400);
+    // A phone reclaiming a backgrounded tab does not wait out a debounce. The
+    // last thing typed is the detail they went to the trouble of adding.
+    const flush = () => { if (document.visibilityState === "hidden") save(); };
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", flush);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", flush);
+    };
   }, [transcript, discipline, sessionType, entryId]);
   useEffect(() => { if (debriefPhase === "question") questionHeadingRef.current?.focus(); }, [debriefPhase, debrief?.question?.id]);
 
@@ -591,6 +613,14 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
   // is stored on the session and read back by every model call, so a wrong
   // default is wrong evidence rather than a cosmetic slip.
   const [logDefaults, setLogDefaults] = useState<LogDefaults>({ discipline: "MMA", sessionType: "Class", firstSession: false, watchFor: "" });
+  // The whole app used to wait on this before rendering anything, so opening it
+  // with no signal sat on "checking your athlete profile" instead of letting
+  // somebody write the note they came to write. Logging is entirely local until
+  // the moment it is sent, so it must never be gated on a network call.
+  useEffect(() => {
+    const settle = window.setTimeout(() => setOnboardingStatus((current) => current === "loading" ? "complete" : current), 6000);
+    return () => window.clearTimeout(settle);
+  }, []);
   useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => {
     setOnboardingStatus(data?.onboarding.status ?? "complete");
     if (data) setLogDefaults({

@@ -112,7 +112,7 @@ function StudyCard({ video, playing, onPlay, onClose }: { video: StudyVideo; pla
           <button type="button" className="study-close" onClick={onClose} aria-label="Close this study"><X size={16} /></button>
         </div>
       : <button type="button" className="real-video-thumb" onClick={onPlay} aria-label={`Play ${video.title}`}>
-          <img src={video.thumbnail} alt="" />
+          <img src={video.thumbnail} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />
           <span className="video-source">{video.duration}</span>
           <span className="play"><Play size={20} fill="currentColor" /></span>
         </button>}
@@ -418,6 +418,6 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
     </section>
     {(foods.length > 0 || macros.calories > 0) && <section className="estimate-card"><div className="estimate-heading"><div><p className="eyebrow">EDIT BEFORE SAVING</p><h2>FightIQ’s estimate</h2></div>{confidence && <span className={`confidence ${confidence}`}>{confidence} confidence</span>}</div>{foods.length > 0 && <div className="food-list">{foods.map((food, index) => <div key={`${food.name}-${index}`}><input value={food.name} aria-label={`Food ${index + 1}`} onChange={(event) => setFoods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input value={food.portion} aria-label={`Portion ${index + 1}`} onChange={(event) => setFoods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, portion: event.target.value } : item))} /></div>)}</div>}<div className="macro-edit-grid">{(["calories", "protein", "carbs", "fat"] as const).map((key) => <label key={key}><span>{key === "calories" ? "KCAL" : key.toUpperCase()}</span><input type="number" min="0" value={macros[key]} onChange={(event) => setMacros((current) => ({ ...current, [key]: Number(event.target.value) }))} /><small>{key === "calories" ? "" : "g"}</small></label>)}</div>{note && <p className="estimate-note">{note}</p>}<button className="primary-button" onClick={save} disabled={saving}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MEAL</>}</button></section>}
     {saved && <p className="saved-note"><Check size={14} /> Meal added to today.</p>}
-    {nutrition && nutrition.entries.length > 0 && <section className="today-food"><p className="eyebrow">TODAY</p>{nutrition.entries.map((entry) => <article key={entry.id}>{entry.photoUrl && <img src={entry.photoUrl} alt="Your logged meal" />}<div><strong>{entry.description}</strong><span>{entry.calories} kcal · P {Math.round(entry.protein)} · C {Math.round(entry.carbs)} · F {Math.round(entry.fat)}</span></div></article>)}</section>}
+    {nutrition && nutrition.entries.length > 0 && <section className="today-food"><p className="eyebrow">TODAY</p>{nutrition.entries.map((entry) => <article key={entry.id}>{entry.photoUrl && <img src={entry.photoUrl} alt="Your logged meal" onError={(event) => { event.currentTarget.style.display = "none"; }} />}<div><strong>{entry.description}</strong><span>{entry.calories} kcal · P {Math.round(entry.protein)} · C {Math.round(entry.carbs)} · F {Math.round(entry.fat)}</span></div></article>)}</section>}
   </main>;
 }

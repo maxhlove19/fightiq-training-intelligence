@@ -199,7 +199,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
           <button className="home-insight-link" onClick={onGame}>OPEN MY GAME <ChevronRight size={14} /></button>
         </div>
         <div className="home-insight-media" aria-hidden="true">
-          <img src={homePosterImages[posterIndex]} alt="" decoding="async" />
+          <img src={homePosterImages[posterIndex]} alt="" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />
         </div>
       </section>
 
@@ -207,7 +207,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
 
       <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
 
-      {firstVideo ? <section className="home-plan-section" aria-label="Your next video"><div className="home-plan-heading"><span>WATCH NEXT</span><button onClick={onLearn}>MORE</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" />}<div><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={() => onLog()}><Sparkles size={18} /><span><strong>Log training to get your first video.</strong></span><ChevronRight size={17} /></button>}
+      {firstVideo ? <section className="home-plan-section" aria-label="Your next video"><div className="home-plan-heading"><span>WATCH NEXT</span><button onClick={onLearn}>MORE</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}<div><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={() => onLog()}><Sparkles size={18} /><span><strong>Log training to get your first video.</strong></span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} safety={planSafety} hold={planHold} conflict={planConflict} onClose={() => { setPlanSafety(null); setPlanHold(null); setPlanConflict(""); setBriefOpen(false); }} onStart={async (sessionPlan) => {
         const outcome = await onStartTraining(sessionPlan);
         if (outcome.hold) setHold(outcome.hold);

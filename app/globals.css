@@ -1146,6 +1146,101 @@ body { letter-spacing: .003em; }
 .safety-redflags li { color: #f3ded8; font-size: 12.5px; line-height: 1.45; }
 .safety-source { margin: 13px 0 0; color: #c2a79f; font-size: 11px; line-height: 1.5; }
 .safety-dismiss { margin-top: 11px; border: 0; background: transparent; padding: 6px 0; color: #c2a79f; font-size: 11.5px; text-decoration: underline; cursor: pointer; }
+
+
+/* The video title was clipped mid-word on a 375px screen. A grid item will not
+   shrink below its content unless it is told it may, and the title was pinned
+   to one line while its box already had room for two. */
+.home-study > div { min-width: 0; }
+.home-study strong {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-overflow: unset;
+}
+
+/* On a small phone the insight card was giving a third of the screen to three
+   short lines and pushing the log button — the one thing an athlete opens this
+   app to press — below the fold. */
+@media (max-width: 400px) {
+  .home-reference-insight { min-height: 190px; }
+}
+
+/* Tap targets.
+   ------------------------------------------------------------------
+   This is a phone app used with sweaty hands, in a gym, often standing up. A
+   control measured at 25x11 is not a control, it is a dare — and every one of
+   these was under the 44px both Apple and WCAG ask for.
+
+   The visible design is unchanged. Each rule grows the hit area only: padding
+   where there is room, a min-height where there is not, and ::after overlays
+   where growing the box would move the layout around it. */
+
+/* Text links inside headings and cards. Padding is pulled back out with a
+   negative margin so nothing shifts. */
+.home-insight-link,
+.home-plan-heading button,
+.watch-link.explore-link {
+  position: relative;
+  padding-block: 17px;
+  margin-block: -17px;
+}
+
+/* "MORE" is only four characters wide, so height alone never gets it there. */
+.home-plan-heading button { padding-inline: 10px; margin-inline: -10px; }
+
+/* Icon buttons that are already round: grow the box to 44 and keep the ink the
+   same size by centring it. */
+.round-action,
+.avatar.home-profile {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The two composer buttons are absolutely positioned inside their textarea, so
+   growing them without moving them made them overlap each other and the text.
+   Geometry and clearance are set together here, at every breakpoint, because
+   they are one measurement and were previously three. */
+.answer-mic,
+.compose-send {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.coach-compose textarea { min-height: 62px; padding-right: 108px; }
+/* Width and height repeat here on purpose: the breakpoint rules above target
+   `.coach-compose .answer-mic`, so a single-class rule never reaches them. */
+.coach-compose .answer-mic { width: 44px; height: 44px; right: 56px; bottom: 9px; }
+.coach-compose .compose-send { width: 44px; height: 44px; right: 8px; bottom: 9px; }
+.answer-compose textarea { padding-right: 60px; }
+.answer-compose .answer-mic { width: 44px; height: 44px; right: 8px; bottom: 8px; }
+
+.text-link,
+.new-chat-button { min-height: 44px; }
+
+/* The bottom bar is the most-pressed thing in the app. */
+.nav-button { min-height: 48px; }
+
+/* Anything still visually small gets a transparent overlay that reaches 44px,
+   so the press lands even when the icon does not. */
+.sheet-close,
+.icon-button { position: relative; }
+.sheet-close::after,
+.icon-button::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
 /* Return-to-training hold. Same family as the safety notice it follows on from,
    but it persists across visits instead of being dismissible, so it is built to
    be lived with for a week rather than read once. */

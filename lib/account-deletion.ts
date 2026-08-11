@@ -40,6 +40,7 @@ export const DELETABLE_TABLES: string[] = [
   "coach_chats",
   "coach_message_enrichments",
   "coach_turns",
+  "coach_findings",
   "workout_plans",
   "workout_setups",
   "workout_performances",

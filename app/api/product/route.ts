@@ -1,7 +1,7 @@
 import { currentAthlete } from "../../../lib/current-athlete";
 import { recordAthleteVisit } from "../../../lib/accounts-db";
 import { buildLearnFeed } from "../../../lib/video-recommendations";
-import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getConfirmedFindings, getTodayNutrition, productError } from "../../../lib/product-db";
 import { openingFromMemory } from "../../../lib/first-session";
 import { homeInsight } from "../../../lib/home-insight";
 import { getFocusHistory, getTrainingLifetime } from "../../../lib/focus-history";
@@ -60,6 +60,7 @@ export async function GET(request: Request) {
     getTrainingLifetime(db, ownerId),
     getWeightRecord(db, ownerId),
   ]);
+  const confirmedFindings = await getConfirmedFindings(db, ownerId);
   const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
   // Day one has no training to read, which used to mean the largest card on the
   // home screen said the app knew nothing. It knows what they just spent six
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
       currentFocus: memory.currentFocus,
     },
     opening,
+    confirmedFindings,
     sessionsLogged: memory.sessionsLogged,
     videos: learn.videos,
     learn: { studyTopic: learn.studyTopic, exploreUrl: learn.exploreUrl, liveDiscoveryAvailable: learn.liveDiscoveryAvailable, refreshed: learn.refreshed },

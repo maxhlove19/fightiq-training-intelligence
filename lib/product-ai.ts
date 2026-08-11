@@ -4,6 +4,7 @@ import { CLAUDE_MODEL, ClaudeError, hashOwner, imagePart, requestJson, type Effo
 import { clip, clipLabel } from "./clip";
 import { recordModelUsage, type ModelSurface } from "./model-cost";
 import type { D1 } from "./debrief-db";
+import { COMMIT_BY_EXCHANGE, findingSchema, readFinding, type CoachFinding } from "./coach-finding";
 
 export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
@@ -20,6 +21,8 @@ export type CoachReply = {
   followUp: string;
   followUpChoices: string[];
   video: CoachVideoOffer;
+  /** Present only when the coach has stopped narrowing and committed to a call. */
+  finding: CoachFinding | null;
 };
 
 export type WorkoutPersonalization = { priorityKeys: string[]; loadNote: string };
@@ -43,11 +46,12 @@ export function cleanCoachText(value: string) {
 const coachReplySchema = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "follow_up", "follow_up_choices", "video"],
+  required: ["reply", "follow_up", "follow_up_choices", "video", "finding"],
   properties: {
     reply: { type: "string" },
     follow_up: { type: "string" },
     follow_up_choices: { type: "array", minItems: 0, maxItems: 3, items: { type: "string" } },
+    finding: findingSchema,
     video: {
       type: "object",
       additionalProperties: false,
@@ -81,10 +85,12 @@ function coachReplyFrom(value: unknown): CoachReply {
     .filter((choice, index, values) => choice.length > 1 && values.findIndex((item) => item.toLowerCase() === choice.toLowerCase()) === index)
     .slice(0, 3);
   const videoMode = offer.mode as CoachVideoOffer["mode"];
+  const finding = readFinding(reply.finding);
   const cleaned = {
     reply: clip(replySentences, 420),
     followUp,
     followUpChoices,
+    finding,
     // A no-video answer should not carry stale or speculative video text into
     // the saved conversation. That keeps a later turn's context truthful.
     video: videoMode === "none"
@@ -94,6 +100,9 @@ function coachReplyFrom(value: unknown): CoachReply {
   if (!cleaned.reply || (cleaned.followUp && cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3) || (cleaned.followUp && cleaned.followUpChoices.length !== 3) || (!cleaned.followUp && cleaned.followUpChoices.length > 0) || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
   }
+  // A committed turn asks its own question through the finding card. Leaving a
+  // narrowing question underneath it would be the coach hedging on its own call.
+  if (cleaned.finding) return { ...cleaned, followUp: "", followUpChoices: [] };
   return cleaned;
 }
 
@@ -144,11 +153,28 @@ export async function answerCoach(args: {
 }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) {
+      // The offline mock narrows once and then commits, so the whole shape of a
+      // conversation, including the card that lands it, can be seen without a key.
+      const exchanges = args.history.filter((message) => message.role === "user").length;
+      if (exchanges >= 1) return {
+        reply: "I think this is the setup rather than the technique. It holds up in drilling and goes the moment somebody is fighting back.",
+        followUp: "",
+        followUpChoices: [],
+        video: { mode: "none", topic: "", prompt: "" },
+        finding: {
+          problem: `${args.memory.currentFocus} breaks under pressure`,
+          because: "It is being started from a position that was already lost a beat earlier, so the technique never gets a fair chance.",
+          fix: "Fix the position before you commit to it, for one round.",
+          basis: ["what you described in this conversation"],
+          confidence: "hunch",
+        },
+      } satisfies CoachReply;
       return {
         reply: `I have your current focus as ${args.memory.currentFocus}. I want to understand where it is breaking down before I suggest a change.`,
         followUp: "What is the first thing you notice going wrong when you try it?",
         followUpChoices: ["The setup feels off", "It breaks during the move", "I lose it when the pace picks up"],
         video: { mode: "none", topic: "", prompt: "" },
+        finding: null,
       } satisfies CoachReply;
     }
     throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "ANTHROPIC_API_KEY is missing from the server runtime." });
@@ -195,6 +221,22 @@ HOW YOU SOUND
 - Write in British English: defence, offence, recognise, practise as a verb.
 - No stock filler. Avoid "the key is", "keep it simple", "one clean rep", "see what breaks", "next step", "trust the process", "under resistance", unless the athlete used those words first.
 - Keep their own language for the moment they described, so they recognise it.
+
+LANDING THE PLANE
+- Narrowing is not the job. Committing is. A thread that asks seven good questions and never says what it thinks has wasted the athlete's evening, and every one of those seven questions felt reasonable on its own. That is exactly how it happens.
+- Before you ask anything, say to yourself what you would tell them to do differently under each possible answer. If the answer would not change what you tell them, do not ask it. Commit instead.
+- You are narrowing to a cause somebody can act on, not to the smallest available detail. If the fix is the same whether it is the wrist or the fingers, the wrist and the fingers are the same answer.
+- By the ${COMMIT_BY_EXCHANGE}th exchange in a thread you commit to the best call you have and say how sure you are. That is a ceiling, not a target. Being roughly right and honest about it beats being precisely right three questions later.
+- When you commit, set finding.state to "proposed" and fill problem, because and fix. Otherwise finding.state is "probing" and the other fields are empty strings.
+
+WHAT A FINDING IS
+- problem is what is going wrong, in their words where possible, short enough to read as a label.
+- because is the mechanism underneath it, in one sentence. This is the part they could not have worked out alone.
+- fix is one thing to do at the next session. Not a programme. One thing.
+- basis is what you built it from: what they told you, what is in their sessions. Never anything you did not actually see. If your basis is thin, say so in the reply and set confidence to "hunch".
+- confidence is "likely" only when this is supported by more than the current conversation, meaning their logged training says the same thing. Otherwise it is "hunch".
+- You are proposing, not recording. The athlete confirms it or corrects it, and only then is it written into their game. So it is safe to be decisive, and it is not safe to be vague.
+- When you propose a finding, the reply states it plainly in a sentence or two and does not ask a question. Do not hedge it into nothing.
 
 THE SHAPE OF A REPLY
 - Length is a hard rule, not a preference. reply is one or two short plain sentences and contains no question. Never three. Say the true thing in the fewest words, and stop.

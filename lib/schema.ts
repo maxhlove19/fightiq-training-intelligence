@@ -109,6 +109,21 @@ export const APP_TABLES: string[] = [
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`,
+  `CREATE TABLE IF NOT EXISTS coach_findings (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      chat_id TEXT,
+      assistant_message_id TEXT NOT NULL,
+      problem TEXT NOT NULL,
+      because TEXT NOT NULL,
+      fix TEXT NOT NULL,
+      basis_json TEXT NOT NULL DEFAULT '[]',
+      stated_confidence TEXT NOT NULL,
+      status TEXT NOT NULL,
+      canonical_key TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      decided_at TEXT
+    )`,
   `CREATE TABLE IF NOT EXISTS coach_message_enrichments (
       assistant_message_id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -339,6 +354,8 @@ export const APP_INDEXES: string[] = [
   "CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_findings_message ON coach_findings (assistant_message_id)",
+  "CREATE INDEX IF NOT EXISTS idx_coach_findings_owner_status ON coach_findings (owner_id, status, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_turns_assistant_message ON coach_turns (assistant_message_id)",
   "CREATE INDEX IF NOT EXISTS idx_coach_turns_owner_status ON coach_turns (owner_id, status, created_at)",

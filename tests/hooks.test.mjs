@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { duplicateTokens, rootDeclarations } from "../scripts/token-check.mjs";
 import { fastChecks, houseStyleFaults } from "../.claude/hooks/observe.mjs";
+import { readTranscript } from "../.claude/hooks/handoff.mjs";
 import { meaningfulFailure, runGate } from "../.claude/hooks/gates.mjs";
 
 const HOOKS = new URL("../.claude/hooks/", import.meta.url).pathname;
@@ -191,4 +192,78 @@ test("this repository's own stylesheet is the reason the token gate exists", () 
   const navHeight = duplicates.find((item) => item.name === "--nav-height");
   assert.ok(duplicates.length > 0, "if this now passes, the reconciliation landed: tighten this test");
   assert.ok(navHeight, "--nav-height is load-bearing geometry declared more than once");
+});
+
+// The handoff. It exists because a context window running out currently loses
+// every thread, and the recovery depends on a human retyping what they remember.
+
+test("the handoff records what was left unfinished, not only what was achieved", () => {
+  const dir = scratchRepo();
+  writeFileSync(join(dir, "goals.md"), "# goals.md\n\n1. **The tagline.** Replace it.\n");
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  writeFileSync(join(dir, "half-done.ts"), "export const x = 1;\n");
+  runHook("handoff.mjs", { hook_event_name: "PreCompact", trigger: "auto" }, { cwd: dir });
+  const handoff = readFileSync(join(dir, ".claude", "HANDOFF.md"), "utf8");
+  assert.match(handoff, /Uncommitted work/);
+  assert.match(handoff, /half-done\.ts/);
+  // The section that stops a handoff reading as a success report.
+  assert.match(handoff, /What was NOT verified/);
+  assert.match(handoff, /not evidence a screen looks right/);
+  assert.match(handoff, /The next action/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("a session with no test run is told so rather than left to assume", () => {
+  const dir = scratchRepo();
+  runHook("handoff.mjs", { hook_event_name: "PreCompact" }, { cwd: dir });
+  const handoff = readFileSync(join(dir, ".claude", "HANDOFF.md"), "utf8");
+  assert.match(handoff, /No test run was seen[\s\S]*Assume nothing has been verified/);
+  assert.match(handoff, /Do not assume a pull request exists/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("the handoff never writes conversation text, only structured signals", () => {
+  // The privacy guarantee is structural rather than a promise to be careful:
+  // nothing in the transcript reaches the file except numbers, paths and URLs.
+  const secretish = [
+    JSON.stringify({ type: "user", content: "my ANTHROPIC_API_KEY is sk-ant-verysecret and I work at a specific gym" }),
+    JSON.stringify({ type: "assistant", content: "# tests 42\n# pass 41\n# fail 1", extra: "https://github.com/o/r/pull/99" }),
+    JSON.stringify({ type: "tool", tool_input: { file_path: "/workspace/fightiq-training-intelligence/lib/thing.ts" } }),
+  ].join("\n");
+  const signals = readTranscript(secretish);
+  assert.deepEqual(signals.tests, { total: 42, pass: 41, fail: 1 });
+  assert.deepEqual(signals.pullRequests, [99]);
+  assert.deepEqual(signals.filesTouched, ["lib/thing.ts"]);
+  // Nothing else survives the parse at all.
+  const rendered = JSON.stringify(signals);
+  assert.doesNotMatch(rendered, /sk-ant/);
+  assert.doesNotMatch(rendered, /ANTHROPIC_API_KEY/);
+  assert.doesNotMatch(rendered, /gym/);
+});
+
+test("a failing transcript produces a thinner handoff, never a failed one", () => {
+  const dir = scratchRepo();
+  const result = runHook("handoff.mjs", { hook_event_name: "PreCompact", transcript_path: "/nowhere/at/all.jsonl" }, { cwd: dir });
+  assert.equal(result.status, 0);
+  assert.ok(existsSync(join(dir, ".claude", "HANDOFF.md")));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("garbage on stdin does not stop a session losing its context", () => {
+  const dir = scratchRepo();
+  const result = spawnSync("node", [join(HOOKS, "handoff.mjs")], { input: "not json", encoding: "utf8", cwd: dir });
+  assert.equal(result.status, 0);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("a cold session is handed the handoff before it is handed the goals", () => {
+  const dir = scratchRepo();
+  writeFileSync(join(dir, "goals.md"), "# goals.md\n\nThe top item is the tagline.\n");
+  writeFileSync(join(dir, ".claude", "HANDOFF.md"), "# HANDOFF\n\nBranch: claude/tagline, 2 files uncommitted.\n");
+  const result = runHook("orient.mjs", { hook_event_name: "SessionStart" }, { cwd: dir });
+  const context = result.json.hookSpecificOutput.additionalContext;
+  assert.match(context, /claude\/tagline/);
+  assert.ok(context.indexOf("HANDOFF") < context.indexOf("The top item is the tagline"),
+    "where things stand comes before what the project is for");
+  rmSync(dir, { recursive: true, force: true });
 });

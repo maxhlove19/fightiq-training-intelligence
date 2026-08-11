@@ -21,7 +21,14 @@ function main() {
   let report = "";
   try { report = readFileSync(join(root, ".claude", "last-gate-report.md"), "utf8"); } catch { /* usually absent, which is good */ }
 
+  // Written by the PreCompact hook when a session was about to lose its context.
+  // Put first, because a cold reader needs where things stand before they need
+  // what the project is for.
+  let handoff = "";
+  try { handoff = readFileSync(join(root, ".claude", "HANDOFF.md"), "utf8"); } catch { /* no previous session */ }
+
   const context = [
+    handoff.trim() ? `A previous session wrote down where it left things. Read this first:\n\n${handoff.trim()}\n\n---\n` : "",
     "goals.md is the definition of done for this repository. Read it before choosing what to work on.",
     "",
     goals.trim(),

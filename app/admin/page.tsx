@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getChatGPTUser } from "../chatgpt-auth";
+import { currentAthlete } from "../../lib/current-athlete";
 import { checkOwner } from "../../lib/owner-access";
 import { AdminDashboard } from "./AdminDashboard";
 
@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "FightIQ owner view", robots: { index: false, follow: false } };
 
 export default async function AdminPage() {
-  const user = await getChatGPTUser();
-  const owner = checkOwner(user?.email, process.env.FIGHTIQ_OWNER_EMAILS);
+  const athlete = await currentAthlete();
+  const owner = checkOwner(athlete?.email, process.env.FIGHTIQ_OWNER_EMAILS);
 
   if (!owner.allowed) {
     // Nothing here confirms that a dashboard exists, except for the one case
@@ -33,5 +33,5 @@ export default async function AdminPage() {
     );
   }
 
-  return <AdminDashboard ownerName={user?.fullName || user?.email || "the owner"} />;
+  return <AdminDashboard ownerName={athlete?.displayName || athlete?.email || "the owner"} />;
 }

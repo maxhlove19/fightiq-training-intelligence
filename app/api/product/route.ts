@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { currentAthlete } from "../../../lib/current-athlete";
 import { recordAthleteVisit } from "../../../lib/accounts-db";
 import { buildLearnFeed } from "../../../lib/video-recommendations";
 import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
@@ -25,8 +25,8 @@ export async function GET(request: Request) {
   // account somebody can see. A failure here must never cost an athlete their
   // home screen, so it is allowed to fail on its own.
   try {
-    const user = await getChatGPTUser();
-    if (user) await recordAthleteVisit(db, user);
+    const athlete = await currentAthlete();
+    if (athlete) await recordAthleteVisit(db, { userId: athlete.id, email: athlete.email, displayName: athlete.displayName });
   } catch { /* the roster can miss a visit; the athlete cannot miss their app */ }
 
   const [profile, memory, nutrition, recentWorkouts, trainingCount, foodCount] = await Promise.all([

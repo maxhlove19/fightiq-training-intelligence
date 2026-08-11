@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { getChatGPTUser } from "./chatgpt-auth";
+import { currentAthlete } from "../lib/current-athlete";
 import { FightIQApp } from "./components/FightIQApp";
+import { SignInPanel } from "./components/SignInPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ debrief?: string | string[] }> }) {
-  const user = await getChatGPTUser();
+  const athlete = await currentAthlete();
   const isPreview = process.env.NODE_ENV !== "production";
 
-  if (!user && !isPreview) {
+  if (!athlete && !isPreview) {
     return (
       <main className="door">
         <section className="door-hero">
@@ -28,8 +29,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
               on whatever the class happened to cover. FightIQ remembers, and gives you one
               thing to fix.
             </p>
-            <a className="primary-button door-button" href="/signin-with-chatgpt?return_to=%2F">Start free</a>
-            <p className="door-note">Sign in with ChatGPT. Nothing to set up.</p>
+            <a className="primary-button door-button" href="#start">Start free</a>
+            <p className="door-note">Free to start. No card, no gym contract.</p>
           </div>
         </section>
 
@@ -56,17 +57,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
           </article>
         </section>
 
-        <section className="door-close">
+        <section className="door-close" id="start">
           <h2>Built for the people who actually turn up</h2>
           <p>Three nights a week, a job, and a coach who is teaching thirty other people at the same time.</p>
-          <a className="primary-button door-button" href="/signin-with-chatgpt?return_to=%2F">Start free</a>
+          <SignInPanel />
         </section>
       </main>
     );
   }
 
-  const displayName = user?.fullName?.split(" ")[0] ?? "Max";
+  const displayName = athlete?.displayName?.split(" ")[0] ?? "Max";
   const requestedEntry = (await searchParams).debrief;
   const initialEntryId = typeof requestedEntry === "string" && requestedEntry.length <= 100 ? requestedEntry : null;
-  return <FightIQApp displayName={displayName} initialEntryId={initialEntryId} />;
+  return <FightIQApp displayName={displayName} provider={athlete?.provider ?? "chatgpt"} initialEntryId={initialEntryId} />;
 }

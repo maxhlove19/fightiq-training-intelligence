@@ -1,12 +1,11 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../app/chatgpt-auth";
+import { currentOwnerId } from "./current-athlete";
 import type { DebriefResult } from "./debrief-ai";
 import type { D1 } from "./debrief-db";
 import { fighterBrainEvidenceStatements } from "./product-db";
 
 export async function getOwnerId() {
-  const user = await getChatGPTUser();
-  return user?.userId ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
+  return (await currentOwnerId()) ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
 }
 
 export function getRuntime() {

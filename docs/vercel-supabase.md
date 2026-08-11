@@ -9,9 +9,15 @@ there is no technical emergency forcing a move.
 There is one product reason that is worth taking seriously, and it has nothing
 to do with the database.
 
-## The real reason to consider it
+> **Update: the auth half of this is now done.** Email sign up is live and works
+> without moving the database. Supabase Auth is used as an identity provider
+> while every row stays in D1. The rest of this document is still accurate about
+> what a full move would cost, and the recommendation at the bottom has changed
+> accordingly.
 
-**Every user has to have a ChatGPT account.**
+## The reason this document existed
+
+**Every user had to have a ChatGPT account.**
 
 Sign-in comes from identity headers injected by the hosting platform. That is
 genuinely secure and it took no code, but it means a fighter who wants to try
@@ -56,13 +62,11 @@ upsert increments a visit rather than inserting a second row.
 
 Roughly in order of effort.
 
-**1. Auth. Days, not hours.** This is the whole project.
-`app/chatgpt-auth.ts` is the only place identity is read, and `getProductOwnerId`
-is the only place it becomes an owner id, so the surface is small. But you also
-need sign-up, sign-in, password reset, email verification and session handling,
-plus a migration path for anyone who already signed in with ChatGPT. Their
-`owner_id` is a ChatGPT user id, so plan how those rows get re-pointed before
-you have real users, not after.
+**1. Auth. Already done, and it did not need the move.** `lib/identity.ts` is the
+only place a request becomes a person, and it already accepts a Supabase session
+alongside the platform headers. Email accounts are prefixed `sb:` so they never
+collide with a ChatGPT user id, and both doors stay open, which means nobody who
+already has training logged loses it.
 
 **2. The database handle.** Every call goes through one shape:
 `db.prepare(sql).bind(...).run() | .first() | .all()` and `db.batch([...])`.
@@ -94,7 +98,7 @@ Be honest about this before starting.
   own connection pooling, which on serverless Postgres means Supabase's pooler
   and a connection limit to think about.
 - Everything currently deployed and working would need re-verifying. The suite
-  here is 160 tests, so that is a day of confidence rather than a month, but it
+  here is 194 tests, so that is a day of confidence rather than a month, but it
   is not zero.
 
 ## What to do first, if you do it
@@ -102,15 +106,19 @@ Be honest about this before starting.
 1. Stand up Supabase and run the schema through `toPostgres`. It already works;
    the test proves it.
 2. Write the database handle. Run the existing test suite against it.
-3. Do auth last, and do it properly, because it is the only part that is not
-   already solved.
+3. Auth needs nothing. It already speaks Supabase.
 
 ## Recommendation
 
-Do not move for the database. There is nothing wrong with D1 and the migration
-is small precisely because nothing here depends on it.
+Nothing here needs moving right now.
 
-Move if and when you want people to sign up without a ChatGPT account. That is a
-real product limit, it is the thing your friend's stack genuinely fixes, and
-everything else in this document is small enough that it should not be the
-reason for the decision either way.
+The one real limit was auth, and it has been solved without a migration:
+Supabase Auth issues the session, this app verifies it, and the data stays in
+D1. That is the cheapest version of your friend's suggestion and it keeps a
+tested deployment intact.
+
+Move the database later, if a reason turns up that is about the database:
+wanting SQL access to production, wanting Postgres features like full text
+search over training notes, or wanting one provider to bill. When that day
+comes, the work is the four points above and the parity test already proves the
+first one.

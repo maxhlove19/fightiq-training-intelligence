@@ -134,6 +134,7 @@ curl -s https://<your-host>/api/health
 | `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
 | `FIGHTIQ_OWNER_EMAILS` | For `/admin` | Nobody can open the owner view. The app itself is unaffected. |
+| `SUPABASE_URL` + `SUPABASE_ANON_KEY` + `SUPABASE_JWT_SECRET` | For email sign up | Email sign up is off and says so. ChatGPT sign in still works. All three are needed, or none apply. |
 
 The bindings themselves are declared in `.openai/hosting.json`.
 
@@ -163,9 +164,34 @@ version of this app would have had and upgrades it using the app's own
 
 ### Accounts and the owner view
 
-Sign-in is the platform's: athletes sign in with ChatGPT, and Dispatch owns
-`/signin-with-chatgpt`, `/signout-with-chatgpt` and `/callback`. Do not add app
-routes for those paths.
+There are two doors, and both produce the same athlete.
+
+**Email sign up** is the front door. `/api/auth/signup`, `/signin`, `/signout`
+and `/reset` talk to Supabase Auth over its REST API and set the session in
+HttpOnly cookies, so no token is ever readable by a script on the page. Nothing
+here rolls its own authentication: password hashing, reset tokens, email
+confirmation and rate limiting are Supabase's job, and they are exactly the
+things that are quietly easy to get wrong.
+
+Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_JWT_SECRET`. All three, or
+email sign up stays switched off and says so rather than half working. **The
+database does not move.** Supabase Auth is used as an identity provider; every
+row still lives in D1.
+
+**ChatGPT sign in** keeps working, because everybody who already has training
+logged is keyed to a ChatGPT user id and removing it would look to them like
+their history was deleted. Dispatch owns `/signin-with-chatgpt`,
+`/signout-with-chatgpt` and `/callback`. Do not add app routes for those paths.
+
+`lib/identity.ts` is the only place a request becomes a person. A verified
+session cookie always wins over a platform header, so an athlete signed in with
+email can never be silently swapped onto a different account. Email account ids
+are prefixed `sb:` so they can never collide with a platform id.
+
+`lib/jwt.ts` verifies the session token. It accepts exactly one algorithm, and
+`tests/jwt.test.mjs` covers the ways tokens actually get forged: a tampered
+payload, `alg: none`, algorithm confusion, an expired token, a token from
+another project, and a token for another audience.
 
 What the app adds is a record of who signed in. `athlete_accounts` is written on
 the first screen every athlete loads, which is what turns an opaque user id into
@@ -235,6 +261,8 @@ this ladder and it is the one that counts.
 - Deploy over a database that already has data in it, not only a fresh one.
 - Set `FIGHTIQ_OWNER_EMAILS` to the address you sign in with, then open `/admin`
   and confirm you can see it and a second account cannot.
+- Sign up with an email address on a device that has never seen ChatGPT, log a
+  session, sign out, and sign back in. The session must still be there.
 
 ### Running somewhere else
 

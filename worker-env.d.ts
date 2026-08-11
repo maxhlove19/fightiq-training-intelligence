@@ -23,5 +23,11 @@ declare namespace Cloudflare {
     FIGHTIQ_ALLOW_MOCK_AI?: string;
     /** Comma separated emails allowed to open the owner dashboard. Unset means nobody. */
     FIGHTIQ_OWNER_EMAILS?: string;
+    /** https://<ref>.supabase.co. Without it, email sign up is off and ChatGPT sign in still works. */
+    SUPABASE_URL?: string;
+    /** The project's anon key. Public by design; it only permits what row level security allows. */
+    SUPABASE_ANON_KEY?: string;
+    /** The project's JWT secret. Never leaves the server. Without it no session cookie is trusted. */
+    SUPABASE_JWT_SECRET?: string;
   }
 }

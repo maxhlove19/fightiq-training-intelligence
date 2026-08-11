@@ -9,7 +9,12 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+const WORKERS_SHIM = new URL("./cloudflare-workers-shim.mjs", import.meta.url).href;
+
 export async function resolve(specifier, context, next) {
+  // The built worker imports a module its runtime provides and Node does not.
+  if (specifier === "cloudflare:workers") return { url: WORKERS_SHIM, shortCircuit: true };
+
   if (specifier.startsWith(".") && !/\.[cm]?[jt]sx?$/i.test(specifier)) {
     for (const suffix of [".ts", ".tsx", "/index.ts"]) {
       try {

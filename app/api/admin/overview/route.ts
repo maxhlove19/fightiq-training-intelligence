@@ -1,4 +1,4 @@
-import { getChatGPTUser } from "../../../chatgpt-auth";
+import { currentAthlete } from "../../../../lib/current-athlete";
 import { readOwnerData } from "../../../../lib/accounts-db";
 import { checkOwner } from "../../../../lib/owner-access";
 import { buildOwnerOverview } from "../../../../lib/owner-overview";
@@ -7,9 +7,9 @@ import { ensureProductSchema, getProductRuntime, productError } from "../../../.
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getChatGPTUser();
+  const athlete = await currentAthlete();
   const { db, ownerEmails } = getProductRuntime();
-  const owner = checkOwner(user?.email, ownerEmails);
+  const owner = checkOwner(athlete?.email, ownerEmails);
   // The same answer either way. A stranger probing this endpoint learns nothing
   // about whether the dashboard exists or who is allowed to open it.
   if (!owner.allowed) return productError("NOT_FOUND", "Not found.", 404);

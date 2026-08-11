@@ -11,6 +11,9 @@ import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../..
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
 
+/** Which door the athlete signed in through. Only sign out cares. */
+type AuthProvider = "email" | "chatgpt";
+
 type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food" | "onboarding";
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -133,7 +136,24 @@ function PreTrainingCheckIn({ brief, onClose, onStart, safety, hold, conflict }:
   </section></div>;
 }
 
-function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<StartTrainingOutcome>; onFinishProfile: () => void }) {
+/**
+ * Signing out has to match the door somebody came in through. An email account
+ * sent to the ChatGPT sign out route stays signed in and looks broken.
+ */
+function SignOutButton({ name, provider }: { name: string; provider: AuthProvider }) {
+  const [busy, setBusy] = useState(false);
+  const initial = name.slice(0, 1).toUpperCase();
+  if (provider === "chatgpt") {
+    return <a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{initial}</a>;
+  }
+  return <button className="avatar home-profile" aria-label="Sign out" title="Sign out" disabled={busy} onClick={async () => {
+    setBusy(true);
+    try { await fetch("/api/auth/signout", { method: "POST" }); } catch { /* the cookie may already be gone */ }
+    window.location.href = "/";
+  }}>{initial}</button>;
+}
+
+function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; provider: AuthProvider; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<StartTrainingOutcome>; onFinishProfile: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
   const [product, setProduct] = useState<ProductData | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
@@ -184,7 +204,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
   return (
     <main className="page home-page native-page">
-      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button></div></header>
+      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><SignOutButton name={name} provider={provider} /><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button></div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
@@ -531,7 +551,7 @@ function ActionSheet({ onClose, onAction }: { onClose: () => void; onAction: (ac
   return <div className="sheet-backdrop"><section className="action-sheet" role="dialog" aria-modal="true" aria-label="Quick actions"><div className="sheet-handle" /><button ref={closeRef} className="sheet-close" onClick={onClose} aria-label="Close quick actions"><X size={18} /></button><h2>What do you want to do?</h2><div className="sheet-grid">{actions.map(({ name, note, icon: Icon }) => <button className="sheet-action" key={name} onClick={() => onAction(name)}><Icon size={21} /><strong>{name}</strong><span>{note}</span></button>)}</div></section></div>;
 }
 
-export function FightIQApp({ displayName, initialEntryId = null }: { displayName: string; initialEntryId?: string | null }) {
+export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId = null }: { displayName: string; provider?: AuthProvider; initialEntryId?: string | null }) {
   const [screen, setScreen] = useState<Screen>(initialEntryId ? "log" : "home");
   const [activeEntryId, setActiveEntryId] = useState<string | null>(initialEntryId);
   const [activePlan, setActivePlan] = useState<string | null>(null);
@@ -566,7 +586,7 @@ export function FightIQApp({ displayName, initialEntryId = null }: { displayName
   if (onboardingStatus === "loading") return <main className="setup-loading"><p className="wordmark">FIGHT<span>IQ</span></p><p>Welcome back, {displayName}.<br />Checking your athlete profile…</p></main>;
   if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
-    {screen === "home" && <HomeScreen name={displayName} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}
+    {screen === "home" && <HomeScreen name={displayName} provider={provider} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}

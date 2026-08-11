@@ -1281,6 +1281,23 @@ body { letter-spacing: .003em; }
   .door-button { width: 100%; justify-content: center; }
 }
 
+
+/* Sign up on the front door. The form is the last thing on the page, after
+   somebody has been given a reason to fill it in. */
+.door-auth { max-width: 420px; margin: 0 auto; text-align: left; border: 1px solid var(--line-soft); border-radius: 16px; background: var(--surface); padding: 24px 22px 22px; }
+.door-auth h2 { margin: 0 0 18px; font-size: 21px; letter-spacing: -.02em; text-align: center; }
+.door-auth form { display: grid; gap: 13px; }
+.door-auth label { display: grid; gap: 6px; }
+.door-auth label span { color: var(--blue-bright); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .14em; font-weight: 700; }
+.door-auth input { width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--ink); font-size: 15px; outline: none; }
+.door-auth input:focus { border-color: #315a89; box-shadow: 0 0 0 3px rgba(29,130,255,.1); }
+.door-auth .door-button { width: 100%; justify-content: center; margin-top: 4px; }
+.door-notice { margin: 0; padding: 11px 13px; border: 1px solid rgba(79,209,139,.35); border-radius: 11px; background: rgba(60,170,100,.1); color: #b7e6cb; font-size: 13px; line-height: 1.5; }
+.door-auth-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 16px; }
+.door-auth-links button { min-height: 44px; border: 0; background: transparent; color: var(--blue-bright); font-size: 12.5px; text-decoration: underline; cursor: pointer; }
+.door-alt-signin { margin: 14px 0 0; text-align: center; color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+.door-alt-signin a { color: var(--muted); }
+
 /* Owner view.
    ------------------------------------------------------------------
    Read on a laptop, not a phone, by one person deciding whether this is

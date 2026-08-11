@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { currentAthlete } from "../../../lib/current-athlete";
 import { ensureProductSchema, linkExperimentToEntry } from "../../../lib/product-db";
 import { openHoldForNote } from "../../../lib/hold-db";
 import { scanTrainingNote } from "../../../lib/safety-signals";
@@ -11,8 +11,8 @@ const allowedDisciplines = new Set(["MMA", "BJJ", "Wrestling", "Boxing", "Muay T
 const allowedSessionTypes = new Set(["Class", "Drilling", "Sparring", "Open mat", "Private"]);
 
 export async function POST(request: Request) {
-  const user = await getChatGPTUser();
-  const ownerId = user?.userId ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
+  const athlete = await currentAthlete();
+  const ownerId = athlete?.id ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
   if (!ownerId) return Response.json({ error: "Authentication required" }, { status: 401 });
 
   const body = await readJsonObject(request) as { discipline?: unknown; sessionType?: unknown; rawEntry?: unknown; experimentId?: unknown; clientKey?: unknown } | null;

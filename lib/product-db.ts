@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../app/chatgpt-auth";
+import { currentOwnerId } from "./current-athlete";
 import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
 
@@ -60,13 +60,17 @@ export type PreTrainingBrief = { mission: string; reason: string; cue: string; s
 export type TrainingExperiment = { id: string; mission: string; cue: string; reason: string; status: string; startedAt: string | null; outcome: string | null };
 
 export async function getProductOwnerId() {
-  const user = await getChatGPTUser();
-  return user?.userId ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
+  // Email sign in and ChatGPT sign in both land here. See lib/identity.ts.
+  return (await currentOwnerId()) ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string };
-  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true", ownerEmails: runtime.FIGHTIQ_OWNER_EMAILS };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string; SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string; SUPABASE_JWT_SECRET?: string };
+  return {
+    db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY,
+    allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true", ownerEmails: runtime.FIGHTIQ_OWNER_EMAILS,
+    supabaseUrl: runtime.SUPABASE_URL, supabaseAnonKey: runtime.SUPABASE_ANON_KEY, supabaseJwtSecret: runtime.SUPABASE_JWT_SECRET,
+  };
 }
 
 export async function ensureProductSchema(db: D1) {

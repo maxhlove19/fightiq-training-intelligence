@@ -21,8 +21,13 @@ test("renders the secure FightIQ sign-in surface without starter artifacts", asy
   // exactly one thing to do.
   assert.match(html, /You train hard/);
   assert.match(html, /You forget most of it/);
-  assert.match(html, /signin-with-chatgpt/);
   assert.match(html, /Start free/);
+  // Signing up must not require a ChatGPT account, so the form is on the page.
+  assert.match(html, /CREATE MY ACCOUNT/);
+  assert.match(html, /EMAIL/);
+  assert.match(html, /PASSWORD/);
+  // The old door stays open for anyone who already has training in here.
+  assert.match(html, /signin-with-chatgpt/);
   // The fighter carries the page. A door with no picture on it is a form.
   assert.match(html, /fighter-posters/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton|codex-preview/i);

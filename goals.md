@@ -478,3 +478,12 @@ normal training. Anything sooner is noise dressed as a decision.
    yours.
 6. **If the top item is already done or too loosely specified to build, stop and
    say so.** Manufacturing work is worse than doing none.
+7. **A pull request is not open until its number has been read back from the
+   pull request list.** A successful `git push` proves a branch exists and
+   nothing else, and the create call returns an internal id rather than the
+   number. Inferring the number from sequence is guessing. This rule exists
+   because a PR number and a URL were once reported for a pull request that was
+   never opened, alongside a test count quoted from memory rather than re-run.
+8. **Re-run the numbers before quoting them.** Test counts, finding counts and
+   measurements go stale within a single session. If a figure appears in a PR
+   body, the command that produced it was run for that PR.

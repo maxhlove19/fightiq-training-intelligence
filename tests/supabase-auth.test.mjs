@@ -3,7 +3,8 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { refreshSession, requestPasswordReset, signIn, signUp, validateCredentials } from "../lib/supabase-auth.ts";
+import { existsSync, readFileSync } from "node:fs";
+import { refreshSession, requestPasswordReset, signIn, signUp, updatePassword, validateCredentials, validatePassword } from "../lib/supabase-auth.ts";
 
 function fakeSupabase(handler) {
   const calls = [];
@@ -104,4 +105,63 @@ test("the anon key is sent as the API key, never the user's own token", async ()
   await signIn(config, "max@example.test", "a-good-password");
   assert.equal(calls[0].headers.apikey, "anon-key");
   assert.equal(calls[0].headers.authorization, "Bearer anon-key");
+});
+
+// Finishing a reset. The emailed link carries a short lived session, and the
+// only thing that makes this safe is that the new password is set with that
+// session rather than with the project's anon key.
+
+test("the new password is set with the athlete's own token, not the anon key", async () => {
+  const { config, calls } = fakeSupabase(() => ({ status: 200, body: { id: "user-1" } }));
+  const outcome = await updatePassword(config, "recovery.access.token", "a-brand-new-password");
+  assert.equal(outcome.ok, true);
+  assert.match(calls[0].url, /\/auth\/v1\/user$/);
+  // Supabase only accepts this for the account the token belongs to, which is
+  // what stops a leaked link changing somebody else's password.
+  assert.equal(calls[0].headers.authorization, "Bearer recovery.access.token");
+  assert.equal(calls[0].headers.apikey, "anon-key");
+  assert.equal(calls[0].body.password, "a-brand-new-password");
+});
+
+test("an expired or reused link says so rather than blaming the typing", async () => {
+  for (const status of [401, 403]) {
+    const { config } = fakeSupabase(() => ({ status, body: { msg: "invalid claim: missing sub claim" } }));
+    const outcome = await updatePassword(config, "stale.token", "a-brand-new-password");
+    assert.equal(outcome.ok, false);
+    assert.equal(outcome.code, "LINK_EXPIRED");
+    assert.match(outcome.message, /expired or has already been used/);
+  }
+});
+
+test("reusing the current password is its own message", async () => {
+  const { config } = fakeSupabase(() => ({ status: 422, body: { msg: "New password should be different from the old password." } }));
+  const outcome = await updatePassword(config, "recovery.token", "the-same-password");
+  assert.equal(outcome.code, "PASSWORD_UNCHANGED");
+  assert.match(outcome.message, /Choose a different one/);
+});
+
+test("an unreachable auth service does not look like a rejected password", async () => {
+  const config = { url: "https://proj.supabase.co", anonKey: "anon-key", fetchImpl: async () => { throw new Error("offline"); } };
+  const outcome = await updatePassword(config, "recovery.token", "a-brand-new-password");
+  assert.equal(outcome.code, "AUTH_UNREACHABLE");
+  assert.equal(outcome.status, 503);
+});
+
+test("one rule decides what a password has to be, everywhere", async () => {
+  // Sign up and the reset screen must not disagree about this, or somebody sets
+  // a password on one screen that the other would have refused.
+  for (const bad of ["", "short", "x".repeat(201)]) {
+    assert.equal(validatePassword(bad).ok, false);
+    assert.equal(validateCredentials("max@example.test", bad).ok, false);
+  }
+  assert.equal(validatePassword("a-good-password").ok, true);
+  assert.equal(validateCredentials("max@example.test", "a-good-password").ok, true);
+});
+
+test("the reset email points at a screen that can finish the job", () => {
+  // The regression this guards: the link used to land on the site root, where
+  // there was no way to set a password. The email arrived and did nothing.
+  const route = readFileSync("app/api/auth/reset/route.ts", "utf8");
+  assert.match(route, /\/reset-password/);
+  assert.ok(existsSync("app/reset-password/page.tsx"), "the link has nowhere to land");
 });

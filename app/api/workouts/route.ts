@@ -1,5 +1,6 @@
 import { personalizeWorkoutPlan } from "../../../lib/product-ai";
 import { ensureProductSchema, getMemorySnapshot, getProductOwnerId, getProductRuntime, productError } from "../../../lib/product-db";
+import { readJsonObject } from "../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +105,8 @@ export async function GET() {
 export async function PUT(request: Request) {
   const ownerId = await getProductOwnerId(); if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime(); if (!db) return productError("STORAGE_UNAVAILABLE", "Workouts are unavailable.", 503);
-  let body: Record<string, unknown>; try { body = await request.json() as Record<string, unknown>; } catch { return productError("INVALID_REQUEST", "Invalid workout setup.", 400); }
+  const body = await readJsonObject(request);
+  if (!body) return productError("INVALID_REQUEST", "Invalid workout setup.", 400);
   const equipment = Array.isArray(body.equipment) ? body.equipment.filter((item): item is Equipment => typeof item === "string" && equipmentChoices.includes(item as Equipment)).slice(0, equipmentChoices.length) : [];
   if (!equipment.length) return productError("EQUIPMENT_REQUIRED", "Choose the equipment you can actually use.", 422);
   const duration = typeof body.defaultDuration === "number" ? Math.max(20, Math.min(90, Math.round(body.defaultDuration))) : 35;
@@ -122,7 +124,8 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   const ownerId = await getProductOwnerId(); if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db, apiKey } = getProductRuntime(); if (!db) return productError("STORAGE_UNAVAILABLE", "Workouts are unavailable.", 503);
-  let body: Record<string, unknown>; try { body = await request.json() as Record<string, unknown>; } catch { return productError("INVALID_REQUEST", "Invalid workout request.", 400); }
+  const body = await readJsonObject(request);
+  if (!body) return productError("INVALID_REQUEST", "Invalid workout request.", 400);
   await ensureProductSchema(db);
   const setup = parseSetup(await db.prepare("SELECT * FROM workout_setups WHERE owner_id = ? LIMIT 1").bind(ownerId).first<Record<string, unknown>>());
   if (!setup) return productError("WORKOUT_SETUP_REQUIRED", "Tell FightIQ what equipment you have first.", 409);

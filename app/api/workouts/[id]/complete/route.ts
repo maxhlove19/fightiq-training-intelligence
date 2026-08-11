@@ -1,4 +1,5 @@
 import { ensureProductSchema, getProductOwnerId, getProductRuntime, productError } from "../../../../../lib/product-db";
+import { readJsonObject } from "../../../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const ownerId = await getProductOwnerId(); if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime(); if (!db) return productError("STORAGE_UNAVAILABLE", "Workouts are unavailable.", 503);
   const { id } = await params; if (!id || id.length > 100) return productError("INVALID_WORKOUT", "Invalid workout.", 400);
-  let body: { results?: unknown }; try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid workout results.", 400); }
+  const body = await readJsonObject(request) as { results?: unknown } | null;
+  if (!body) return productError("INVALID_REQUEST", "Invalid workout results.", 400);
   const rawResults = Array.isArray(body.results) ? body.results.slice(0, 4) : [];
   await ensureProductSchema(db);
   const workout = await db.prepare("SELECT id, plan_json FROM workout_plans WHERE id = ? AND owner_id = ? LIMIT 1").bind(id, ownerId).first<{ id: string; plan_json: string }>();
@@ -35,7 +37,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const completedSets = typeof item.completedSets === "number" ? Math.max(0, Math.min(12, Math.round(item.completedSets))) : 0;
     const reps = typeof item.reps === "number" ? Math.max(0, Math.min(100, Math.round(item.reps))) : null;
     const load = typeof item.load === "number" && Number.isFinite(item.load) ? Math.max(0, Math.min(2000, Math.round(item.load * 10) / 10)) : null;
-    const unit = item.unit === "kg" ? "kg" : "lb";
+    // `as const` matters: without it the literal widens to string in the array
+    // below, and the load progression stops being checked against its own units.
+    const unit = item.unit === "kg" ? "kg" as const : "lb" as const;
     const effort = typeof item.effort === "string" && efforts.has(item.effort) ? item.effort : "not_logged";
     return [{ exerciseKey, completedSets, reps, load, unit, effort }];
   });

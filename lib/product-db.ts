@@ -1,6 +1,18 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../app/chatgpt-auth";
-import type { D1 } from "./debrief-db";
+import { currentOwnerId } from "./current-athlete";
+import { applySchema, type D1 } from "./debrief-db";
+import { sessionCue as briefCue, startingFocus } from "./session-cue";
+import { openingBrief, openingFromMemory } from "./first-session";
+
+/**
+ * What a day-one brief records itself as built from.
+ *
+ * Keyed to "no training yet" rather than to the starting focus it happened to
+ * sit alongside. The moment a first session lands this stops matching and the
+ * brief is rebuilt from real training, instead of an athlete being told about
+ * their first night for another eighteen hours.
+ */
+const FIRST_SESSION_SOURCE = "first-session";
 
 export type FighterProfile = {
   owner_id: string;
@@ -40,7 +52,23 @@ export const emptyAthleteSetup: AthleteSetup = {
 };
 
 export type MemorySnapshot = {
+  /** What the athlete said they train. On day one it is the only signal there is. */
+  disciplines: string[];
+  /** Their own words for where they are. A beginner and a competitor need different answers to the same question. */
+  experienceLevel: string;
+  /** Whether a fight is coming. It changes what is worth working on. */
+  competitionIntent: string;
+  /**
+   * Sessions in here, counted up to forty.
+   *
+   * Zero and one are the numbers that matter: they are the moment somebody
+   * decides whether this app is worth keeping, and the moment it has the least
+   * to work with. Everything above three reads the same.
+   */
+  sessionsLogged: number;
   currentFocus: string;
+  /** What the athlete typed themselves, if anything. Distinct from the focus FightIQ derived. */
+  statedFocus: string | null;
   focusReason: string;
   strongestAreas: string[];
   recurringProblems: string[];
@@ -57,217 +85,23 @@ export type PreTrainingBrief = { mission: string; reason: string; cue: string; s
 export type TrainingExperiment = { id: string; mission: string; cue: string; reason: string; status: string; startedAt: string | null; outcome: string | null };
 
 export async function getProductOwnerId() {
-  const user = await getChatGPTUser();
-  return user?.userId ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
+  // Email sign in and ChatGPT sign in both land here. See lib/identity.ts.
+  return (await currentOwnerId()) ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
-  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; ANTHROPIC_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string; SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string; SUPABASE_JWT_SECRET?: string };
+  return {
+    db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.ANTHROPIC_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY,
+    allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true", ownerEmails: runtime.FIGHTIQ_OWNER_EMAILS,
+    supabaseUrl: runtime.SUPABASE_URL, supabaseAnonKey: runtime.SUPABASE_ANON_KEY, supabaseJwtSecret: runtime.SUPABASE_JWT_SECRET,
+  };
 }
 
 export async function ensureProductSchema(db: D1) {
-  await db.batch([
-    db.prepare(`CREATE TABLE IF NOT EXISTS fighter_profiles (
-      owner_id TEXT PRIMARY KEY NOT NULL,
-      onboarding_completed_at TEXT,
-      athlete_setup_json TEXT NOT NULL DEFAULT '{}',
-      current_focus TEXT,
-      focus_reason TEXT,
-      primary_goal TEXT NOT NULL DEFAULT 'performance',
-      style_influences_json TEXT NOT NULL DEFAULT '[]',
-      calorie_target INTEGER NOT NULL DEFAULT 2400,
-      protein_target INTEGER NOT NULL DEFAULT 180,
-      carb_target INTEGER NOT NULL DEFAULT 260,
-      fat_target INTEGER NOT NULL DEFAULT 70,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS fighter_brain_evidence (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      entry_id TEXT NOT NULL,
-      category TEXT NOT NULL,
-      canonical_key TEXT NOT NULL,
-      label TEXT NOT NULL,
-      source TEXT NOT NULL,
-      confidence REAL NOT NULL,
-      observed_at TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS fighter_focus_recommendations (
-      owner_id TEXT PRIMARY KEY NOT NULL,
-      focus TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      confidence REAL NOT NULL,
-      entry_id TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS debrief_generation_leases (
-      entry_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      lease_id TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS coach_messages (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      chat_id TEXT,
-      role TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS coach_chats (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      title TEXT NOT NULL DEFAULT 'New chat',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS coach_message_enrichments (
-      assistant_message_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      follow_up TEXT NOT NULL,
-      follow_up_choices_json TEXT NOT NULL DEFAULT '[]',
-      video_mode TEXT NOT NULL DEFAULT 'none',
-      video_topic TEXT,
-      video_prompt TEXT,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_message_enrichments_owner_created ON coach_message_enrichments (owner_id, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS coach_turns (
-      user_message_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      chat_id TEXT,
-      assistant_message_id TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT NOT NULL,
-      completed_at TEXT
-    )`),
-    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_turns_assistant_message ON coach_turns (assistant_message_id)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_turns_owner_status ON coach_turns (owner_id, status, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS workout_plans (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      discipline TEXT NOT NULL,
-      goal TEXT NOT NULL,
-      fatigue TEXT NOT NULL,
-      duration_minutes INTEGER NOT NULL,
-      plan_json TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'planned',
-      created_at TEXT NOT NULL,
-      completed_at TEXT
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_workout_plans_owner_created ON workout_plans (owner_id, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS workout_setups (
-      owner_id TEXT PRIMARY KEY NOT NULL,
-      equipment_json TEXT NOT NULL DEFAULT '[]',
-      location TEXT NOT NULL DEFAULT '',
-      default_duration_minutes INTEGER NOT NULL DEFAULT 35,
-      unit TEXT NOT NULL DEFAULT 'lb',
-      limitations TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS workout_performances (
-      id TEXT PRIMARY KEY NOT NULL,
-      workout_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      exercise_key TEXT NOT NULL,
-      completed_sets INTEGER NOT NULL DEFAULT 0,
-      completed_reps INTEGER,
-      load_value REAL,
-      unit TEXT NOT NULL DEFAULT 'lb',
-      effort TEXT NOT NULL DEFAULT 'not_logged',
-      next_action TEXT NOT NULL,
-      next_load_value REAL,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_workout_performances_owner_exercise_created ON workout_performances (owner_id, exercise_key, created_at)"),
-    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_workout_performances_workout_exercise ON workout_performances (workout_id, exercise_key)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS nutrition_entries (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      description TEXT NOT NULL,
-      foods_json TEXT NOT NULL DEFAULT '[]',
-      calories INTEGER NOT NULL,
-      protein REAL NOT NULL,
-      carbs REAL NOT NULL,
-      fat REAL NOT NULL,
-      input_method TEXT NOT NULL,
-      photo_key TEXT,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_nutrition_entries_owner_created ON nutrition_entries (owner_id, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS pre_training_briefs (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      mission TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      cue TEXT NOT NULL,
-      source_focus TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      consumed_at TEXT
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_pre_training_briefs_owner_created ON pre_training_briefs (owner_id, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_experiments (
-      id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      brief_id TEXT,
-      mission TEXT NOT NULL,
-      cue TEXT NOT NULL,
-      reason TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'planned',
-      started_at TEXT,
-      outcome TEXT,
-      evidence TEXT,
-      created_at TEXT NOT NULL,
-      completed_at TEXT
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiments_owner_status ON training_experiments (owner_id, status, created_at)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_experiment_sessions (
-      entry_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      experiment_id TEXT NOT NULL,
-      created_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_experiment_sessions_owner_experiment ON training_experiment_sessions (owner_id, experiment_id)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS video_recommendation_history (
-      owner_id TEXT NOT NULL,
-      video_id TEXT NOT NULL,
-      study_topic TEXT NOT NULL,
-      served_at TEXT NOT NULL,
-      PRIMARY KEY (owner_id, video_id)
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)"),
-  ]);
-  const profileColumns = await db.prepare("PRAGMA table_info(fighter_profiles)").all<{ name: string }>();
-  const columnNames = new Set((profileColumns.results ?? []).map((column) => column.name));
-  const profileMigrations = [];
-  if (!columnNames.has("onboarding_completed_at")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN onboarding_completed_at TEXT"));
-  if (!columnNames.has("athlete_setup_json")) profileMigrations.push(db.prepare("ALTER TABLE fighter_profiles ADD COLUMN athlete_setup_json TEXT NOT NULL DEFAULT '{}'"));
-  if (profileMigrations.length) await db.batch(profileMigrations);
-  // This table existed before follow-up chips were introduced. CREATE TABLE
-  // IF NOT EXISTS does not alter existing tables, so upgrade legacy athlete
-  // data before Coach reads from it.
-  const enrichmentColumns = await db.prepare("PRAGMA table_info(coach_message_enrichments)").all<{ name: string }>();
-  const enrichmentColumnNames = new Set((enrichmentColumns.results ?? []).map((column) => column.name));
-  if (!enrichmentColumnNames.has("follow_up_choices_json")) {
-    await db.prepare("ALTER TABLE coach_message_enrichments ADD COLUMN follow_up_choices_json TEXT NOT NULL DEFAULT '[]'").run();
-  }
-  const messageColumns = await db.prepare("PRAGMA table_info(coach_messages)").all<{ name: string }>();
-  if (!(messageColumns.results ?? []).some((column) => column.name === "chat_id")) await db.prepare("ALTER TABLE coach_messages ADD COLUMN chat_id TEXT").run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_chat_created ON coach_messages (owner_id, chat_id, created_at)").run();
-  const turnColumns = await db.prepare("PRAGMA table_info(coach_turns)").all<{ name: string }>();
-  if (!(turnColumns.results ?? []).some((column) => column.name === "chat_id")) await db.prepare("ALTER TABLE coach_turns ADD COLUMN chat_id TEXT").run();
-  await db.prepare("PRAGMA optimize").run();
+  // One list owns the schema. Every entry point applies all of it, so no route
+  // can be the only reason a table exists.
+  await applySchema(db);
 }
 
 export async function getOrCreateProfile(db: D1, ownerId: string): Promise<FighterProfile> {
@@ -308,8 +142,14 @@ export function getAthleteSetup(profile: FighterProfile): AthleteSetup {
   } catch { return { ...emptyAthleteSetup }; }
 }
 
+// Short labels read better in title case: "Support Foot", "Arm Drag". A whole
+// sentence does not — "Your Session Is Saved With The Detail You Logged" looks
+// like a machine wrote it, because a machine did.
 function titleCase(value: string) {
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const clean = value.replace(/[_-]+/g, " ").trim();
+  const isSentence = clean.split(/\s+/).length > 4 || /[.!?]$/.test(clean);
+  if (isSentence) return clean.charAt(0).toUpperCase() + clean.slice(1);
+  return clean.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function topValues(values: string[], limit: number) {
@@ -574,7 +414,14 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const latestFocus = completedRows.find((row) => row.next_session_focus)?.next_session_focus;
   // A manually saved focus is the athlete's intent. FightIQ's recommendation is
   // deliberately separate and can evolve from evidence without overwriting it.
-  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || "Build a reliable first layer of defense";
+  const setup = getAthleteSetup(profile);
+  // Before there is any training, the focus is the opening one, so My Game, the
+  // home card and the rail into the gym all name the same thing. They used to
+  // disagree, which is the cheapest possible way to lose somebody's trust.
+  const opening = rows.length === 0
+    ? openingBrief({ disciplines: setup.disciplines, experienceLevel: setup.experienceLevel, competitionIntent: setup.competitionIntent, currentFocus: profile.current_focus })
+    : null;
+  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || opening?.mission || startingFocus(setup.disciplines);
   const used = [currentFocus];
   const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
@@ -604,13 +451,24 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     : completedRows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
   used.push(improvement);
   const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
-  const evolutionTopic = takeDistinct(topValues([...relatedTopics, ...concepts, ...techniques], 12), used, 1)[0];
+  // A session type, a discipline name or a bare word is not a layer to build.
+  // "Build Class as the layer that connects your current focus" is what happens
+  // without this, and it reads exactly as carelessly as it sounds.
+  const notASkill = /^(class|drilling|sparring|open mat|private|training|session|mma|bjj|boxing|judo|wrestling|muay thai|kickboxing|round|rounds|gym|coach)$/i;
+  const evolutionCandidates = topValues([...relatedTopics, ...concepts, ...techniques], 12)
+    .filter((topic) => topic.trim().length > 3 && !notASkill.test(topic.trim()));
+  const evolutionTopic = takeDistinct(evolutionCandidates, used, 1)[0];
   const nextEvolution = evolutionTopic
     ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
   return {
+    disciplines: setup.disciplines,
+    experienceLevel: setup.experienceLevel,
+    competitionIntent: setup.competitionIntent,
+    sessionsLogged: rows.length,
     currentFocus,
-    focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
+    statedFocus: profile.current_focus?.trim() || null,
+    focusReason: profile.focus_reason || recommendedFocus?.reason || opening?.promise || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
     recurringProblems: recurringProblems.length ? recurringProblems : ["No recurring problem confirmed yet"],
     recentImprovement: improvement,
@@ -625,34 +483,49 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
       : takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
     // Recent notes are useful as near-term Learn/Coach context, but unfinished
     // debriefs deliberately carry no inferred takeaway or focus.
-    recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
+    // Sixteen, not six: the weekly review decides whether a theme is new by
+    // looking at what came before this week, and with six sessions an athlete
+    // training three times a week has barely two weeks of history to judge from.
+    // Notes are capped rather than sent whole. Sixteen unbounded notes is up to
+    // 190KB of JSON on every home screen load, over a phone connection, to show
+    // a weekly summary — and no real note comes close to this limit anyway.
+    recentTraining: rows.slice(0, 16).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry.slice(0, 900), takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
   };
 }
 
-function briefCue(mission: string) {
-  const lower = mission.toLowerCase();
-  if (lower.includes("arm drag") || lower.includes("drag")) return "Drag → take the angle.";
-  if (lower.includes("kick") || lower.includes("hip")) return "Pivot first → hip follows.";
-  if (lower.includes("frame")) return "Frames first → then move.";
-  if (lower.includes("defense")) return "See it early → make space.";
-  return "Pick one detail to pay attention to.";
-}
+
 
 export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memory?: MemorySnapshot): Promise<PreTrainingBrief> {
   const now = new Date();
   const since = new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString();
+  const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
+  const opening = openingFromMemory(fighterMemory);
+  // What this brief was built from, and therefore what makes it stale. Before
+  // any training that is the fact of there being none, not the starting focus.
+  const focus = opening ? FIRST_SESSION_SOURCE : fighterMemory.currentFocus;
   const existing = await db.prepare(`SELECT mission, reason, cue, source_focus, created_at FROM pre_training_briefs
     WHERE owner_id = ? AND consumed_at IS NULL AND created_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, since).first<{ mission: string; reason: string; cue: string; source_focus: string; created_at: string }>();
-  if (existing) {
+  // A brief is only worth reusing while the focus it was built from is still the
+  // athlete's focus. The first request an app makes lands before onboarding has
+  // finished, so without this a new athlete's first brief was built from an
+  // empty profile — and then cached for eighteen hours, telling a Muay Thai
+  // athlete about something from a sport they do not train.
+  if (existing && existing.source_focus === focus) {
     const refreshedCue = briefCue(existing.mission);
     if (refreshedCue !== existing.cue) await db.prepare("UPDATE pre_training_briefs SET cue = ? WHERE owner_id = ? AND created_at = ?").bind(refreshedCue, ownerId, existing.created_at).run();
     return { mission: existing.mission, reason: existing.reason, cue: refreshedCue, sourceFocus: existing.source_focus, createdAt: existing.created_at };
   }
-  const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
+  if (existing) {
+    // The stale one is retired rather than left to be picked up by the next read.
+    await db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")
+      .bind(now.toISOString(), ownerId).run();
+  }
   const latest = fighterMemory.recentTraining[0];
-  const focus = fighterMemory.currentFocus;
-  const mission = latest?.focus || focus;
-  const reason = latest?.takeaway || fighterMemory.focusReason;
+  // Before the first session there is nothing to carry forward, so the brief is
+  // the opening one. Built here rather than only in the response, because
+  // pressing "start brief" reads this back and the two must not disagree.
+  const mission = opening?.mission || latest?.focus || fighterMemory.currentFocus;
+  const reason = opening?.body || latest?.takeaway || fighterMemory.focusReason;
   const brief: PreTrainingBrief = { mission: shortTopic(mission, "Test your current focus"), reason: shortTopic(reason, "Carry one clear detail from your last session into live work."), cue: briefCue(mission), sourceFocus: focus, createdAt: now.toISOString() };
   await db.prepare(`INSERT INTO pre_training_briefs (id, owner_id, mission, reason, cue, source_focus, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`)

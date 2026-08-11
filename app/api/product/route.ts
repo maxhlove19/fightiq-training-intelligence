@@ -1,5 +1,8 @@
+import { currentAthlete } from "../../../lib/current-athlete";
+import { recordAthleteVisit } from "../../../lib/accounts-db";
 import { buildLearnFeed } from "../../../lib/video-recommendations";
 import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { openingFromMemory } from "../../../lib/first-session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,14 @@ export async function GET(request: Request) {
   const { db, youtubeApiKey } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
   await ensureProductSchema(db);
+  // Every screen loads this first, so it is where an anonymous id becomes an
+  // account somebody can see. A failure here must never cost an athlete their
+  // home screen, so it is allowed to fail on its own.
+  try {
+    const athlete = await currentAthlete();
+    if (athlete) await recordAthleteVisit(db, { userId: athlete.id, email: athlete.email, displayName: athlete.displayName });
+  } catch { /* the roster can miss a visit; the athlete cannot miss their app */ }
+
   const [profile, memory, nutrition, recentWorkouts, trainingCount, foodCount] = await Promise.all([
     getOrCreateProfile(db, ownerId),
     getMemorySnapshot(db, ownerId),
@@ -39,6 +50,11 @@ export async function GET(request: Request) {
     getActiveTrainingExperiment(db, ownerId),
   ]);
   const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
+  // Day one has no training to read, which used to mean the largest card on the
+  // home screen said the app knew nothing. It knows what they just spent six
+  // screens telling it, so it says the thing that is usually true at their level
+  // and is honest that it is a hypothesis rather than a read on their game.
+  const opening = openingFromMemory(memory);
   return Response.json({
     profile: {
       currentFocus: profile.current_focus,
@@ -51,10 +67,12 @@ export async function GET(request: Request) {
     onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
     insight: {
-      title: latestCompletedTraining ? "Here’s what matters next." : "Build your baseline.",
-      body: latestCompletedTraining?.takeaway || memory.focusReason,
+      title: opening?.title ?? (latestCompletedTraining ? "Here’s what matters next." : "Build your baseline."),
+      body: opening?.body ?? latestCompletedTraining?.takeaway ?? memory.focusReason,
       currentFocus: memory.currentFocus,
     },
+    opening,
+    sessionsLogged: memory.sessionsLogged,
     videos: learn.videos,
     learn: { studyTopic: learn.studyTopic, exploreUrl: learn.exploreUrl, liveDiscoveryAvailable: learn.liveDiscoveryAvailable, refreshed: learn.refreshed },
     preTrainingBrief,

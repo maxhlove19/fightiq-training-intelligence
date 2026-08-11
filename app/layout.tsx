@@ -7,7 +7,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export function generateMetadata(): Metadata {
   return {
-    title: "FightIQ — Train with direction",
+    title: "FightIQ. Train with direction.",
     description: "FightIQ learns your game and tells you what to work on next.",
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
     openGraph: { title: "FightIQ", description: "Train with direction." },

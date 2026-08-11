@@ -4,8 +4,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
-  LoaderCircle, MessageCircle, Mic, Pencil, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
+  LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
+import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
+import { buildWeeklyReview, themeStatusLabel } from "../../lib/weekly-review";
+import { FIRST_WEEK_CARDS, firstWeekPlan } from "../../lib/first-session";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -18,6 +21,9 @@ export type ProductData = {
   onboarding: { status: "required" | "legacy" | "complete" };
   memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[]; recentTraining: Array<{ discipline: string; sessionType: string; note: string; takeaway: string | null; focus: string | null; createdAt: string }> };
   insight: { title: string; body: string; currentFocus: string };
+  /** Present only until the first session is logged. See lib/first-session.ts. */
+  opening: { title: string; body: string; watchFor: string; cue: string; promise: string } | null;
+  sessionsLogged: number;
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };
@@ -90,11 +96,48 @@ function LoadingState({ label = "Reading your FightIQ memory…" }: { label?: st
   return <div className="inline-loading" role="status"><LoaderCircle size={22} className="spin" /><span>{label}</span></div>;
 }
 
+type StudyVideo = ProductData["videos"][number];
+
+// The study plays here rather than on YouTube. Sending an athlete out to a
+// recommendation feed to watch one detail is how a study session ends up
+// somewhere else entirely, so the video and the thing to look for stay in the
+// same frame. Nothing is requested from YouTube until the athlete hits play.
+function StudyCard({ video, playing, onPlay, onClose }: { video: StudyVideo; playing: boolean; onPlay: () => void; onClose: () => void }) {
+  const embed = `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+  return <article className={playing ? "learn-video studying" : "learn-video"}>
+    {playing
+      ? <div className="study-frame">
+          <iframe
+            src={embed}
+            title={video.title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+          <button type="button" className="study-close" onClick={onClose} aria-label="Close this study"><X size={16} /></button>
+        </div>
+      : <button type="button" className="real-video-thumb" onClick={onPlay} aria-label={`Play ${video.title}`}>
+          <img src={video.thumbnail} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+          <span className="video-source">{video.duration}</span>
+          <span className="play"><Play size={20} fill="currentColor" /></span>
+        </button>}
+    <div className="video-copy">
+      <span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH" : ""}</span>
+      <h3>{video.title}</h3>
+      <p className="creator-line">{video.creator}</p>
+      {/* the detail to look for stays on screen while the footage runs */}
+      <p className="watch-for"><b>Watch for</b> {video.watchFor}</p>
+      <details className="why-detail"><summary>Why this <ChevronRight size={14} /></summary><p>{video.why}</p></details>
+      <a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Open on YouTube <ExternalLink size={14} /></a>
+    </div>
+  </article>;
+}
+
 export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { studyTopic?: string | null; onReturnToFeed?: () => void; onReturnToCoach?: () => void }) {
   const topicQuery = studyTopic?.trim() ?? "";
   const baseUrl = topicQuery ? `/api/product?topic=${encodeURIComponent(topicQuery)}` : "/api/product";
   const { data, error, reload } = useProductData(baseUrl);
   const [refreshing, setRefreshing] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const [refreshState, setRefreshState] = useState({ topic: "", cursor: 0, notice: "" });
   const refreshCursor = refreshState.topic === topicQuery ? refreshState.cursor : 0;
   const refreshNotice = refreshState.topic === topicQuery ? refreshState.notice : "";
@@ -108,7 +151,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     if (loaded) {
       setRefreshState({ topic: topicQuery, cursor: nextCursor, notice: "Updated with a new set of studies." });
     } else {
-      setRefreshState({ topic: topicQuery, cursor: refreshCursor, notice: "Couldn’t refresh right now. Your current studies are still here—try again when you’re ready." });
+      setRefreshState({ topic: topicQuery, cursor: refreshCursor, notice: "Couldn’t refresh right now. Your current studies are still here. Try again when you’re ready." });
     }
     setRefreshing(false);
   }
@@ -118,10 +161,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     {data && <>
       {topicQuery && <div className="coach-topic-return"><button className="text-link" onClick={onReturnToCoach ?? onReturnToFeed}>{onReturnToCoach ? "Back to Coach" : "Back to my feed"} <ChevronRight size={14} /></button></div>}
       <div className="feed-heading"><div><p className="eyebrow">{topicQuery ? "COACH VIDEO PICKS" : "FOR YOUR NEXT STUDY"}</p>{(data.learn.refreshed || refreshNotice) && <p className="refresh-note" role="status">{refreshNotice || "Fresh studies ready."}</p>}</div><button className="text-link" onClick={() => void refreshRecommendations()} disabled={refreshing}><RefreshCw size={14} className={refreshing ? "spin" : ""} /> {refreshing ? "Finding…" : "Refresh"}</button></div>
-      <div className="video-feed">{data.videos.map((video) => <article className="learn-video" key={video.id}>
-        <a className="real-video-thumb" href={video.url} target="_blank" rel="noreferrer" aria-label={`Watch ${video.title} on YouTube`}><img src={video.thumbnail} alt={`Video thumbnail for ${video.title}`} /><span className="video-source">{video.duration}</span><span className="play"><ChevronRight size={22} fill="currentColor" /></span></a>
-        <div className="video-copy"><span className="video-type">{video.discipline}{video.source === "youtube" ? " · FRESH" : ""}</span><h3>{video.title}</h3><p className="creator-line">{video.creator}</p><details className="why-detail"><summary>Why this <ChevronRight size={14} /></summary><p>{video.why}</p><p><b>Watch for:</b> {video.watchFor}</p></details><a className="watch-link" href={video.url} target="_blank" rel="noreferrer">Watch video <ExternalLink size={14} /></a></div>
-      </article>)}</div>
+      <div className="video-feed">{data.videos.map((video) => <StudyCard key={video.id} video={video} playing={playingId === video.id} onPlay={() => setPlayingId(video.id)} onClose={() => setPlayingId(null)} />)}</div>
       <a className="watch-link explore-link" href={data.learn.exploreUrl} target="_blank" rel="noreferrer">More on YouTube <ExternalLink size={14} /></a>
     </>}
   </main>;
@@ -145,6 +185,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [failure, setFailure] = useState<CoachFailure | null>(null);
+  const [safety, setSafety] = useState<{ signal: SafetySignal; messageId: string } | null>(null);
   const voice = useVoiceField(question, setQuestion);
   const endRef = useRef<HTMLDivElement | null>(null);
   const composeRef = useRef<HTMLTextAreaElement | null>(null);
@@ -160,7 +201,11 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     if (!retryMessageId) setMessages((current) => [...current, optimistic]);
     try {
       const response = await fetch("/api/coach", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: pending, messageId, chatId: activeChatId }) });
-      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; error?: { code?: string; message?: string } };
+      const data = await response.json() as { user?: CoachMessage; assistant?: CoachMessage; suggestions?: string[]; safety?: SafetySignal; error?: { code?: string; message?: string } };
+      // The scan runs on the server for every outcome, so an athlete who asks
+      // Coach whether they can train after a head knock gets the same answer
+      // whether or not the model replied at all.
+      if (data.safety) setSafety(data.safety.level === "none" ? null : { signal: data.safety, messageId });
       if (!response.ok || !data.assistant) {
         const code = data.error?.code ?? "AI_UNAVAILABLE";
         // The saved turn is still processing elsewhere. Keeping it in the
@@ -209,10 +254,42 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     </section>
     {showSuggestions && <section className="coach-suggestions" aria-label="Suggested questions"><span>ASK NEXT</span><div className="prompt-list">{suggestions.map((prompt) => <button key={prompt} onClick={() => void send(prompt)} disabled={sending}>{prompt}<ChevronRight size={15} /></button>)}</div></section>}
     {(error || voice.voiceError) && <p className="error-message" role="alert">{error || voice.voiceError}</p>}
+    {safety && <div className="coach-safety"><SafetyNotice signal={safety.signal} storageKey={`fightiq-safety-coach-${safety.messageId}`} /></div>}
     {failure && <div className="coach-error" role="alert"><p>{failureText}</p><button onClick={() => void send(failure.question, failure.messageId)} disabled={sending}><RefreshCw size={15} /> {failure.code === "COACH_RESPONSE_PENDING" ? "Check for reply" : "Retry"}</button></div>}
     <div className="coach-compose"><textarea ref={composeRef} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={sendWithKeyboard} placeholder={activeFollowUp ? "Type or talk a different answer…" : "Ask about training, technique, recovery, workouts, or food…"} aria-label="Ask FightIQ" aria-keyshortcuts="Control+Enter Meta+Enter" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}>{voice.listening ? <X size={19} /> : <Mic size={19} />}</button><button className="compose-send" onClick={() => void send()} disabled={!question.trim() || sending} aria-label="Send question"><Send size={18} /></button></div>
     <p className="sr-status" aria-live="polite">{sending ? "FightIQ is thinking with your training context." : messages.at(-1)?.role === "assistant" ? "FightIQ replied." : ""}</p>
   </main>;
+}
+
+// The payoff for logging. Improvement in this sport does not happen inside one
+// session, so this is the first screen that zooms out far enough to show it —
+// computed from sessions already in memory, with no model call and no wait.
+function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["recentTraining"]; target: number }) {
+  const review = useMemo(() => buildWeeklyReview(sessions, target), [sessions, target]);
+  return <section className="week-review">
+    <div className="week-head">
+      <p className="eyebrow">YOUR LAST SEVEN DAYS</p>
+      <h2>{review.headline}</h2>
+      <p className="week-sub">{review.subline}</p>
+    </div>
+    {review.hasData && <>
+      <div className="week-stats">
+        <div><strong>{review.sessions}</strong><small>{review.sessions === 1 ? "session" : "sessions"}</small></div>
+        <div><strong>{review.days}</strong><small>{review.days === 1 ? "day trained" : "days trained"}</small></div>
+        <div><strong>{review.hardestGapDays}</strong><small>{review.hardestGapDays === 0 ? "days without a gap" : review.hardestGapDays === 1 ? "day off in a row" : "days off in a row"}</small></div>
+      </div>
+      {review.disciplines.length > 1 && <p className="week-split">{review.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(" · ")}</p>}
+      {review.themes.length > 0 && <div className="week-themes">
+        <span className="field-label">WHAT KEPT COMING UP</span>
+        {review.themes.map((theme) => <div className={`week-theme ${theme.status}`} key={theme.label}>
+          <strong>{theme.label}</strong>
+          <span>{theme.sessions === 1 ? "1 session" : `${theme.sessions} sessions`}</span>
+          <em>{themeStatusLabel(theme.status)}</em>
+        </div>)}
+        <p className="week-note">FightIQ can see what you stopped writing down. It cannot see what you fixed. That part is still your call.</p>
+      </div>}
+    </>}
+  </section>;
 }
 
 export function GameScreen() {
@@ -232,11 +309,19 @@ export function GameScreen() {
   return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && <>
+      {/* Day one, this screen was five cards each saying nothing is here yet.
+          The rules behind them are real, so it says what they are and what the
+          next few sessions unlock instead of asking for patience. */}
+      {data.opening
+        ? <section className="game-plan"><p className="eyebrow">WHAT HAPPENS NEXT</p>
+          <ol>{firstWeekPlan(data.profile.athleteSetup.sessionsPerWeek).map((step) => <li key={step.after}><strong>{step.after}</strong><span>{step.gets}</span></li>)}</ol>
+        </section>
+        : <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />}
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">
-        <section className="game-card"><span>STRENGTHS</span>{data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.memory.recentImprovement}</p></section>
+        <section className="game-card"><span>STRENGTHS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.strengths}</p> : data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
+        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.problems}</p> : data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
+        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.opening ? FIRST_WEEK_CARDS.improvement : data.memory.recentImprovement}</p></section>
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
@@ -344,6 +429,6 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
     </section>
     {(foods.length > 0 || macros.calories > 0) && <section className="estimate-card"><div className="estimate-heading"><div><p className="eyebrow">EDIT BEFORE SAVING</p><h2>FightIQ’s estimate</h2></div>{confidence && <span className={`confidence ${confidence}`}>{confidence} confidence</span>}</div>{foods.length > 0 && <div className="food-list">{foods.map((food, index) => <div key={`${food.name}-${index}`}><input value={food.name} aria-label={`Food ${index + 1}`} onChange={(event) => setFoods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input value={food.portion} aria-label={`Portion ${index + 1}`} onChange={(event) => setFoods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, portion: event.target.value } : item))} /></div>)}</div>}<div className="macro-edit-grid">{(["calories", "protein", "carbs", "fat"] as const).map((key) => <label key={key}><span>{key === "calories" ? "KCAL" : key.toUpperCase()}</span><input type="number" min="0" value={macros[key]} onChange={(event) => setMacros((current) => ({ ...current, [key]: Number(event.target.value) }))} /><small>{key === "calories" ? "" : "g"}</small></label>)}</div>{note && <p className="estimate-note">{note}</p>}<button className="primary-button" onClick={save} disabled={saving}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MEAL</>}</button></section>}
     {saved && <p className="saved-note"><Check size={14} /> Meal added to today.</p>}
-    {nutrition && nutrition.entries.length > 0 && <section className="today-food"><p className="eyebrow">TODAY</p>{nutrition.entries.map((entry) => <article key={entry.id}>{entry.photoUrl && <img src={entry.photoUrl} alt="Your logged meal" />}<div><strong>{entry.description}</strong><span>{entry.calories} kcal · P {Math.round(entry.protein)} · C {Math.round(entry.carbs)} · F {Math.round(entry.fat)}</span></div></article>)}</section>}
+    {nutrition && nutrition.entries.length > 0 && <section className="today-food"><p className="eyebrow">TODAY</p>{nutrition.entries.map((entry) => <article key={entry.id}>{entry.photoUrl && <img src={entry.photoUrl} alt="Your logged meal" onError={(event) => { event.currentTarget.style.display = "none"; }} />}<div><strong>{entry.description}</strong><span>{entry.calories} kcal · P {Math.round(entry.protein)} · C {Math.round(entry.carbs)} · F {Math.round(entry.fat)}</span></div></article>)}</section>}
   </main>;
 }

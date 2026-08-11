@@ -1,6 +1,10 @@
 import { answerCoach, ProductAIError } from "../../../lib/product-ai";
+import { scanTrainingNote } from "../../../lib/safety-signals";
 import type { D1 } from "../../../lib/debrief-db";
 import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
+import { readJsonObject } from "../../../lib/request-body";
+import { countRecentCoachQuestions } from "../../../lib/usage-db";
+import { checkUsage } from "../../../lib/usage-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -100,14 +104,31 @@ export async function POST(request: Request) {
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db, apiKey, allowMockAi } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ Coach is unavailable.", 503);
-  let body: { question?: unknown; messageId?: unknown; chatId?: unknown };
-  try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid question.", 400); }
+  const body = await readJsonObject(request) as { question?: unknown; messageId?: unknown; chatId?: unknown } | null;
+  if (!body) return productError("INVALID_REQUEST", "Invalid question.", 400);
   const question = typeof body.question === "string" ? body.question.trim() : "";
   const requestedMessageId = typeof body.messageId === "string" ? body.messageId.trim() : "";
   const requestedChatId = typeof body.chatId === "string" ? body.chatId.trim() : "";
   if (question.length < 2 || question.length > 3000) return productError("INVALID_QUESTION", "Question must be between 2 and 3,000 characters.", 422);
+  // Coach is the other place an athlete describes a head knock — usually as a
+  // question about whether they can train. The answer to that must not depend
+  // on a model reading the room correctly, so the same deterministic scan runs
+  // on what they typed and travels with every response, including the failures.
+  const safety = scanTrainingNote(question);
   if (requestedMessageId && (requestedMessageId.length < 8 || requestedMessageId.length > 100)) return productError("INVALID_MESSAGE_ID", "Invalid message identifier.", 422);
   await ensureProductSchema(db);
+  // A retry of a question already saved is not a new question, so it is not
+  // counted against the ceiling — otherwise a flaky connection spends an
+  // athlete's allowance on the same answer twice.
+  if (!requestedMessageId) {
+    const usage = checkUsage("coach_question", await countRecentCoachQuestions(db, ownerId));
+    if (!usage.allowed) {
+      return Response.json(
+        { error: { code: usage.code, message: usage.message }, safety },
+        { status: 429, headers: { "retry-after": String(usage.retryAfterSeconds) } },
+      );
+    }
+  }
   const activeChat = await ensureCoachChat(db, ownerId, requestedChatId);
   if (requestedChatId && activeChat.id !== requestedChatId) return productError("CHAT_NOT_FOUND", "That Coach chat is unavailable.", 404);
   const existingMessage = requestedMessageId
@@ -130,7 +151,7 @@ export async function POST(request: Request) {
     .bind(userMessageId, ownerId).first<{ status: string; created_at: string }>();
   if (existingTurn?.status === "complete") {
     const completed = await completedTurnResponse(db, ownerId, userMessageId, question, userCreatedAt);
-    if (completed) return Response.json(completed);
+    if (completed) return Response.json({ ...completed, safety });
   }
   let ownsPendingTurn = false;
   if (existingTurn?.status === "failed") {
@@ -154,8 +175,8 @@ export async function POST(request: Request) {
   }
   if (!ownsPendingTurn) {
     const completed = await completedTurnResponse(db, ownerId, userMessageId, question, userCreatedAt);
-    if (completed) return Response.json(completed);
-    return productError("COACH_RESPONSE_PENDING", "FightIQ is still finishing that answer. Try again in a moment.", 409, { savedMessageId: userMessageId });
+    if (completed) return Response.json({ ...completed, safety });
+    return productError("COACH_RESPONSE_PENDING", "FightIQ is still finishing that answer. Try again in a moment.", 409, { savedMessageId: userMessageId, safety });
   }
   const [memory, profile, workoutRows, nutrition, historyRows, activeExperiment] = await Promise.all([
     getMemorySnapshot(db, ownerId),
@@ -201,11 +222,12 @@ export async function POST(request: Request) {
         activeExperiment ? { mission: activeExperiment.mission, cue: activeExperiment.cue } : null,
         { followUp: answer.followUp, videoTopic: answer.video.topic },
       ),
+      safety,
     });
   } catch (error) {
     await db.prepare("UPDATE coach_turns SET status = 'failed' WHERE user_message_id = ? AND owner_id = ? AND status = 'pending'").bind(userMessageId, ownerId).run();
-    if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, { ...error.development, savedMessageId: userMessageId });
+    if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, { ...error.development, savedMessageId: userMessageId, safety });
     console.error("Unexpected FightIQ Coach failure", error);
-    return productError("AI_UNAVAILABLE", "FightIQ Coach couldn’t answer right now.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown server error", savedMessageId: userMessageId });
+    return productError("AI_UNAVAILABLE", "FightIQ Coach couldn’t answer right now.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown server error", savedMessageId: userMessageId, safety });
   }
 }

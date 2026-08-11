@@ -84,6 +84,24 @@ function disciplineFromContext(value: string) {
   return "MMA";
 }
 
+// What the athlete has actually written outranks what they ticked in setup —
+// but on day one there is nothing written, and the disciplines are the only
+// thing standing between a Muay Thai athlete and a boxing footwork drill.
+function signalText(memory: MemorySnapshot) {
+  const written = `${memory.recentTraining[0]?.note ?? ""} ${memory.currentFocus} ${memory.instructorDetails[0] ?? ""}`.trim();
+  return `${written} ${memory.recentTraining.length ? "" : memory.disciplines.join(" ")}`.toLowerCase();
+}
+
+/** Maps a declared discipline onto the family its curated studies live in. */
+function familyForDisciplines(disciplines: string[]) {
+  const text = disciplines.join(" ").toLowerCase();
+  if (/muay thai|kickbox/.test(text)) return "muay-thai-kick";
+  if (/bjj|jiu|grappl/.test(text)) return "guard-retention";
+  if (/wrestl/.test(text)) return "wrestling-takedown";
+  if (/boxing/.test(text)) return "boxing-footwork";
+  return "";
+}
+
 function queryVariants(memory: MemorySnapshot, topicOverride?: string) {
   const requestedTopic = topicOverride?.replace(/\s+/g, " ").trim().slice(0, 140) ?? "";
   if (requestedTopic) return [
@@ -92,8 +110,8 @@ function queryVariants(memory: MemorySnapshot, topicOverride?: string) {
     `${requestedTopic} common mistakes and corrections`,
     `${requestedTopic} live application`,
   ];
-  const raw = `${memory.recentTraining[0]?.note ?? ""} ${memory.currentFocus} ${memory.instructorDetails[0] ?? ""}`.toLowerCase();
-  return /kick|hip|pivot|bag|roundhouse/.test(raw)
+  const raw = signalText(memory);
+  return /kick|hip|pivot|bag|roundhouse|muay thai/.test(raw)
     ? ["Muay Thai round kick support foot pivot", "Muay Thai hip rotation round kick balance", "Muay Thai round kick timing and return to stance", "Muay Thai round kick mechanics drill"]
     : /arm drag/.test(raw)
       ? ["BJJ arm drag take back control", "BJJ arm drag opponent squares back", "MMA arm drag back take drill", "BJJ arm drag shoulder control under resistance"]
@@ -112,13 +130,15 @@ function queryFor(memory: MemorySnapshot, refreshCursor: number, topicOverride?:
 }
 
 function topicFamily(memory: MemorySnapshot) {
-  const raw = `${memory.recentTraining[0]?.note ?? ""} ${memory.currentFocus} ${memory.instructorDetails[0] ?? ""}`.toLowerCase();
-  if (/kick|hip|pivot|bag|roundhouse/.test(raw)) return "muay-thai-kick";
+  const raw = signalText(memory);
+  if (/kick|hip|pivot|bag|roundhouse|muay thai/.test(raw)) return "muay-thai-kick";
   if (/arm drag/.test(raw)) return "arm-drag";
   if (/guard|pass/.test(raw)) return "guard-retention";
   if (/wrestl|single leg|double leg|takedown/.test(raw)) return "wrestling-takedown";
   if (/box|jab|cross|hook|footwork/.test(raw)) return "boxing-footwork";
-  return "mma-foundations";
+  // Nothing written and nothing matched: fall back to what they train rather
+  // than to generic MMA.
+  return familyForDisciplines(memory.disciplines) || "mma-foundations";
 }
 
 function familyBoost(family: string, topics: string[]) {

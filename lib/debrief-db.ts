@@ -1,43 +1,34 @@
+import { APP_COLUMNS, APP_INDEXES, APP_TABLES } from "./schema";
+
 export type D1 = D1Database;
 
+/**
+ * Columns cannot go in the batch above: a batch is all-or-nothing, and the
+ * expected outcome here is failure. Each one is attempted on its own and the
+ * duplicate-column error is swallowed, which is what makes it idempotent.
+ */
+export async function applyColumns(db: D1) {
+  for (const { table, column, definition } of APP_COLUMNS) {
+    try { await db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run(); }
+    catch { /* already there, which is the steady state */ }
+  }
+}
+
 export async function ensureDebriefSchema(db: D1) {
-  await db.batch([
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_debriefs (
-      entry_id TEXT PRIMARY KEY NOT NULL,
-      owner_id TEXT NOT NULL,
-      summary TEXT,
-      takeaway TEXT,
-      coach_detail TEXT,
-      fightiq_explanation TEXT,
-      next_session_focus TEXT,
-      structured_memory_json TEXT,
-      status TEXT NOT NULL,
-      question_count INTEGER NOT NULL DEFAULT 0,
-      confidence REAL NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )`),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_debriefs_owner_status ON training_debriefs (owner_id, status)"),
-    db.prepare(`CREATE TABLE IF NOT EXISTS training_followups (
-      id TEXT PRIMARY KEY NOT NULL,
-      entry_id TEXT NOT NULL,
-      owner_id TEXT NOT NULL,
-      sequence INTEGER NOT NULL,
-      question TEXT NOT NULL,
-      choices_json TEXT NOT NULL,
-      target_field TEXT NOT NULL,
-      why_asked TEXT NOT NULL,
-      answer TEXT,
-      answer_source TEXT,
-      status TEXT NOT NULL,
-      confidence_before REAL NOT NULL,
-      confidence_after REAL,
-      created_at TEXT NOT NULL,
-      answered_at TEXT
-    )`),
-    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_training_followups_entry_sequence ON training_followups (entry_id, sequence)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_training_followups_owner_status ON training_followups (owner_id, status)"),
-  ]);
+  await applySchema(db);
+}
+
+/**
+ * Tables, then columns, then indexes — in that order, always.
+ *
+ * An index over a column that APP_COLUMNS adds cannot be created before that
+ * column exists. Doing it in one batch worked on a new database and 500'd every
+ * request on an existing one.
+ */
+export async function applySchema(db: D1) {
+  await db.batch(APP_TABLES.map((statement) => db.prepare(statement)));
+  await applyColumns(db);
+  await db.batch(APP_INDEXES.map((statement) => db.prepare(statement)));
 }
 
 export async function getOwnedEntry(db: D1, entryId: string, ownerId: string) {
@@ -78,7 +69,15 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
     nextSessionFocus: debrief.next_session_focus,
     answeredCount,
     questionCount: rows.length,
-    memoryUpdated: debrief.status === "complete" && Boolean(debrief.structured_memory_json),
+    // "Memory updated" and "key insight" are claims, and they were being made
+    // over the offline fallback, whose takeaway is "your session is saved with
+    // the detail you logged". An acknowledgement labelled as an insight is the
+    // fastest way to stop being believed.
+    //
+    // A next-session focus is the promise this app makes, so it is what earns
+    // the claim. Every fallback path returns an empty one, and a debrief held
+    // back for a head knock deliberately has none either.
+    memoryUpdated: debrief.status === "complete" && Boolean(debrief.structured_memory_json) && Boolean(debrief.next_session_focus?.trim()),
     coachDetail: debrief.coach_detail,
   };
   if (debrief.status === "complete") return { ...base, status: "complete" as const };

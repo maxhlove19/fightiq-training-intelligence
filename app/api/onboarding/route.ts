@@ -1,5 +1,6 @@
 import { calculateStartingMacros, validateOnboarding } from "../../../lib/athlete-onboarding";
 import { ensureProductSchema, getProductOwnerId, getProductRuntime, productError } from "../../../lib/product-db";
+import { readJsonObject } from "../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 
@@ -8,8 +9,8 @@ export async function POST(request: Request) {
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
   const { db } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
-  let body: unknown;
-  try { body = await request.json(); } catch { return productError("INVALID_REQUEST", "Invalid athlete setup.", 400); }
+  const body: unknown = await readJsonObject(request);
+  if (!body) return productError("INVALID_REQUEST", "Invalid athlete setup.", 400);
   const validation = validateOnboarding(body);
   if (!validation.input) return productError("INVALID_ONBOARDING", validation.error ?? "Check your athlete setup.", 422);
   await ensureProductSchema(db);
@@ -29,8 +30,17 @@ export async function POST(request: Request) {
         heightCm: input.heightCm, weightKg: input.weightKg, dietaryRestrictions: input.dietaryRestrictions, foodPreferences: input.foodPreferences,
         foodsToAvoid: input.foodsToAvoid, mealsPerDay: input.mealsPerDay, trainingTime: input.trainingTime,
       }),
-      input.currentFocus || `Build a stronger ${input.disciplines[0]} game`,
-      input.currentFocus ? "Set during your athlete setup." : "Your starting focus will sharpen as FightIQ learns from your training.",
+      // Only a focus the athlete actually typed is stored. Writing a seeded one
+      // here pinned it for ever: the stored focus outranks FightIQ's own
+      // recommendation, so "FightIQ will find your first focus from training" —
+      // the promise on this very screen — could never come true. Left null, the
+      // starting focus is derived on read and steps aside as soon as there is
+      // evidence to replace it.
+      input.currentFocus || null,
+      // This is read back to the athlete under their focus, so it has to be
+      // written for them. "Set during your athlete setup" was a note to
+      // ourselves that happened to be rendered on their home screen.
+      input.currentFocus ? "This is what you said you were working on. FightIQ will sharpen it from your training." : "Your starting focus will sharpen as FightIQ learns from your training.",
       input.primaryGoal, JSON.stringify(input.styleInfluences), targets?.calories ?? 2400, targets?.protein ?? 180,
       targets?.carbs ?? 260, targets?.fat ?? 70, now, now,
     ).run();

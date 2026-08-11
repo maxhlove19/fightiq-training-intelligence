@@ -1,4 +1,5 @@
 import { ensureProductSchema, getOrCreateProfile, getProductOwnerId, getProductRuntime, productError } from "../../../lib/product-db";
+import { readJsonObject } from "../../../lib/request-body";
 
 export const dynamic = "force-dynamic";
 const goals = new Set(["cut", "maintain", "gain muscle", "performance"]);
@@ -10,8 +11,8 @@ export async function POST(request: Request) {
   if (!db) return productError("STORAGE_UNAVAILABLE", "FightIQ memory is unavailable.", 503);
   await ensureProductSchema(db);
   const existing = await getOrCreateProfile(db, ownerId);
-  let body: Record<string, unknown>;
-  try { body = await request.json() as Record<string, unknown>; } catch { return productError("INVALID_REQUEST", "Invalid profile update.", 400); }
+  const body = await readJsonObject(request);
+  if (!body) return productError("INVALID_REQUEST", "Invalid profile update.", 400);
   const currentFocus = typeof body.currentFocus === "string" ? body.currentFocus.trim().slice(0, 240) : existing.current_focus;
   const focusReason = typeof body.focusReason === "string" ? body.focusReason.trim().slice(0, 500) : existing.focus_reason;
   const primaryGoal = typeof body.primaryGoal === "string" && goals.has(body.primaryGoal) ? body.primaryGoal : existing.primary_goal;

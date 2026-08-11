@@ -38,3 +38,7 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+tsconfig.tsbuildinfo
+
+# Local-only secrets and flags. Never committed.
+.dev.vars

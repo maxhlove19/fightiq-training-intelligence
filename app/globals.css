@@ -1650,3 +1650,31 @@ body { letter-spacing: .003em; }
 
 /* Which night a takeaway came from. */
 .home-insight-from { margin: var(--space-2) 0 0; color: var(--muted-2); font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+
+/* BODYWEIGHT
+ *
+ * A curve rather than a number, because in this sport the number on its own
+ * says nothing. Drawn from the values themselves with no charting library:
+ * fourteen dots positioned by percentage between the low and the high. */
+.weight-record { display: grid; gap: var(--space-2); margin: 0 0 var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+.weight-headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); }
+.weight-headline > strong { color: var(--ink); font-size: var(--text-xl); font-weight: 620; letter-spacing: -.04em; line-height: 1; }
+.weight-headline > strong em { margin-left: 2px; color: var(--muted-2); font-size: var(--text-sm); font-style: normal; font-weight: 600; }
+.weight-headline span { font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.weight-headline .down { color: #5ed2a0; }
+.weight-headline .up { color: #f0a92b; }
+.weight-headline .steady { color: var(--muted-2); }
+.weight-curve { display: flex; align-items: flex-end; gap: 3px; height: 34px; margin: 0; padding: 0; list-style: none; }
+.weight-curve li { position: relative; flex: 1 1 0; height: 100%; }
+/* --at is the value's position between the low and the high of the window. */
+/* Explicit blue rather than var(--blue-bright), which resolves to cyan. The
+   token is redefined to a cyan palette late in this file while almost every
+   component hardcodes the blue family, so the token no longer describes what the
+   app looks like. Matching the neighbours here rather than being the one cyan
+   section on the screen. Worth reconciling, but not inside this change. */
+.weight-curve li i { position: absolute; left: 0; right: 0; bottom: var(--at, 50%); height: 3px; border-radius: 2px; background: #4fb0ff; }
+.weight-curve li:last-child i { height: 5px; background: var(--ink); }
+.weight-range, .weight-empty { margin: 0; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; }
+.weight-entry { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); margin-top: var(--space-1); }
+.weight-entry input { min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: var(--text-base); }
+.weight-entry button { min-height: 40px; padding: 0 var(--space-4); border: 0; border-radius: 8px; background: #1384ff; color: white; font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 800; letter-spacing: .1em; cursor: pointer; }

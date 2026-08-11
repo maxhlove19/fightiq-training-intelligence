@@ -248,6 +248,20 @@ export const APP_TABLES: string[] = [
       /** Null while this is the focus the athlete is on. */
       ended_at TEXT
     )`,
+  // Bodyweight as a record rather than a current value.
+  //
+  // It lived inside athlete_setup_json, and onboarding upserts that whole blob,
+  // so changing your weight destroyed the previous one. In combat sports the
+  // weight curve is not a nice-to-have, it is half of what an athlete manages,
+  // and like the focus it cannot be reconstructed after the fact.
+  `CREATE TABLE IF NOT EXISTS athlete_weigh_ins (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      weight_kg REAL NOT NULL,
+      /** onboarding | logged */
+      source TEXT NOT NULL DEFAULT 'onboarding',
+      recorded_at TEXT NOT NULL
+    )`,
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -304,6 +318,7 @@ export const APP_INDEXES: string[] = [
   // in a unique index, so indexing the always-NULL column would have enforced
   // nothing at all while looking like it enforced something.
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_periods_owner_open ON focus_periods (owner_id) WHERE ended_at IS NULL",
+  "CREATE INDEX IF NOT EXISTS idx_athlete_weigh_ins_owner_recorded ON athlete_weigh_ins (owner_id, recorded_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_last_seen ON athlete_accounts (last_seen_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_first_seen ON athlete_accounts (first_seen_at)",
 ];

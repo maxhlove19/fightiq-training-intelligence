@@ -5,6 +5,7 @@ import { sessionCue as briefCue, startingFocus } from "./session-cue";
 import { openingBrief, openingFromMemory } from "./first-session";
 import { clip, clipLabel, sentence } from "./clip";
 import { recordFocus, type FocusSource } from "./focus-history";
+import { isUsableWeight, recordWeighIn } from "./weight-history";
 
 /**
  * What a day-one brief records itself as built from.
@@ -518,6 +519,12 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   // records the same change, because the change is derived rather than an event.
   const focusSource: FocusSource = profile.current_focus ? "stated" : opening ? "opening" : "fightiq";
   const focusReasonForHistory = profile.focus_reason || recommendedFocus?.reason || opening?.promise || "";
+  // The same treatment for bodyweight. Onboarding overwrites the setup blob, so
+  // without this an athlete who updates their weight destroys the old one, and
+  // the curve that matters most in this sport never exists.
+  if (isUsableWeight(setup.weightKg)) {
+    void recordWeighIn(db, ownerId, { weightKg: setup.weightKg, source: "onboarding", now: new Date().toISOString() }).catch(() => undefined);
+  }
   void recordFocus(db, ownerId, {
     focus: currentFocus,
     reason: focusReasonForHistory,

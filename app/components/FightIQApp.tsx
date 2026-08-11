@@ -1,11 +1,11 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- this is a third-party YouTube thumbnail, not an app-owned image asset. */
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import {
   ArrowLeft, BookOpen, Bot, Check, ChevronRight, CircleUserRound,
   Dumbbell, Home, Mic, RefreshCw, Send, Sparkles, Utensils, X,
 } from "lucide-react";
-import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
+import { CoachScreen, FoodScreen, GameScreen, LearnScreen, productStore, WorkoutScreen } from "./ProductScreens";
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
 import { openingGreeting } from "../../lib/first-session";
@@ -154,13 +154,17 @@ function SignOutButton({ name, provider }: { name: string; provider: AuthProvide
     setBusy(true);
     try { await fetch("/api/auth/signout", { method: "POST" }); } catch { /* the cookie may already be gone */ }
     clearOfflineCache();
+    // The shared copy lives in module scope, so it outlives a component and
+    // would otherwise still be sitting there for whoever signs in next on a
+    // shared gym phone.
+    productStore.clear();
     window.location.href = "/";
   }}>{initial}</button>;
 }
 
 function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, onFinishProfile }: { name: string; provider: AuthProvider; onLog: (activePlan?: string, experimentId?: string) => void; onLearn: () => void; onGame: () => void; onStartTraining: (sessionPlan: string) => Promise<StartTrainingOutcome>; onFinishProfile: () => void }) {
   const [localTime, setLocalTime] = useState({ date: "Today", greeting: "Welcome back" });
-  const [product, setProduct] = useState<ProductData | null>(null);
+  const product = useSyncExternalStore(productStore.subscribe, productStore.getState, productStore.getState).data;
   const [briefOpen, setBriefOpen] = useState(false);
   const [planSafety, setPlanSafety] = useState<SafetySignal | null>(null);
   const [planHold, setPlanHold] = useState<HoldView | null>(null);
@@ -195,7 +199,10 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
     const frame = window.requestAnimationFrame(() => setPosterIndex(next));
     return () => window.cancelAnimationFrame(frame);
   }, []);
-  useEffect(() => { void fetch("/api/product").then((response) => response.ok ? response.json() : null).then((data) => setProduct(data as ProductData | null)).catch(() => undefined); }, []);
+  // Subscribed rather than fetched. This screen used to fire its own copy of the
+  // whole payload every time it mounted, which is every time the athlete comes
+  // back to Home from anywhere else.
+  useEffect(() => { void productStore.load(); }, []);
   // An open hold is the first thing on this screen and the last thing to be
   // dismissed by a refresh: it is read back from the server on every visit.
   useEffect(() => { void fetch("/api/safety/hold").then((response) => response.ok ? response.json() : null).then((data) => setHold((data as { hold?: HoldView | null } | null)?.hold ?? null)).catch(() => undefined); }, []);
@@ -295,8 +302,9 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
           return;
         }
         setPlanSafety(null); setPlanHold(null); setPlanConflict("");
-        const response = await fetch("/api/product");
-        if (response.ok) setProduct(await response.json() as ProductData);
+        // Forced, because the athlete just changed something and the screen has
+        // to show it now rather than after the next revalidation.
+        await productStore.load({ force: true });
         setBriefOpen(false);
       }} />}
     </main>
@@ -640,7 +648,9 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
     const settle = window.setTimeout(() => setOnboardingStatus((current) => current === "loading" ? "complete" : current), 6000);
     return () => window.clearTimeout(settle);
   }, []);
-  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => {
+  // The second of the two requests a cold arrival used to fire. It now waits on
+  // the same shared copy Home is already asking for, so an arrival costs one.
+  useEffect(() => { void productStore.load().then(() => productStore.getState().data).then((data) => {
     setOnboardingStatus(data?.onboarding.status ?? "complete");
     if (data) setLogDefaults({
       discipline: disciplineFromSetup(data.profile.athleteSetup.disciplines),

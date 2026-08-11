@@ -239,12 +239,77 @@ next live round" was sent four times in one thread and answered differently each
 time, so the history reads as a man asking the same question because he was not
 getting an answer.
 
+**The live build is behind main, and the instrumentation is not running.**
+Measured on 11 August: `/api/admin/cost?days=30` returns 404 on the live site
+while `/api/health` returns ok with database, schema, sessionAnalysis and
+photoUploads all true. A 404 on that route means the deployed build predates
+PR #12, so `model_usage` is not being written in production.
+
+There is no separate migration to apply and no migration was missed. The schema
+is applied by the running application: `applySchema` issues
+`CREATE TABLE IF NOT EXISTS` for every table and `ensureProductSchema` is called
+in 44 API routes, so the table exists in production if and only if the code that
+declares it is deployed. The `drizzle/` directory does not contain
+`model_usage`, `focus_periods` or `athlete_weigh_ins` and is not the mechanism
+for them. **A successful deploy creates the table on the first request, with no
+manual step.**
+
+The consequence for planning: every session logged between now and a successful
+deploy records no cost data, so the twenty-session milestone cannot produce the
+number the pricing decision rests on until shipping is restored.
+
+**This product currently has no users.** Site analytics for the thirty days to
+11 August: 5 unique visitors and 826 page views, all of it on 9, 10 and 11
+August, nothing before. Top pages `/api/product` at 322 views and `/` at 176.
+Three of those five visitors are the people building it. The gap between here
+and 167 subscribers is distribution, not code, and any plan that assumes
+otherwise is wrong.
+
+**The distribution channel is narrower than the research implied, and part of
+that research is now out of date.** Read from the subreddit rules directly.
+
+r/bjj, the largest community and the source of every upvote figure in the
+research above, has a spam rule named verbatim "no spam including your own
+content: websites, videos, apps, AI slop, market research, etc". Posting your
+own content is allowed only for an active participating member where it provides
+value. There are two flat prohibitions: no AI-generated content and no bots, and
+no market-research posts, with the line "this community does not exist to help
+you develop your app or website or brand". A separate rule forbids buying or
+selling. A newer "generic dear diary" rule limits personal-log posts.
+
+**The dates undermine the evidence rather than merely inconveniencing us.** The
+spam and megathread rules were created in September 2025 and the dear-diary rule
+later still. The training-notes posts the entire artefact thesis rests on, at
+876, 860, 741 and 733 upvotes, predate them. The strongest evidence in this file
+was gathered under rules that no longer apply.
+
+The other communities, for contrast: r/martialarts permits own-content posting
+in moderation with surveys and AMAs needing prior approval; r/MuayThai restricts
+promotion to a short list of long-standing approved submitters, effectively
+closed to a newcomer; r/MMA runs a ten-to-three ratio.
+
+So the honest channel picture is that the largest community is the most hostile
+to exactly what this is, and the only viable route there is being a genuine
+participating member over months with the product incidental. **Not a launch.**
+
 **Live video search is switched off.** `/api/health` reports
 `liveVideoSearch: false` because `YOUTUBE_API_KEY` is unset.
 
 ---
 
 ## Backlog, in order. Take the top unblocked item.
+
+0. **Restore the ability to ship.** Above everything, because a merged pull
+   request that cannot reach production is not progress and every item below
+   inherits the blockage.
+
+   Deploying through the Sites platform has failed five consecutive times with
+   `python3: can't open file '/root/.codex/plugins/cache/...'`, which is the
+   platform's own tooling missing from its own sandbox. It fails before fetching
+   or building, so nothing in this repository can cause it or work around it.
+
+   Until a deploy succeeds, treat every merged change as invisible to real
+   users, and do not describe merged work as live.
 
 1. **Model cost, and then the tiering question it answers.** Promoted above
    everything else, including the design work, because a design pass on a
@@ -320,6 +385,13 @@ the map constraint above.
 - **The edges are the product. The nodes are only labels.**
 - The share export must be **an image a person would post**, which means it is
   designed at phone screenshot size.
+- **No model-written prose in the share export.** Not a style preference, a
+  channel constraint. r/bjj bans AI-generated content outright, and the same
+  community answered an app survey with "AI generated shite to promote a shitty
+  app". An export carrying text a language model wrote breaks that rule directly
+  and will be recognised. So the artefact is the athlete's own positions, their
+  own counts and their own words from their own logs, composed by deterministic
+  code, with the model nowhere in the rendered image.
 
 ---
 

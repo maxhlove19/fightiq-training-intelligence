@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:28:05.318Z (run by hand).
+Written automatically at 2026-08-11T19:45:01.311Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,13 +8,15 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-llaibj`
-- HEAD: `ea5d5dd` "The slop pass: British spelling, restating headings, hollow encouragement"
-- No upstream. Nothing has been pushed from this branch.
+- Branch: `pr4`
+- HEAD: `85f26dc` "Let Coach land the plane, and let the athlete decide what is written down"
+- Tracking `origin/claude/artifact-intro-cover-uuyei3`, pushed
 
-## Uncommitted work
+## Uncommitted work, 1 file(s)
 
-None. The working tree is clean.
+This is the part that disappears if the container is reclaimed.
+
+- `M app/globals.css`
 
 ## What this branch is probably against
 
@@ -44,7 +46,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Read goals.md, take the top unblocked item, and start one branch for it.
+Commit or discard the uncommitted work above before starting anything new.
 
 ---
 

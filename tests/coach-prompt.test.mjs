@@ -98,3 +98,24 @@ test("safety survives the rewrite in both prompts", () => {
     assert.match(source, /qualified professional/i, `${name} no longer points at a human`);
   }
 });
+
+test("the coach is told to commit, and told what would make a question worth asking", () => {
+  // Seven reasonable questions and no answer is the failure this guards. The
+  // test is value of the next answer, not a count.
+  assert.match(coach, /Narrowing is not the job/);
+  assert.match(coach, /If the answer would not change what you tell them, do not ask it/);
+  assert.match(coach, /ceiling, not a target/);
+});
+
+test("the coach proposes and never records", () => {
+  // A wrong finding written durably shapes every week after it. The athlete is
+  // the gate, and the prompt has to know that so it can afford to be decisive.
+  assert.match(coach, /You are proposing, not recording/);
+  assert.match(coach, /only then is it written into their game/);
+  assert.match(coach, /"likely" only when this is supported by more than the current conversation/);
+});
+
+test("a committed turn states the finding rather than hedging it", () => {
+  assert.match(coach, /states it plainly.*does not ask a question|does not ask a question/);
+  assert.match(coach, /Do not hedge it into nothing/);
+});

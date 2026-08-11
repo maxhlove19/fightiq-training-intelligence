@@ -6,6 +6,7 @@ import { openingBrief, openingFromMemory } from "./first-session";
 import { clip, clipLabel, sentence } from "./clip";
 import { recordFocus, type FocusSource } from "./focus-history";
 import { isUsableWeight, recordWeighIn } from "./weight-history";
+import { findingHeadline, type StatedConfidence } from "./coach-finding";
 
 /**
  * What a day-one brief records itself as built from.
@@ -779,4 +780,42 @@ export async function getTodayNutrition(db: D1, ownerId: string) {
 
 export function productError(code: string, message: string, status: number, development?: Record<string, unknown>) {
   return Response.json({ error: { code, message, ...(development ? { development } : {}) } }, { status });
+}
+
+export type ConfirmedFinding = {
+  id: string;
+  problem: string;
+  because: string;
+  fix: string;
+  basis: string[];
+  confidence: StatedConfidence;
+  confirmedAt: string;
+};
+
+/**
+ * The findings the athlete confirmed, newest first.
+ *
+ * These are the only things a conversation is allowed to leave behind. They are
+ * kept apart from the evidence the debrief writes, because they were arrived at
+ * differently: the debrief infers from notes, this was agreed out loud. My Game
+ * says which is which, so a confirmed finding carries the weight it earned and
+ * no more.
+ *
+ * Rejected rows are kept rather than deleted. Knowing the coach proposed
+ * something and was told it was wrong is worth more than the row costs.
+ */
+export async function getConfirmedFindings(db: D1, ownerId: string, limit = 3): Promise<ConfirmedFinding[]> {
+  const rows = await db.prepare(`SELECT id, problem, because, fix, basis_json, stated_confidence, decided_at
+    FROM coach_findings WHERE owner_id = ? AND status = 'confirmed'
+    ORDER BY decided_at DESC LIMIT ?`).bind(ownerId, Math.max(1, Math.min(10, limit)))
+    .all<{ id: string; problem: string; because: string; fix: string; basis_json: string; stated_confidence: string; decided_at: string | null }>();
+  return (rows.results ?? []).map((row) => ({
+    id: row.id,
+    problem: findingHeadline({ problem: row.problem }),
+    because: row.because,
+    fix: row.fix,
+    basis: safeStringArray(row.basis_json),
+    confidence: row.stated_confidence === "likely" ? "likely" : "hunch",
+    confirmedAt: row.decided_at ?? "",
+  }));
 }

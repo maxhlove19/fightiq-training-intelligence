@@ -3,6 +3,7 @@ import { scanTrainingNote } from "../../../lib/safety-signals";
 import type { D1 } from "../../../lib/debrief-db";
 import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 import { readJsonObject } from "../../../lib/request-body";
+import { FINDING_CHOICES, findingKey } from "../../../lib/coach-finding";
 import { countRecentCoachQuestions } from "../../../lib/usage-db";
 import { checkUsage } from "../../../lib/usage-limits";
 
@@ -206,6 +207,11 @@ export async function POST(request: Request) {
         assistant_message_id, owner_id, follow_up, follow_up_choices_json, video_mode, video_topic, video_prompt, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(assistantMessageId, ownerId, answer.followUp, JSON.stringify(answer.followUpChoices), answer.video.mode, answer.video.topic || null, answer.video.prompt || null, assistantCreatedAt),
+      ...(answer.finding ? [db.prepare(`INSERT INTO coach_findings (
+        id, owner_id, chat_id, assistant_message_id, problem, because, fix, basis_json, stated_confidence, status, canonical_key, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, ?)`)
+        .bind(crypto.randomUUID(), ownerId, activeChat.id, assistantMessageId, answer.finding.problem, answer.finding.because, answer.finding.fix,
+          JSON.stringify(answer.finding.basis), answer.finding.confidence, findingKey(answer.finding.problem), assistantCreatedAt)] : []),
       db.prepare("UPDATE coach_turns SET assistant_message_id = ?, status = 'complete', completed_at = ? WHERE user_message_id = ? AND owner_id = ?")
         .bind(assistantMessageId, assistantCreatedAt, userMessageId, ownerId),
       db.prepare("UPDATE coach_chats SET title = CASE WHEN title IN ('General', 'New chat') THEN ? ELSE title END, updated_at = ? WHERE id = ? AND owner_id = ?")
@@ -216,6 +222,9 @@ export async function POST(request: Request) {
       assistant: {
         id: assistantMessageId, role: "assistant", content: answer.reply, created_at: assistantCreatedAt,
         follow_up: answer.followUp || null, follow_up_choices: answer.followUpChoices, video_mode: answer.video.mode, video_topic: answer.video.topic || null, video_prompt: answer.video.prompt || null,
+        // The card that asks whether the call is right. Nothing is recorded
+        // until the athlete answers it.
+        finding: answer.finding ? { ...answer.finding, messageId: assistantMessageId, status: "proposed" as const, choices: [...FINDING_CHOICES] } : null,
       },
       suggestions: getCoachSuggestions(
         memory,

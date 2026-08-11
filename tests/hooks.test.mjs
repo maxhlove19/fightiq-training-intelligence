@@ -184,14 +184,13 @@ test("a :root inside a media query is a deliberate override, not a collision", (
   assert.deepEqual(duplicateTokens(css), []);
 });
 
-test("this repository's own stylesheet is the reason the token gate exists", () => {
-  // Not a hypothetical. Recorded here so that fixing it is visible as a change
-  // in this test rather than as a number nobody was watching.
+test("this repository's own stylesheet has one :root and no duplicate token", () => {
+  // Was a record of the known defect (four competing :root blocks, --nav-height
+  // declared three times). The reconciliation landed, so this now asserts the
+  // fixed state stays fixed rather than describing a problem that is over.
   const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-  const duplicates = duplicateTokens(css);
-  const navHeight = duplicates.find((item) => item.name === "--nav-height");
-  assert.ok(duplicates.length > 0, "if this now passes, the reconciliation landed: tighten this test");
-  assert.ok(navHeight, "--nav-height is load-bearing geometry declared more than once");
+  assert.equal(rootDeclarations(css).blocks, 1);
+  assert.deepEqual(duplicateTokens(css), []);
 });
 
 // The handoff. It exists because a context window running out currently loses

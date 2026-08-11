@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T20:05:45.938Z (run by hand).
+Written automatically at 2026-08-11T20:17:31.602Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,19 +8,22 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/focus-recommendation-history`
-- HEAD: `058af91` "Keep FightIQ's suggestions as a history, not a value it overwrites"
+- Branch: `claude/magical-darwin-2gwd8c`
+- HEAD: `05c80c2` "Regenerate HANDOFF.md for this branch"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work
+## Uncommitted work, 4 file(s)
 
-None. The working tree is clean.
+This is the part that disappears if the container is reclaimed.
+
+- `M app/globals.css`
+- ` M scripts/layout-sweep.mjs`
+- ` M scripts/token-check.mjs`
+- ` M tests/hooks.test.mjs`
 
 ## What this branch is probably against
 
-Inferred from the branch name, so treat it as a hint rather than a fact:
-
-> 4. **The recommendations record.** `fighter_focus_recommendations` is keyed on
+Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
 
 ## What was verified
 
@@ -46,7 +49,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Read goals.md, take the top unblocked item, and start one branch for it.
+Commit or discard the uncommitted work above before starting anything new.
 
 ---
 

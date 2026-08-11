@@ -55,7 +55,7 @@ export function duplicateTokens(css) {
  * Lower this number as the reconciliation lands. It reaching 0 is the goal, and
  * at 0 the ratchet becomes an absolute rule for free.
  */
-export const DUPLICATE_BASELINE = 12;
+export const DUPLICATE_BASELINE = 0;
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const path = process.argv[2] ?? "app/globals.css";

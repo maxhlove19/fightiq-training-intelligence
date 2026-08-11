@@ -1,19 +1,31 @@
 @import "tailwindcss";
 
+/* The one :root. Four of these accumulated over successive redesign passes,
+   each overriding a subset of the same names with no media query to scope
+   it, so the cascade silently picked the last declaration for every
+   property and the file stopped being honest about what it said. The values
+   below are not a new choice: they are the ones the cascade was already
+   resolving to (the last-declared block for each name), so collapsing this
+   changes nothing rendered, only what the file admits to. --blue lands on
+   the cyan from the newest pass because that is the one the live Home
+   markup (home-reference-insight, home-brief-rail, home-focus-meter) is
+   actually styled against; the pure-blue literals still scattered through
+   older rules below are a separate defect (hardcoded colours that never
+   read the token at all) and not something this reconciliation fixes. */
 :root {
-  --ink: #eef5ff;
-  --muted: #8392aa;
-  --muted-2: #56657b;
-  --canvas: #02050a;
-  --surface: #080f1a;
-  --surface-2: #0d1624;
-  --line: #15243a;
-  --line-soft: rgba(148, 170, 199, 0.13);
-  --blue: #087cff;
-  --blue-bright: #49a1ff;
-  --blue-wash: rgba(29, 130, 255, 0.1);
+  --ink: #e8f1ff;
+  --muted: #7f91aa;
+  --muted-2: #51627a;
+  --canvas: #080b12;
+  --surface: #111827;
+  --surface-2: #192237;
+  --line: #26324b;
+  --line-soft: rgba(120, 145, 185, .2);
+  --blue: #08c8df;
+  --blue-bright: #18d9ed;
+  --blue-wash: rgba(8, 200, 223, .13);
   --green: #5ed2a0;
-  --nav-height: 86px;
+  --nav-height: 70px;
 
   /* THE SCALE
      A type ramp with a ratio rather than a pile of one-off sizes. Everything new
@@ -532,7 +544,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 /* Screen-first mobile composition: compact, native-feeling, and deliberately
    different per destination instead of one generic dashboard card system. */
-:root { --nav-height: 72px; --canvas: #010308; --surface: #070c15; --surface-2: #0a1220; --line: #142238; --line-soft: rgba(115, 151, 192, .16); }
 .app-frame { background: var(--canvas); padding-bottom: calc(var(--nav-height) + 18px); }
 .page { width: min(100%, 460px); padding: 16px 14px 28px; }
 .native-page, .analysis-page, .log-page { min-height: calc(100dvh - var(--nav-height)); }
@@ -698,21 +709,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 /* Reference direction: a tight native fight console, not a soft dashboard.
    The visual system below deliberately overrides the early component styles
    so every destination reads as one focused phone screen. */
-:root {
-  --canvas: #02050b;
-  --surface: #060b14;
-  --surface-2: #09111e;
-  --line: #142139;
-  --line-soft: rgba(111, 145, 190, .16);
-  --blue: #006dff;
-  --blue-bright: #1681ff;
-  --blue-wash: rgba(0, 109, 255, .11);
-  --muted: #7f91aa;
-  --muted-2: #51627a;
-  --ink: #e8f1ff;
-  --nav-height: 70px;
-}
-
 html, body, .app-frame { background: var(--canvas); }
 body { letter-spacing: 0; font-size: 13px; }
 .app-frame { max-width: 430px; margin: 0 auto; background-image: none; padding-bottom: calc(var(--nav-height) + 18px); }
@@ -964,7 +960,6 @@ body { letter-spacing: 0; font-size: 13px; }
 
 /* Quiet, utilitarian mobile system: one obvious action per screen and the
    supporting explanation stays secondary or behind an intentional tap. */
-:root { --canvas: #080b12; --surface: #111827; --surface-2: #192237; --line: #26324b; --line-soft: rgba(120, 145, 185, .2); --blue: #08c8df; --blue-bright: #18d9ed; --blue-wash: rgba(8, 200, 223, .13); }
 body { letter-spacing: .003em; }
 .app-frame { background: linear-gradient(180deg, #10192a 0, #080b12 230px); }
 .home-page { padding: 22px 14px 14px; }

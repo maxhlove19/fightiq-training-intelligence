@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- external video thumbnails and user food previews cannot use the app image pipeline. */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
@@ -12,6 +12,7 @@ import { firstWeekPlan, isPlaceholderMemory, unlockCards } from "../../lib/first
 import { toAthleteVoice } from "../../lib/athlete-voice";
 import { toHouseStyle } from "../../lib/house-style";
 import { shortDate } from "../../lib/when";
+import { createProductStore } from "../../lib/product-store";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -53,27 +54,26 @@ function cleanAiDisplay(value: string) {
 /** Positioning a scroll container has to happen before paint, and there is no paint on the server. */
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
+/**
+ * One shared copy of the athlete's app state, read by every screen.
+ *
+ * Screens unmount when you navigate away, so this used to refetch the whole
+ * twelve section payload on every single mount: two round trips on arrival
+ * before the athlete touched anything, and another for every screen change.
+ * Subscribing to the store instead means a lap around the app costs nothing,
+ * and the data is already there when a screen paints rather than arriving a
+ * second later underneath a spinner.
+ *
+ * See lib/product-store.ts for why this caches rather than splitting the
+ * endpoint, and for the two rules it has to keep.
+ */
+export const productStore = createProductStore<ProductData>();
+
 function useProductData(initialUrl = "/api/product") {
-  const [data, setData] = useState<ProductData | null>(null);
-  const [error, setError] = useState("");
-  async function load(url = "/api/product") {
-    try {
-      const response = await fetch(url);
-      const payload = await response.json() as ProductData & { error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t load your game.");
-      setError(""); setData(payload); return true;
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "FightIQ couldn’t load your game."); return false; }
-  }
-  useEffect(() => {
-    let active = true;
-    void fetch(initialUrl).then(async (response) => {
-      const payload = await response.json() as ProductData & { error?: { message?: string } };
-      if (!response.ok) throw new Error(payload.error?.message ?? "FightIQ couldn’t load your game.");
-      if (active) { setError(""); setData(payload); }
-    }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "FightIQ couldn’t load your game."); });
-    return () => { active = false; };
-  }, [initialUrl]);
-  return { data, error, reload: load };
+  const state = useSyncExternalStore(productStore.subscribe, productStore.getState, productStore.getState);
+  useEffect(() => { void productStore.load({ url: initialUrl }); }, [initialUrl]);
+  const load = useCallback((url = "/api/product") => productStore.load({ url, force: true }), []);
+  return { data: state.data, error: state.data ? "" : state.error, reload: load };
 }
 
 function useVoiceField(value: string, setValue: (value: string) => void) {
@@ -428,7 +428,9 @@ export function WorkoutScreen({ onBack }: { onBack: () => void }) {
   const [completion, setCompletion] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => {
+  // The fifth and last mount-time copy of the whole payload. It only ever read
+  // two fields off it, and both are already in the shared copy.
+  useEffect(() => { void productStore.load().then(() => productStore.getState().data).then((data) => {
     const preferred = data?.profile.athleteSetup.disciplines.find((item) => ["MMA", "BJJ", "Wrestling", "Boxing", "Muay Thai"].includes(item));
     if (preferred) setDiscipline(preferred);
     if (data?.profile.primaryGoal === "gain muscle") setGoal("Strength");

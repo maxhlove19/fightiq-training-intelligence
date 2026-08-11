@@ -236,6 +236,20 @@ this ladder and it is the one that counts.
 - Set `FIGHTIQ_OWNER_EMAILS` to the address you sign in with, then open `/admin`
   and confirm you can see it and a second account cannot.
 
+### Running somewhere else
+
+`docs/vercel-supabase.md` is an honest assessment of moving to Vercel and
+Supabase, written for a developer deciding rather than to argue for it.
+
+The short version: the database is not the reason to move. `lib/sql-dialect.ts`
+translates this app's SQL to Postgres, and `tests/postgres-parity.test.mjs`
+builds the whole schema and runs all 100 shipped statements against a real
+Postgres 18 in the test suite. Three differences exist in total, and all three
+are handled.
+
+The reason that is worth taking seriously is auth: today every user needs a
+ChatGPT account to sign in, which is a real barrier for a paid consumer app.
+
 ### House style
 
 No em dashes. Not in the app's copy, not in the model's output, not anywhere a

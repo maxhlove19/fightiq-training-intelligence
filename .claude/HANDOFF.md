@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:28:05.318Z (run by hand).
+Written automatically at 2026-08-11T19:49:13.242Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,8 +8,8 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-llaibj`
-- HEAD: `ea5d5dd` "The slop pass: British spelling, restating headings, hollow encouragement"
+- Branch: `claude/magical-darwin-9mvzzu`
+- HEAD: `3080961` "Fix the day count, the glyph, and a stale-brief edge case on My Game"
 - No upstream. Nothing has been pushed from this branch.
 
 ## Uncommitted work

@@ -20,6 +20,22 @@ import { join } from "node:path";
 const CSS_DIR = "dist/client/_next/static/css";
 const BROWSER = "/opt/pw-browsers/chromium";
 
+/**
+ * Distinct saturated colours per screen, measured the same way this script
+ * measures them, on 11 August 2026 right after the four competing :root
+ * blocks in app/globals.css were collapsed into one.
+ *
+ * Collapsing the tokens did not lower these numbers: the pure-blue and cyan
+ * literals hardcoded throughout the older component rules never read the
+ * --blue token in the first place, so they survive a token fix untouched.
+ * That is a separate, larger defect. This ceiling exists so the token
+ * reconciliation does not quietly regress while that defect waits its turn:
+ * it fails the moment any screen adds another distinct saturated colour
+ * rather than waiting for someone to notice by eye. Lower a number here only
+ * when a real cleanup removes a colour from that screen.
+ */
+const COLOUR_CEILING = { home: 10, coach: 8, game: 6, learn: 2 };
+
 function skip(reason) {
   console.log(`layout-sweep: skipped, ${reason}`);
   process.exit(0);
@@ -112,13 +128,18 @@ for (const [name, markup] of Object.entries(SCREENS)) {
 
   census[name] = result.saturated;
   if (result.escapees.length) failures.push(`${name}: ${result.escapees.length} element(s) outside the app frame\n    ${result.escapees.join("\n    ")}`);
+  const ceiling = COLOUR_CEILING[name];
+  if (ceiling !== undefined && result.saturated.length > ceiling) {
+    failures.push(`${name}: ${result.saturated.length} distinct saturated colours, above the ceiling of ${ceiling}`);
+  }
   await page.close();
 }
 await browser.close();
 
 console.log("layout-sweep: distinct saturated colours per screen");
 for (const [name, colours] of Object.entries(census)) {
-  console.log(`  ${name.padEnd(6)} ${String(colours.length).padStart(3)}  ${colours.slice(0, 6).map(([rgb, n]) => `rgb(${rgb})x${n}`).join(" ")}`);
+  const ceiling = COLOUR_CEILING[name];
+  console.log(`  ${name.padEnd(6)} ${String(colours.length).padStart(3)} / ${ceiling ?? "?"}  ${colours.slice(0, 6).map(([rgb, n]) => `rgb(${rgb})x${n}`).join(" ")}`);
 }
 const union = new Set(Object.values(census).flat().map(([rgb]) => rgb));
 console.log(`  union  ${union.size}`);

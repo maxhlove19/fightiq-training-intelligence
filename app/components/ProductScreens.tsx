@@ -307,7 +307,7 @@ function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["r
         {review.themes.map((theme) => <div className={`week-theme ${theme.status}`} key={theme.label}>
           <strong>{theme.label}</strong>
           <span>{theme.sessions === 1 ? "1 session" : `${theme.sessions} sessions`}</span>
-          <em>{themeStatusLabel(theme.status)}</em>
+          {themeStatusLabel(theme.status, review.hasEarlierHistory) && <em>{themeStatusLabel(theme.status, review.hasEarlierHistory)}</em>}
         </div>)}
         <p className="week-note">FightIQ can see what you stopped writing down. It cannot see what you fixed. That part is still your call.</p>
       </div>}

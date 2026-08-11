@@ -210,6 +210,19 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
   const completedSessions = weeklyTarget ? Math.min(weeklySessions, weeklyTarget) : weeklySessions;
   const focusProgress = weeklyTarget ? Math.min(100, Math.round((weeklySessions / weeklyTarget) * 100)) : 0;
   const focusMeterStyle = { "--focus-progress": `${focusProgress}%` } as CSSProperties;
+  // A meter is a score, and a score needs something to score against. With no
+  // weekly target set this rendered a hardcoded "0" next to the word FOCUS, so an
+  // athlete who had trained eleven times that week saw a zero as the most
+  // prominent number on his home screen. It counts what it can actually count,
+  // and when it cannot count anything it says what it is waiting for.
+  const focusMeter = weeklyTarget
+    ? { value: `${completedSessions}/${weeklyTarget}`, label: "FOCUS", scored: true,
+        aria: `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` }
+    : weeklySessions
+      ? { value: `${weeklySessions}`, label: "THIS WEEK", scored: false,
+          aria: `${weeklySessions} training ${weeklySessions === 1 ? "session" : "sessions"} logged this week. Open My Game to set a weekly target.` }
+      : { value: "-", label: "SET TARGET", scored: false,
+          aria: "No weekly training target set yet. Open My Game to set one." };
   const briefLabel = activeExperiment ? "TRAINING NOW" : "TRAIN NEXT";
   // Before the first session there is no brief built from training, so the rail
   // carries the opening cue rather than sitting empty on the busiest screen.
@@ -221,7 +234,7 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
         // A 0/3 score before anybody has trained reads as a failing grade for
         // turning up. On day one the meter shows the target instead.
         ? <button className="home-focus-meter first-week" onClick={onGame} aria-label={weeklyTarget ? `Your target is ${weeklyTarget} sessions a week. Open My Game.` : "Open My Game."}><span>{weeklyTarget || "-"}</span><small>{weeklyTarget ? "TARGET" : "FOCUS"}</small></button>
-        : <button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button>}</div></header>
+        : <button className={`home-focus-meter ${focusMeter.scored ? "" : "unscored"}`} style={focusMeterStyle} onClick={onGame} aria-label={focusMeter.aria}><span>{focusMeter.value}</span><small>{focusMeter.label}</small></button>}</div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">{openingGreeting(product ? product.sessionsLogged : 3)}</p>

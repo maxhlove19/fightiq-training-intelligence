@@ -43,19 +43,24 @@ export function toHouseStyle(value: string): string {
 }
 
 /**
- * The same rule applied to a whole parsed model response.
+ * Apply a rewrite to every readable string in a whole parsed model response.
  *
  * Model output arrives as JSON with the readable strings nested at unpredictable
  * depths, so this walks the value rather than naming fields. Naming fields is how
  * you end up fixing the debrief and missing the coaching answer underneath it.
  */
-export function applyHouseStyle<T>(value: T): T {
-  if (typeof value === "string") return toHouseStyle(value) as T;
-  if (Array.isArray(value)) return value.map((item) => applyHouseStyle(item)) as T;
+export function walkStrings<T>(value: T, transform: (text: string) => string): T {
+  if (typeof value === "string") return transform(value) as T;
+  if (Array.isArray(value)) return value.map((item) => walkStrings(item, transform)) as T;
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) out[key] = applyHouseStyle(item);
+    for (const [key, item] of Object.entries(value)) out[key] = walkStrings(item, transform);
     return out as T;
   }
   return value;
+}
+
+/** The house style alone, for callers that only need the punctuation rule. */
+export function applyHouseStyle<T>(value: T): T {
+  return walkStrings(value, toHouseStyle);
 }

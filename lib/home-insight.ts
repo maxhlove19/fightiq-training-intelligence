@@ -7,6 +7,7 @@
 // to do about it.
 
 import { isPlaceholderMemory } from "./first-session";
+import { clip } from "./clip";
 
 export type HomeInsight = { title: string; body: string };
 
@@ -14,7 +15,13 @@ export type HomeInsight = { title: string; body: string };
 function headline(takeaway: string): { head: string; rest: string } {
   const clean = takeaway.replace(/\s+/g, " ").trim();
   const match = /^(.+?[.!?])(\s+|$)([\s\S]*)$/.exec(clean);
-  if (!match || match[1].length > 110) return { head: clean.slice(0, 110), rest: clean.length > 110 ? clean.slice(110).trim() : "" };
+  // A headline cut mid-word is the first thing anyone sees, so the break lands
+  // on a word and the remainder starts where the headline actually stopped.
+  if (!match || match[1].length > 110) {
+    const head = clip(clean, 110);
+    const kept = head.replace(/…$/, "").trim();
+    return { head, rest: clean.length > kept.length ? clean.slice(kept.length).trim() : "" };
+  }
   return { head: match[1].trim(), rest: (match[3] ?? "").trim() };
 }
 

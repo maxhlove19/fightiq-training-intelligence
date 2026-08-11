@@ -1,5 +1,7 @@
 import type { D1 } from "./debrief-db";
 import type { MemorySnapshot } from "./product-db";
+import { clipLabel } from "./clip";
+import { toAthleteVoice } from "./athlete-voice";
 
 export type LearnVideo = {
   id: string;
@@ -48,8 +50,7 @@ function tokens(value: string) {
 }
 
 function compact(value: string, fallback: string, max = 86) {
-  const clean = value.replace(/\s+/g, " ").replace(/[.!?]+$/g, "").trim();
-  return (clean || fallback).slice(0, max);
+  return clipLabel(value.trim() || fallback, max);
 }
 
 function topicScore(topic: string, context: string, contextTokens: Set<string>) {
@@ -166,11 +167,14 @@ function studyWatchFor(topic: string) {
   if (/arm drag/.test(lower)) return "Watch the step to the angle straight after the drag, before they can square back up.";
   if (/guard|frame/.test(lower)) return "Watch which frame stays connected while the hips make space.";
   if (/takedown|single leg|double leg/.test(lower)) return "Watch where the head and feet arrive before they try to finish.";
-  return `Watch for the exact ${compact(topic, "technique", 54)} detail the athlete logged.`;
+  return `Watch for the exact ${compact(topic, "technique", 54)} detail you logged.`;
 }
 
+// Stored observations written before the voice rule existed still say "Athlete
+// reported...", and this string is rendered raw rather than through the display
+// pass, so it gets the rewrite here.
 function currentTrainingSignal(memory: MemorySnapshot) {
-  return compact(memory.oneTimeObservations[0] || memory.recentTraining[0]?.takeaway || memory.currentFocus, "your current training", 120);
+  return toAthleteVoice(compact(memory.oneTimeObservations[0] || memory.recentTraining[0]?.takeaway || memory.currentFocus, "your current training", 120));
 }
 
 function whyAndWatchFor(video: Pick<CuratedVideo, "topics">, memory: MemorySnapshot, index: number) {

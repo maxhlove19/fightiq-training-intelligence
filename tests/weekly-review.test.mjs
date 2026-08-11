@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWeeklyReview, restTile, themeStatusLabel } from "../lib/weekly-review.ts";
+import { buildWeeklyReview, isPluralLabel, restTile, themeStatusLabel } from "../lib/weekly-review.ts";
 
 const NOW = new Date("2026-08-10T20:00:00.000Z");
 const daysAgo = (days, hour = 19) => new Date(NOW.getTime() - days * 86400000).toISOString().slice(0, 11) + String(hour).padStart(2, "0") + ":00:00.000Z";
@@ -106,8 +106,57 @@ test("the subline leads with what is still open", () => {
     session({ createdAt: daysAgo(6), note: "head position dropped on the finish" }),
     session({ createdAt: daysAgo(1), note: "head down again on the single leg finish" }),
   ], 3, NOW);
-  assert.match(review.subline, /head position/);
+  // Capitalised, because it opens the sentence. It used to render as
+  // "head position came up in 2 sessions", starting a sentence in lower case.
+  assert.match(review.subline, /^Head position/);
   assert.match(review.subline, /still there at the end of the week/);
+});
+
+test("the verb agrees with the theme", () => {
+  // "Arm drags was the thread running through the week" is the sort of mistake
+  // that makes an athlete quietly stop trusting the rest of the page.
+  const plural = buildWeeklyReview([
+    session({ createdAt: daysAgo(2), note: "arm drag worked well" }),
+    session({ createdAt: daysAgo(1), note: "hit an arm drag again in rounds" }),
+  ], 0, NOW);
+  assert.match(plural.subline, /^Arm drags (came up|were)/);
+  assert.doesNotMatch(plural.subline, /Arm drags was\b/);
+
+  const singular = buildWeeklyReview([
+    session({ createdAt: daysAgo(2), note: "support foot late on the kick" }),
+    session({ createdAt: daysAgo(1), note: "standing foot did not turn again" }),
+  ], 0, NOW);
+  assert.doesNotMatch(singular.subline, /Support foot were\b/);
+});
+
+test("every lexicon label plays by the plural rule", () => {
+  // isPluralLabel derives agreement from the label rather than a parallel table.
+  // That only stays true while no singular entry in LEXICON ends in "s", so this
+  // is the guard for anyone adding one later.
+  const singulars = ["support foot", "hip rotation", "head position", "guard retention",
+    "the underhook", "half guard", "sprawl and defence", "the clinch", "the teep",
+    "the jab", "footwork", "distance", "timing", "cardio and pace", "grip fighting"];
+  const plurals = ["back takes", "arm drags", "takedown finishes", "round kicks",
+    "checking kicks", "counters", "escapes", "submissions", "defence and guard hands"];
+  for (const label of singulars) assert.equal(isPluralLabel(label), false, `${label} should be singular`);
+  for (const label of plurals) assert.equal(isPluralLabel(label), true, `${label} should be plural`);
+});
+
+test("new this week means nothing on a first week, so it is not shown", () => {
+  // Every theme carried the badge because every theme was new, which made the
+  // badge decoration rather than information.
+  const firstWeek = buildWeeklyReview([
+    session({ createdAt: daysAgo(1), note: "arm drag and head position both came up" }),
+  ], 0, NOW);
+  assert.equal(firstWeek.hasEarlierHistory, false);
+  assert.equal(themeStatusLabel("new_this_week", firstWeek.hasEarlierHistory), null);
+
+  const withHistory = buildWeeklyReview([
+    session({ createdAt: daysAgo(20), note: "worked the teep" }),
+    session({ createdAt: daysAgo(1), note: "arm drag worked well" }),
+  ], 0, NOW);
+  assert.equal(withHistory.hasEarlierHistory, true);
+  assert.equal(themeStatusLabel("new_this_week", withHistory.hasEarlierHistory), "new this week");
 });
 
 test("describes the notes rather than claiming a fix", () => {

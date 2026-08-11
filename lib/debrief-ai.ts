@@ -4,6 +4,7 @@
 // from one sitting.
 import { depthBriefing, readNoteDepth } from "./note-depth";
 import { ClaudeError, hashOwner, requestJson } from "./claude";
+import { clip } from "./clip";
 const MAX_CLARIFYING_QUESTIONS = 1;
 const evidenceGaps = ["mechanics", "timing", "balance_or_mobility", "side_or_stance", "resistance_or_context", "coach_cue", "attempted_correction", "experiment_outcome", "other"] as const;
 
@@ -84,6 +85,7 @@ WHAT MATTERS MOST IN A NOTE
 
 HOW YOU WRITE
 - Like a coach talking, not a report. Natural sentences, no Markdown, no headings, no bullets, no slogans. Short.
+- Write to the athlete, never about them. Say "you", never "the athlete", "this athlete" or "the user". That includes every stored field, not just the sentences they read back immediately: a note written as "Athlete reported the technique worked" comes back later as your own context and teaches you to keep writing like a case file.
 - Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence. Em dashes are the clearest sign a machine wrote something, and this has to read like a person.
 - No stock coaching filler. Avoid "the key is", "keep it simple", "one clean rep", "see what breaks", "trust the process", "under resistance", unless the athlete used those words first.
 
@@ -294,7 +296,7 @@ function resilientDebrief(entry: Entry, history: History, activeExperiment?: Rec
   // The resilient path must follow the same low-friction promise as the model:
   // rich notes complete directly, and one answer completes a clarification.
   if (history.length > 0 || !needsInitialClarification(entry, activeExperiment)) return {
-    status: "complete", summary: note.slice(0, 220), takeaway: lastAnswer ? `You reported: ${lastAnswer.slice(0, 160)}` : "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: history.length > 0 ? "FightIQ needs more repeated evidence before calling this a pattern." : "", next_session_focus: "", confidence: history.length > 0 ? .58 : .35, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: history.length > 0 ? .58 : .35 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
+    status: "complete", summary: note.slice(0, 220), takeaway: lastAnswer ? `You reported: ${clip(lastAnswer, 160)}` : "Your session is saved with the detail you reported.", coach_detail: coachDetail, fightiq_explanation: history.length > 0 ? "FightIQ needs more repeated evidence before calling this a pattern." : "", next_session_focus: "", confidence: history.length > 0 ? .58 : .35, memory: baseMemory, intelligence: { ...intelligence, follow_up_needed: false, confidence: history.length > 0 ? .58 : .35 }, question: { prompt: "", choices: [], target_field: "", why_asked: "" },
   };
   const prompt = activeMission
     ? activeCue ? `When you used “${activeCue},” what changed as you worked on ${activeMission.toLowerCase()}?` : `What changed when you worked on ${activeMission.toLowerCase()} today?`

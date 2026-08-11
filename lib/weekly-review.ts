@@ -39,6 +39,14 @@ export type WeeklyReview = {
   themes: ReviewTheme[];
   headline: string;
   subline: string;
+  /**
+   * Whether any session predates the window.
+   *
+   * Without it, "new this week" gets stamped on every theme an athlete has,
+   * because on their first week everything is new. The badge only means
+   * something when there is an earlier week to be new against.
+   */
+  hasEarlierHistory: boolean;
 };
 
 // The terms an athlete's own notes actually contain. Frequency alone would rank
@@ -87,7 +95,7 @@ function plural(count: number, one: string, many: string) {
 }
 
 const EMPTY: WeeklyReview = {
-  hasData: false, sessions: 0, target: 0, days: 0, disciplines: [], hardestGapDays: 0, themes: [],
+  hasData: false, sessions: 0, target: 0, days: 0, disciplines: [], hardestGapDays: 0, themes: [], hasEarlierHistory: false,
   headline: "No sessions logged in the last seven days.",
   subline: "Log one and this fills in. A week of notes is where the pattern starts to show.",
 };
@@ -181,24 +189,43 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
     : `${plural(week.length, "session", "sessions")} logged across ${plural(days.size, "day", "days")}.`;
 
   const subline = open.length
-    ? `${open[0].label} came up in ${plural(open[0].sessions, "session", "sessions")} and was still there at the end of the week.`
+    ? `${sentenceCase(open[0].label)} came up in ${plural(open[0].sessions, "session", "sessions")} and ${isPluralLabel(open[0].label) ? "were" : "was"} still there at the end of the week.`
     : themes.length
       // One mention is not a thread. Saying it is teaches an athlete to discount
       // the summary, and then the weeks where it is true get discounted too.
       ? themes[0].sessions > 1
-        ? `${sentenceCase(themes[0].label)} was the thread running through the week.`
+        ? `${sentenceCase(themes[0].label)} ${isPluralLabel(themes[0].label) ? "were" : "was"} the thread running through the week.`
         : `${sentenceCase(themes[0].label)} came up once. Worth seeing whether it repeats.`
       : "Your notes did not repeat a theme this week. Worth writing down what specifically broke down next time.";
 
-  return { hasData: true, sessions: week.length, target, days: days.size, disciplines, hardestGapDays, themes, headline, subline };
+  return { hasData: true, sessions: week.length, target, days: days.size, disciplines, hardestGapDays, themes, headline, subline, hasEarlierHistory: earlier.size > 0 };
 }
 
-/** Plain-English label for a theme's status, kept next to the logic that sets it. */
-export function themeStatusLabel(status: ThemeStatus) {
+/**
+ * Plain-English label for a theme's status, kept next to the logic that sets it.
+ *
+ * Returns null when the label would not be telling the athlete anything. "New
+ * this week" against a history that only started this week is true of every
+ * theme at once, and a badge that every row carries is decoration.
+ */
+export function themeStatusLabel(status: ThemeStatus, hasEarlierHistory = true) {
   if (status === "still_open") return "still open";
   if (status === "quiet_lately") return "went quiet";
   if (status === "came_back") return "came back";
-  return "new this week";
+  return hasEarlierHistory ? "new this week" : null;
+}
+
+/**
+ * Whether a theme label takes a plural verb.
+ *
+ * "Arm drags was the thread running through the week" is the sort of mistake
+ * that makes an athlete quietly stop trusting everything else on the page. Every
+ * plural entry in LEXICON ends in "s" and no singular one does, so the rule is
+ * derived rather than kept in a parallel table somebody would forget to update.
+ * The test suite checks that this still holds for every label in the list.
+ */
+export function isPluralLabel(label: string) {
+  return /s$/i.test(label.trim().split(/\s+/).at(-1) ?? "");
 }
 
 /**

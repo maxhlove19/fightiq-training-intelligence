@@ -225,6 +225,29 @@ export const APP_TABLES: string[] = [
       last_seen_at TEXT NOT NULL,
       visits INTEGER NOT NULL DEFAULT 1
     )`,
+  // The record the product's whole promise depends on.
+  //
+  // "Current focus" was a single field that got overwritten every time the
+  // evidence moved, so the moment it changed the old one was gone: no record it
+  // existed, no record of when it started or ended, and no record of what was
+  // logged while it was live. That makes the one question worth paying for after
+  // month one unanswerable, because the answer is the sequence and the sequence
+  // was being thrown away.
+  //
+  // Session counts are deliberately NOT stored here. They are derived from
+  // training_entries by date range on read, so they cannot drift out of step
+  // with the sessions they claim to count.
+  `CREATE TABLE IF NOT EXISTS focus_periods (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      focus TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      /** stated | fightiq | opening | backfilled. Where this focus came from. */
+      source TEXT NOT NULL DEFAULT 'fightiq',
+      started_at TEXT NOT NULL,
+      /** Null while this is the focus the athlete is on. */
+      ended_at TEXT
+    )`,
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -275,6 +298,12 @@ export const APP_INDEXES: string[] = [
   "CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)",
   // Reads are always "the open hold for this athlete", so cleared_at leads.
   "CREATE INDEX IF NOT EXISTS idx_training_holds_owner_open ON training_holds (owner_id, cleared_at, opened_at)",
+  // Every read is either "the open period" or "the whole history, newest first".
+  "CREATE INDEX IF NOT EXISTS idx_focus_periods_owner_started ON focus_periods (owner_id, started_at)",
+  // On owner_id alone, not (owner_id, ended_at). SQLite treats NULLs as distinct
+  // in a unique index, so indexing the always-NULL column would have enforced
+  // nothing at all while looking like it enforced something.
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_periods_owner_open ON focus_periods (owner_id) WHERE ended_at IS NULL",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_last_seen ON athlete_accounts (last_seen_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_first_seen ON athlete_accounts (first_seen_at)",
 ];

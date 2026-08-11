@@ -11,6 +11,7 @@ import { buildWeeklyReview, restTile, themeStatusLabel } from "../../lib/weekly-
 import { firstWeekPlan, isPlaceholderMemory, unlockCards } from "../../lib/first-session";
 import { toAthleteVoice } from "../../lib/athlete-voice";
 import { toHouseStyle } from "../../lib/house-style";
+import { shortDate } from "../../lib/when";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -30,6 +31,10 @@ export type ProductData = {
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };
   activeExperiment: { id: string; mission: string; cue: string; reason: string; startedAt: string | null } | null;
+  /** What the athlete has worked on and when, newest first. See lib/focus-history.ts. */
+  focusHistory: Array<{ id: string; focus: string; reason: string; source: string; startedAt: string; endedAt: string | null; sessions: number; days: number; spanDays: number; disciplines: Array<{ name: string; sessions: number }>; closingTakeaway: string | null }>;
+  /** Everything ever logged, rather than the last seven days of it. */
+  lifetime: { sessions: number; days: number; firstSessionAt: string | null; latestSessionAt: string | null; disciplines: Array<{ name: string; sessions: number }> };
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
 };
@@ -315,6 +320,50 @@ function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["r
   </section>;
 }
 
+
+/**
+ * The record the app could not show before: what you worked on, and for how long.
+ *
+ * Until this existed, "current focus" was a single field overwritten whenever
+ * the evidence moved. Six weeks of training would still have rendered as
+ * "11 sessions logged across 1 day" and every night in between would have been
+ * gone, which is the product's whole promise failing quietly.
+ */
+function FocusHistory({ periods, lifetime }: { periods: ProductData["focusHistory"]; lifetime: ProductData["lifetime"] }) {
+  if (!periods.length) return null;
+  const past = periods.slice(1);
+  return <section className="focus-history">
+    <span className="field-label">WHAT YOU HAVE WORKED ON</span>
+    <ol>
+      {periods.map((period, index) => {
+        const live = !period.endedAt;
+        return <li key={period.id} className={live ? "live" : ""}>
+          <div className="focus-history-when">
+            <strong>{shortDate(period.startedAt)}</strong>
+            <span>{live ? "now" : shortDate(period.endedAt as string)}</span>
+          </div>
+          <div className="focus-history-body">
+            {live && <em className="focus-history-live">ON THIS NOW</em>}
+            <strong>{cleanAiDisplay(period.focus)}</strong>
+            <p className="focus-history-count">
+              {period.sessions === 1 ? "1 session" : `${period.sessions} sessions`}
+              {period.days > 0 && ` over ${period.spanDays === 1 ? "a day" : `${period.spanDays} days`}`}
+              {period.disciplines.length > 0 && `. ${period.disciplines.map((item) => `${item.name} x${item.sessions}`).join(", ")}`}
+            </p>
+            {period.closingTakeaway && <p className="focus-history-said">{cleanAiDisplay(period.closingTakeaway)}</p>}
+            {period.source === "backfilled" && index === periods.length - 1 && <p className="focus-history-note">FightIQ started keeping this record here. Sessions before it are counted, the focus behind them was not written down.</p>}
+          </div>
+        </li>;
+      })}
+    </ol>
+    {past.length === 0 && <p className="focus-history-note">This is the first one on record. When it changes, the old one stays here with what you logged inside it.</p>}
+    {lifetime.firstSessionAt && <p className="focus-history-lifetime">
+      {lifetime.sessions === 1 ? "1 session" : `${lifetime.sessions} sessions`} across {lifetime.days === 1 ? "1 day" : `${lifetime.days} days`}, since {shortDate(lifetime.firstSessionAt)}.
+      {lifetime.disciplines.length > 0 && ` ${lifetime.disciplines.map((item) => `${item.name} x${item.sessions}`).join(", ")}.`}
+    </p>}
+  </section>;
+}
+
 export function GameScreen() {
   const { data, error, reload } = useProductData();
   const [editing, setEditing] = useState(false);
@@ -354,6 +403,7 @@ export function GameScreen() {
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
+      <FocusHistory periods={data.focusHistory} lifetime={data.lifetime} />
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}
       {saved && <p className="saved-note" role="status"><Check size={14} /> My Game updated.</p>}
       </>;

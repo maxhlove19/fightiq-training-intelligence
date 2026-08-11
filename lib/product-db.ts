@@ -4,6 +4,7 @@ import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
 import { openingBrief, openingFromMemory } from "./first-session";
 import { clip, clipLabel, sentence } from "./clip";
+import { recordFocus, type FocusSource } from "./focus-history";
 
 /**
  * What a day-one brief records itself as built from.
@@ -506,6 +507,27 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     ? openingBrief({ disciplines: setup.disciplines, experienceLevel: setup.experienceLevel, competitionIntent: setup.competitionIntent, currentFocus: profile.current_focus })
     : null;
   const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || opening?.mission || startingFocus(setup.disciplines);
+  // This line is the only place the app decides what the athlete is working on,
+  // and until now that decision was made fresh on every read and then forgotten.
+  // Recorded here rather than at the three places a focus can be written,
+  // because two of those write a candidate rather than the answer, and the
+  // answer is what an athlete would recognise as "what I was working on".
+  //
+  // Deliberately not awaited into the response: a history write must never be
+  // the reason somebody's home screen fails to load. If it throws, the next read
+  // records the same change, because the change is derived rather than an event.
+  const focusSource: FocusSource = profile.current_focus ? "stated" : opening ? "opening" : "fightiq";
+  const focusReasonForHistory = profile.focus_reason || recommendedFocus?.reason || opening?.promise || "";
+  void recordFocus(db, ownerId, {
+    focus: currentFocus,
+    reason: focusReasonForHistory,
+    source: focusSource,
+    now: new Date().toISOString(),
+    // Oldest first, so an athlete who already had training when this shipped gets
+    // a record that starts where their training started rather than one that
+    // opens by claiming they have logged nothing.
+    firstSessionAt: rows.at(-1)?.created_at ?? null,
+  }).catch(() => undefined);
   const used = [currentFocus];
   const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".

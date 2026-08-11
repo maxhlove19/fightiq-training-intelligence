@@ -22,7 +22,12 @@ import { applySchema } from "../lib/debrief-db.ts";
  * after somebody merges them back into one batch.
  */
 function d1(db) {
-  const prepare = (sql) => ({ sql, run: async () => { db.exec(sql); } });
+  const prepare = (sql) => ({
+    sql,
+    run: async () => { db.exec(sql); },
+    // Parameterless only: nothing that reaches applySchema binds a value.
+    first: async () => db.prepare(sql).get() ?? null,
+  });
   return {
     prepare,
     // D1 batches are all-or-nothing, which is the property that made the

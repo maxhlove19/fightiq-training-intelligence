@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:49:13.242Z (run by hand).
+Written automatically at 2026-08-11T20:05:45.938Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,8 +8,8 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-9mvzzu`
-- HEAD: `3080961` "Fix the day count, the glyph, and a stale-brief edge case on My Game"
+- Branch: `claude/focus-recommendation-history`
+- HEAD: `058af91` "Keep FightIQ's suggestions as a history, not a value it overwrites"
 - No upstream. Nothing has been pushed from this branch.
 
 ## Uncommitted work
@@ -18,7 +18,9 @@ None. The working tree is clean.
 
 ## What this branch is probably against
 
-Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
+Inferred from the branch name, so treat it as a hint rather than a fact:
+
+> 4. **The recommendations record.** `fighter_focus_recommendations` is keyed on
 
 ## What was verified
 

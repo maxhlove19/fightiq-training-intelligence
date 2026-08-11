@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T20:17:31.602Z (run by hand).
+Written automatically at 2026-08-11T21:13:30.859Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,18 +8,25 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-2gwd8c`
-- HEAD: `05c80c2` "Regenerate HANDOFF.md for this branch"
+- Branch: `claude/supabase-asymmetric-jwt`
+- HEAD: `36a6f69` "Merge pull request #29 from maxhlove19/claude/magical-darwin-2gwd8c"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work, 4 file(s)
+## Uncommitted work, 11 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M app/globals.css`
-- ` M scripts/layout-sweep.mjs`
-- ` M scripts/token-check.mjs`
-- ` M tests/hooks.test.mjs`
+- `M CLOUDFLARE-SETUP.md`
+- ` M DEPLOY.md`
+- ` M README.md`
+- ` M app/api/auth/password/route.ts`
+- ` M lib/auth-routes.ts`
+- ` M lib/current-athlete.ts`
+- ` M lib/identity.ts`
+- ` M lib/jwt.ts`
+- ` M package.json`
+- `?? lib/jwks.ts`
+- `?? tests/jwks.test.mjs`
 
 ## What this branch is probably against
 

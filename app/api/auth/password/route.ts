@@ -14,7 +14,7 @@
 
 import { authNotConfigured, supabaseConfig, withSession } from "../../../../lib/auth-routes";
 import { identityConfig } from "../../../../lib/current-athlete";
-import { verifyHs256 } from "../../../../lib/jwt";
+import { athleteFromAccessToken } from "../../../../lib/identity";
 import { readJsonObject } from "../../../../lib/request-body";
 import { updatePassword, validatePassword } from "../../../../lib/supabase-auth";
 
@@ -47,10 +47,11 @@ export async function POST(request: Request) {
 
   // The password is changed either way. Signing them in is a convenience, so a
   // token this app cannot verify costs them one sign in rather than the reset.
-  const { jwtSecret, issuer } = identityConfig();
-  const verified = jwtSecret
-    ? await verifyHs256(accessToken, { secret: jwtSecret, issuer, audience: "authenticated" })
-    : null;
+  // Whatever this deployment verifies with, ES256 against the project's
+  // published keys or a legacy shared secret. Going through the same function
+  // an ordinary request uses is the point: a token this route accepts is one
+  // the next request will accept too.
+  const verified = await athleteFromAccessToken(accessToken, identityConfig());
   if (!verified || !refreshToken) {
     return Response.json(
       { ok: true, signedIn: false, message: "Your password is set. Sign in with it now." },

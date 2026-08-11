@@ -88,20 +88,37 @@ work.
 
 ## 5. Set the sign-in secrets, if email sign-in is wanted
 
-**[SKIPPABLE]** Skip all three if the only people using it arrive through a link
-with identity headers. Set all three or none, because two out of three does not
-work.
+**[SKIPPABLE]** Skip both if the only people using it arrive through a link with
+identity headers. Set both or neither, because one of the two does not work.
 
 ```
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_ANON_KEY
-npx wrangler secret put SUPABASE_JWT_SECRET
 ```
 
 These come from the existing Supabase project, under Project Settings, API. They
 are not new values and nothing about Supabase changes in this move.
 
-**You should see:** `Success! Uploaded secret …` three times.
+**You should see:** `Success! Uploaded secret …` twice.
+
+### Do not set SUPABASE_JWT_SECRET
+
+**This step used to ask for a third secret, and that instruction was wrong.**
+
+Supabase now signs access tokens with a key pair rather than a shared secret,
+and publishes the public half at
+`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`. The app reads that document, so
+`SUPABASE_URL` is all it needs to verify a session. The old secret verifies
+nothing on a migrated project.
+
+Setting it does no harm, so if it is already set you can leave it. It is only
+read as a fallback for a project that has not migrated.
+
+**Why this is called out rather than quietly dropped:** requiring it was not a
+cosmetic mistake. It switched email sign-in off entirely, in a way that looked
+like anything but an auth problem. Signing up worked, the account was created,
+and the next request sent the person back to the landing page as though they had
+never signed up. If you see that symptom, this is where to look.
 
 ---
 

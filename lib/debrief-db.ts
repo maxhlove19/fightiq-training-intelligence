@@ -69,7 +69,15 @@ export async function getDebriefState(db: D1, entryId: string, ownerId: string) 
     nextSessionFocus: debrief.next_session_focus,
     answeredCount,
     questionCount: rows.length,
-    memoryUpdated: debrief.status === "complete" && Boolean(debrief.structured_memory_json),
+    // "Memory updated" and "key insight" are claims, and they were being made
+    // over the offline fallback, whose takeaway is "your session is saved with
+    // the detail you logged". An acknowledgement labelled as an insight is the
+    // fastest way to stop being believed.
+    //
+    // A next-session focus is the promise this app makes, so it is what earns
+    // the claim. Every fallback path returns an empty one, and a debrief held
+    // back for a head knock deliberately has none either.
+    memoryUpdated: debrief.status === "complete" && Boolean(debrief.structured_memory_json) && Boolean(debrief.next_session_focus?.trim()),
     coachDetail: debrief.coach_detail,
   };
   if (debrief.status === "complete") return { ...base, status: "complete" as const };

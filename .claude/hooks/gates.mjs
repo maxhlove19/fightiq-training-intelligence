@@ -17,6 +17,9 @@ export const GATES = [
   // is the rule most likely to be broken by something a model wrote and the one
   // most likely to be shrugged off in a list of two hundred passing tests.
   { name: "house-style", argv: ["node", "--test", "--import", "./tests/ts-imports.mjs", "tests/copy-voice.test.mjs", "tests/house-style.test.mjs"], fast: true },
+  // A pull request without a handoff in it loses its context when the container
+  // is reclaimed, which is what happens to every unattended run.
+  { name: "handoff", argv: ["node", "scripts/handoff-check.mjs"], fast: true },
   // Impeccable's deterministic anti-pattern detectors. No model call, no API key,
   // no network: css-tree and htmlparser2 reading our own files. It owns the
   // question "does this look like a machine wrote it", which is exactly the

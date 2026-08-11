@@ -30,7 +30,16 @@ function git(...args) {
   try { return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; }
 }
 
+/**
+ * Read the hook payload, without hanging when there is not one.
+ *
+ * `readFileSync(0)` blocks forever on an interactive terminal, so running this
+ * by hand, which the header above advertises, hung instead of working. A hook
+ * that hangs is worse than a hook that does nothing, and this is the second time
+ * that exact sentence has been earned in this repository.
+ */
 function readStdin() {
+  if (process.stdin.isTTY) return "";
   try { return readFileSync(0, "utf8"); } catch { return ""; }
 }
 

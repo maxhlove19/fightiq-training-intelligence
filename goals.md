@@ -495,6 +495,12 @@ normal training. Anything sooner is noise dressed as a decision.
    number. Inferring the number from sequence is guessing. This rule exists
    because a PR number and a URL were once reported for a pull request that was
    never opened, alongside a test count quoted from memory rather than re-run.
-8. **Re-run the numbers before quoting them.** Test counts, finding counts and
+8. **Include `.claude/HANDOFF.md` in the commit.** Regenerate it with
+   `node .claude/hooks/handoff.mjs` before committing, so the state travels
+   attached to the pull request rather than dying with the container. A tracked
+   file nobody commits does not exist, and an unattended run has nobody to commit
+   it. `scripts/handoff-check.mjs` fails the gate if a branch has commits and no
+   handoff among them.
+9. **Re-run the numbers before quoting them.** Test counts, finding counts and
    measurements go stale within a single session. If a figure appears in a PR
    body, the command that produced it was run for that PR.

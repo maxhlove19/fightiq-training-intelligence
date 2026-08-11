@@ -119,6 +119,30 @@ matches the failure appearing before any fetch or build happens.
 
 ---
 
+## Verifying that a deploy actually landed
+
+The live site serves a deployment identifier at
+`/.well-known/sites-deployment-id`. **Use it rather than comparing bundle
+filenames or asset hashes.** One request, one string, and it either changed or it
+did not.
+
+At the time of writing it returns:
+
+```
+appgdep_6a7b45efb61081918c43b23ea8b7c0d9
+```
+
+**That identifier corresponds to a build that predates PR #12**, established
+independently: `/api/admin/cost` returns 404 against it, and that route ships in
+#12. So this value is a known-stale reference point. If a deploy is attempted and
+this string is unchanged afterwards, the deploy did nothing, regardless of what
+the pipeline reported.
+
+This matters because a deploy has already silently reported success and changed
+nothing once. Asset-hash comparison caught it, but it takes several requests and
+a stylesheet can legitimately keep its hash when only JavaScript changed, which
+produced a real moment of ambiguity. The deployment id has neither problem.
+
 ## What a move actually requires
 
 Listed as work rather than as an argument, so the cost is visible.

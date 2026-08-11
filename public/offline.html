@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>No signal. FightIQ</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #01030a; color: #eef5ff; font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { min-height: 100%; display: grid; align-content: center; gap: 14px; padding: 32px 22px calc(32px + env(safe-area-inset-bottom)); max-width: 420px; margin: 0 auto; }
+  .wordmark { margin: 0 0 6px; font-size: 17px; font-weight: 800; font-style: italic; letter-spacing: -.02em; }
+  .wordmark span { color: #23c8e8; }
+  h1 { margin: 0; font-size: 24px; line-height: 1.15; letter-spacing: -.02em; }
+  p { margin: 0; color: #93a6bf; font-size: 14px; line-height: 1.55; }
+  strong { color: #dceaf9; font-weight: 600; }
+  button { margin-top: 6px; min-height: 52px; border: 1px solid #1688ff; border-radius: 10px; background: linear-gradient(105deg, #087dfb, #0569d8); color: #fff; font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .05em; cursor: pointer; }
+  small { color: #5d6f88; font-size: 11px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<main>
+  <p class="wordmark">FIGHT<span>IQ</span></p>
+  <h1>No signal in here.</h1>
+  <p>This happens in gyms. <strong>Nothing you have written is lost.</strong> A note you were typing is saved on this phone and is still here when the app opens again.</p>
+  <p>Step outside, or onto wifi, and try again.</p>
+  <button onclick="location.reload()">TRY AGAIN</button>
+  <small>If you were mid note, open FightIQ once you have signal and it will be waiting where you left it.</small>
+</main>
+<script>
+  // Come back on its own the moment the signal returns, so somebody standing in
+  // a doorway does not have to keep tapping.
+  addEventListener("online", function () { location.reload(); });
+</script>
+</body>
+</html>

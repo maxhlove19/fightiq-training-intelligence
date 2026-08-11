@@ -66,7 +66,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ d
     );
   }
 
-  const displayName = athlete?.displayName?.split(" ")[0] ?? "Max";
+  // Empty rather than a placeholder name. This used to fall back to a specific
+  // first name, so any signed-in athlete who had not set one was greeted by
+  // somebody else's, which is a shipped bug before it is anything else.
+  const displayName = athlete?.displayName?.split(" ")[0] ?? "";
   const requestedEntry = (await searchParams).debrief;
   const initialEntryId = typeof requestedEntry === "string" && requestedEntry.length <= 100 ? requestedEntry : null;
   return <FightIQApp displayName={displayName} provider={athlete?.provider ?? "chatgpt"} initialEntryId={initialEntryId} />;

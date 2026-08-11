@@ -20,7 +20,7 @@ const future = () => Math.floor(Date.now() / 1000) + 3600;
 const claims = (extra = {}) => ({
   sub: "user-123", email: "max@example.test", exp: future(),
   aud: "authenticated", iss: "https://proj.supabase.co/auth/v1",
-  user_metadata: { full_name: "Max Love" }, ...extra,
+  user_metadata: { full_name: "Sam Rivera" }, ...extra,
 });
 
 test("a properly signed token is accepted and its claims come back", async () => {
@@ -29,7 +29,7 @@ test("a properly signed token is accepted and its claims come back", async () =>
   assert.ok(verified);
   assert.equal(verified.sub, "user-123");
   assert.equal(verified.email, "max@example.test");
-  assert.equal(verified.name, "Max Love");
+  assert.equal(verified.name, "Sam Rivera");
 });
 
 test("a token signed with a different secret is rejected", async () => {

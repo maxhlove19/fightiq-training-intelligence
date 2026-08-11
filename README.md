@@ -173,6 +173,44 @@ debrief falls back to the offline reading in `resilientDebrief`, because the
 note is already saved and losing it to a model failure would be the worst thing
 this app could do.
 
+### Day one
+
+An athlete answers six screens of setup and then lands on the home screen with
+nothing logged. That moment decides whether they come back, and for a while the
+app's first act was to ask them for more: "Build your baseline. Log today's
+training and FightIQ will give you one clear thing to work on next."
+
+`lib/first-session.ts` is what it says instead. The fault that is usually there
+at their level in their sport, why it costs them, and the one question tonight
+answers. It is curated rather than generated, which means it is instant, free,
+and the same every time, and every entry says out loud that this is the usual
+one at their level rather than a read on their game. FightIQ has seen nothing
+yet, and pretending otherwise gets caught on day two.
+
+Three rules hold this together, and breaking any of them is how it gets thin
+again.
+
+**One instruction, everywhere.** The home card, the current focus on My Game,
+the rail on the way into the gym, the brief that opens when it is tapped, and
+the question carried onto the log screen are all built from one place. They used
+to be built from four, and they disagreed: the rail said pivot while the sheet
+behind it said distance.
+
+**What the athlete typed wins.** If they named a priority during setup, the
+opening is about that. Answering a different question is the clearest possible
+sign nobody read it.
+
+**None of it survives real training.** The brief records itself as built from
+"no training yet" rather than from a focus, so the first logged session retires
+it on the spot instead of eighteen hours later. `tests/first-session-db.test.mjs`
+runs that handoff against a real database.
+
+The empty cards on My Game work the same way. The evidence rules behind them are
+real, so they state the rule rather than the absence: nothing is a strength
+until it holds up three sessions running, nothing is recurring until it has
+happened twice. Above them, what the next few sessions unlock, with a date
+worked out from how often the athlete said they train.
+
 ### The schema takes care of itself
 
 Every table, column and index lives in `lib/schema.ts`, and every request

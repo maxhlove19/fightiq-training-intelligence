@@ -185,17 +185,11 @@ not evaluation.**
 
 ### Defects still visible in the shipped app
 
-Three of them, stated because they are still true.
-
-**Three different day counts appear on one screen.** The seven-day card, the
-focus history entry and the lifetime line count days by different and separately
-defensible definitions. `grep -c spanDays lib/focus-history.ts` returns 2, and
-`lib/weekly-review.ts` counts distinct calendar days. Both are correct; showing
-both without labels is not.
-
-**Two glyphs for the same idea on one screen.** One place renders `×`, two render
-`x`: `grep -o '×${item.sessions}' app/components/ProductScreens.tsx` and the same
-with `x` return one and two matches respectively.
+One of them, stated because it is still true. Two more that were here are fixed:
+the day counts on My Game now come from one definition, distinct calendar days
+trained, rather than mixing that with calendar-elapsed time in the same
+sentence; and the discipline counts on that screen render `×` everywhere rather
+than `×` in one place and `x` in two others.
 
 **The stylesheet has four competing `:root` blocks.** Twelve custom properties are
 declared more than once and the last declaration wins, so `--blue` resolves to a

@@ -35,7 +35,7 @@ export type ProductData = {
   preTrainingBrief: { mission: string; reason: string; cue: string };
   activeExperiment: { id: string; mission: string; cue: string; reason: string; startedAt: string | null } | null;
   /** What the athlete has worked on and when, newest first. See lib/focus-history.ts. */
-  focusHistory: Array<{ id: string; focus: string; reason: string; source: string; startedAt: string; endedAt: string | null; sessions: number; days: number; spanDays: number; disciplines: Array<{ name: string; sessions: number }>; closingTakeaway: string | null }>;
+  focusHistory: Array<{ id: string; focus: string; reason: string; source: string; startedAt: string; endedAt: string | null; sessions: number; days: number; disciplines: Array<{ name: string; sessions: number }>; closingTakeaway: string | null }>;
   /** Everything ever logged, rather than the last seven days of it. */
   lifetime: { sessions: number; days: number; firstSessionAt: string | null; latestSessionAt: string | null; disciplines: Array<{ name: string; sessions: number }> };
   /** Every weigh-in on record, oldest first. See lib/weight-history.ts. */
@@ -351,8 +351,8 @@ function FocusHistory({ periods, lifetime }: { periods: ProductData["focusHistor
             <strong>{cleanAiDisplay(period.focus)}</strong>
             <p className="focus-history-count">
               {period.sessions === 1 ? "1 session" : `${period.sessions} sessions`}
-              {period.days > 0 && ` over ${period.spanDays === 1 ? "a day" : `${period.spanDays} days`}`}
-              {period.disciplines.length > 0 && `. ${period.disciplines.map((item) => `${item.name} x${item.sessions}`).join(", ")}`}
+              {period.days > 0 && ` across ${period.days === 1 ? "1 day" : `${period.days} days`}`}
+              {period.disciplines.length > 0 && `. ${period.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(", ")}`}
             </p>
             {period.closingTakeaway && <p className="focus-history-said">{cleanAiDisplay(period.closingTakeaway)}</p>}
             {period.source === "backfilled" && index === periods.length - 1 && <p className="focus-history-note">FightIQ started keeping this record here. Sessions before it are counted, the focus behind them was not written down.</p>}
@@ -363,7 +363,7 @@ function FocusHistory({ periods, lifetime }: { periods: ProductData["focusHistor
     {past.length === 0 && <p className="focus-history-note">This is the first one on record. When it changes, the old one stays here with what you logged inside it.</p>}
     {lifetime.firstSessionAt && <p className="focus-history-lifetime">
       {lifetime.sessions === 1 ? "1 session" : `${lifetime.sessions} sessions`} across {lifetime.days === 1 ? "1 day" : `${lifetime.days} days`}, since {shortDate(lifetime.firstSessionAt)}.
-      {lifetime.disciplines.length > 0 && ` ${lifetime.disciplines.map((item) => `${item.name} x${item.sessions}`).join(", ")}.`}
+      {lifetime.disciplines.length > 0 && ` ${lifetime.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(", ")}.`}
     </p>}
   </section>;
 }

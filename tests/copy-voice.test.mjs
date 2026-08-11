@@ -64,3 +64,15 @@ test("no reader-facing line uses an American spelling from the denylist", () => 
     .map((entry) => `${entry.file}:${entry.line}  ${entry.text.trim().slice(0, 110)}`);
   assert.deepEqual(offenders, [], `American spelling found in copy:\n  ${offenders.join("\n  ")}`);
 });
+
+// The seven day card used "×" for a discipline count and the focus history and
+// lifetime lines used "x", so the same idea carried two different glyphs on
+// one screen. Scoped to the screens that render to the DOM: lib/product-ai.ts
+// builds the same shape as JSON context for a model call, which nobody reads.
+test("a discipline count on screen uses one glyph, not two", () => {
+  const offenders = readerFacingLines()
+    .filter((entry) => entry.file.startsWith(join("app", "components")))
+    .filter((entry) => /\bx\$\{[^}]*\.sessions\}/.test(entry.text))
+    .map((entry) => `${entry.file}:${entry.line}  ${entry.text.trim().slice(0, 110)}`);
+  assert.deepEqual(offenders, [], `letter "x" used where "×" is the house glyph:\n  ${offenders.join("\n  ")}`);
+});

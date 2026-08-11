@@ -8,7 +8,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clip, clipLabel, sentence } from "../lib/clip.ts";
+import { clip, clipLabel, looksHardTruncated, sentence } from "../lib/clip.ts";
 
 const MISSION = "Repeat ankle locks with controlled resistance and note what stays consistent";
 
@@ -73,4 +73,14 @@ test("nothing is added to a string that fits", () => {
   const short = "Win the grip first.";
   assert.equal(clip(short, 240), short);
   assert.ok(!clip(short, 240).endsWith("…"));
+});
+
+test("a row still carrying the old 72-character hard cut is recognised as stale", () => {
+  // The exact reported bug: cut at 72 with no ellipsis, stopped inside "consis[tent]".
+  const legacy = MISSION.slice(0, 72);
+  assert.equal(legacy.length, 72);
+  assert.ok(looksHardTruncated(legacy));
+  // clip() at the same ceiling produces the fixed shape, which must not trip it.
+  assert.ok(!looksHardTruncated(clip(MISSION, 72)));
+  assert.ok(!looksHardTruncated("Win the grip first."));
 });

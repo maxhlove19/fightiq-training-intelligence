@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T18:15:07.260Z (run by hand).
+Written automatically at 2026-08-11T18:30:55.921Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,27 +8,21 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/handoff-travels`
-- HEAD: `6a53814` "Merge pull request #19 from maxhlove19/claude/handoff"
+- Branch: `claude/cloudflare-config`
+- HEAD: `8a074e9` "Merge pull request #20 from maxhlove19/claude/handoff-travels"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work, 7 file(s)
+## Uncommitted work, 3 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M .claude/HANDOFF.md`
-- ` M .claude/hooks/gates.mjs`
-- ` M .claude/hooks/handoff.mjs`
-- ` M DEPLOY.md`
-- ` M goals.md`
-- ` M tests/hooks.test.mjs`
-- `?? scripts/handoff-check.mjs`
+- `M DEPLOY.md`
+- `?? CLOUDFLARE-SETUP.md`
+- `?? wrangler.jsonc`
 
 ## What this branch is probably against
 
-Inferred from the branch name, so treat it as a hint rather than a fact:
-
-> 8. **Include `.claude/HANDOFF.md` in the commit.** Regenerate it with
+Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
 
 ## What was verified
 

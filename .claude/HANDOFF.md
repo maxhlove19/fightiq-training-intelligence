@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T21:13:30.859Z (run by hand).
+Written automatically at 2026-08-11T21:35:41.671Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,25 +8,13 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/supabase-asymmetric-jwt`
-- HEAD: `36a6f69` "Merge pull request #29 from maxhlove19/claude/magical-darwin-2gwd8c"
+- Branch: `claude/magical-darwin-hv9eui`
+- HEAD: `8f35b1a` "Verify Supabase tokens the way Supabase now signs them"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work, 11 file(s)
+## Uncommitted work
 
-This is the part that disappears if the container is reclaimed.
-
-- `M CLOUDFLARE-SETUP.md`
-- ` M DEPLOY.md`
-- ` M README.md`
-- ` M app/api/auth/password/route.ts`
-- ` M lib/auth-routes.ts`
-- ` M lib/current-athlete.ts`
-- ` M lib/identity.ts`
-- ` M lib/jwt.ts`
-- ` M package.json`
-- `?? lib/jwks.ts`
-- `?? tests/jwks.test.mjs`
+None. The working tree is clean.
 
 ## What this branch is probably against
 
@@ -56,7 +44,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Commit or discard the uncommitted work above before starting anything new.
+Read goals.md, take the top unblocked item, and start one branch for it.
 
 ---
 

@@ -276,8 +276,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .memory-prompt strong { color: var(--ink); font-size: 13px; }
 .context-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #243651; background: #0e1827; color: #9fb4ce; padding: 8px 11px; border-radius: 999px; font-size: 10px; margin: -18px 0 20px; }
 .context-pill svg { color: var(--blue-bright); }
-.coach-page { min-height: 100dvh; display: flex; flex-direction: column; }
-.coach-thread { flex: 1; min-height: 48dvh; padding-bottom: 20px; }
+/* A chat is a fixed frame with a scrolling middle, not a long page with a sticky
+   footer. The thread was `flex: 1` with no overflow, so it sized itself to one
+   viewport, painted 5000px of conversation outside its own box, and left the
+   composer anchored to the bottom of a 290px block in the middle of the screen.
+   The thread owns the scrolling now, and the composer needs no sticky at all. */
+.coach-page { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.coach-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 20px; }
 .coach-empty { text-align: center; max-width: 430px; margin: 8vh auto 0; }
 .coach-empty h2 { font-size: 27px; letter-spacing: -.04em; margin: 0 0 9px; }
 .coach-empty > p { color: var(--muted); line-height: 1.55; font-size: 13px; }
@@ -316,7 +321,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .coach-video-offer > span { display: block; color: var(--green); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .13em; font-weight: 700; }
 .coach-video-offer p { margin: 5px 0 7px; color: #c9d8e8; font-size: 12px; line-height: 1.45; }
 .coach-video-offer button { border: 0; background: none; color: var(--blue-bright); padding: 3px 0; display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 650; }
-.coach-compose { position: sticky; bottom: calc(var(--nav-height) - 1px); background: rgba(7,10,15,.96); border-top: 1px solid var(--line-soft); padding: 12px 0 13px; }
+.coach-compose { flex: 0 0 auto; background: rgba(7,10,15,.96); border-top: 1px solid var(--line-soft); padding: 12px 0 13px; }
 .coach-compose textarea { width: 100%; min-height: 60px; resize: none; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 13px 92px 13px 14px; font-size: 13px; outline: none; }
 .coach-compose .answer-mic { right: 51px; bottom: 13px; }
 @media (max-width: 520px) { .coach-suggestions .prompt-list { grid-template-columns: 1fr; } }
@@ -578,10 +583,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .learn-video .play { width: 31px; height: 31px; }
 .content-note, .explore-link { font-size: 10px; }
 .explore-link { justify-content: center; margin: 12px auto 0; color: var(--muted); }
-.coach-page { display: flex; flex-direction: column; min-height: calc(100dvh - var(--nav-height)); padding-bottom: 0; }
+/* The fixed bottom nav is reserved by padding on .app-frame. The coach page has
+   to be exactly the space left over, or the composer sits below the fold. */
+.app-frame:has(> .coach-page) { padding-bottom: var(--nav-height); }
+.coach-page { display: flex; flex-direction: column; height: calc(100dvh - var(--nav-height)); min-height: 0; padding-bottom: 0; overflow: hidden; }
 .coach-page .page-header { margin-bottom: 11px; }
 .context-pill { border-radius: 7px; font-size: 10px; padding: 7px 8px; }
-.coach-thread { min-height: 0; padding-bottom: 10px; }
+.coach-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 10px; }
 .coach-empty { padding: 23px 4px; }
 .coach-empty h2 { font-size: 19px; }
 .coach-empty .coming-icon { width: 44px; height: 44px; margin-bottom: 11px; border-radius: 12px; }
@@ -591,7 +599,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .coach-suggestions { margin-top: 4px; }
 .prompt-list { gap: 5px; }
 .prompt-list button { min-height: 39px; border-radius: 7px; font-size: 10px; }
-.coach-compose { bottom: 0; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); background: rgba(1,3,8,.99); }
+.coach-compose { flex: 0 0 auto; padding: 8px 0 max(8px, env(safe-area-inset-bottom)); background: rgba(1,3,8,.99); }
 .coach-compose textarea { min-height: 48px; border-radius: 8px; padding: 10px 76px 10px 10px; font-size: 11px; }
 .coach-compose .answer-mic { right: 43px; bottom: 10px; }
 .compose-send { right: 8px; bottom: 9px; width: 31px; height: 31px; }
@@ -729,6 +737,10 @@ body { letter-spacing: 0; font-size: 13px; }
 
 /* Learn becomes a visual study reel: thumbnails first, labels second. */
 .product-page { padding-bottom: 83px; }
+/* Every other product page reserves room for the fixed nav with padding. Coach
+   sizes itself to the space above the nav instead, so that padding would push
+   the composer up off the glass and leave a dead band under it. */
+.product-page.coach-page { padding-bottom: 0; }
 .focus-banner { margin-bottom: 12px; padding: 11px; border-color: #17345a; background: #06111f; }
 .focus-banner > span { font-family: var(--font-geist-mono), monospace; font-size: 7px; color: #539eff; letter-spacing: .12em; }
 .focus-banner h2 { margin: 4px 0 0; font-size: 15px; line-height: 1.18; }
@@ -847,7 +859,9 @@ body { letter-spacing: 0; font-size: 13px; }
 .setup-next { min-width: 132px; min-height: 42px; }
 
 /* Dense reading guardrails for persistent history and long suggestions. */
-.chat-message.assistant .chat-bubble p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
+/* No clamp on a coaching answer. Five lines with no way to expand was silently
+   eating the last two or three lines of the thing the athlete came here for,
+   mid-sentence, which is worse than showing nothing at all. */
 .coach-suggestions .prompt-list button { overflow: hidden; }
 .coach-suggestions .prompt-list button:not(:focus-visible) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 
@@ -866,7 +880,7 @@ body { letter-spacing: 0; font-size: 13px; }
 .learn-page .video-source { right: 6px; bottom: 6px; padding: 3px 4px; border-radius: 3px; font-family: var(--font-geist-mono), monospace; font-size: 6px; }
 
 .coach-page .context-pill { display: flex; width: 100%; min-height: 28px; border-color: #132947; background: transparent; color: #7895b8; }
-.coach-page .coach-thread:has(.coach-empty) { flex: 0; min-height: 0; padding-bottom: 0; }
+.coach-page .coach-thread:has(.coach-empty) { flex: 0 0 auto; min-height: 0; overflow: visible; padding-bottom: 0; }
 .coach-page .coach-empty { display: block; margin: 14px 0 12px; padding: 0; text-align: left; }
 .coach-page .coach-empty .coming-icon { display: none; }
 .coach-page .coach-empty h2 { color: #d9e6f7; font-size: 15px; font-weight: 580; }
@@ -1488,6 +1502,12 @@ body { letter-spacing: .003em; }
   .app-frame.home-frame { padding-bottom: 0; }
   .app-frame > main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
   .app-frame > main.native-page, .app-frame > main.analysis-page, .app-frame > main.log-page { min-height: 0; }
+  /* Every other page scrolls as a whole. Coach does not: its thread scrolls
+     inside it, so the composer stays on the glass. */
+  .app-frame > main.coach-page { height: auto; overflow: hidden; }
+  /* The nav is a static row inside the frame here, not a fixed bar over the
+     viewport, so the coach page must not also reserve room for it. */
+  .app-frame:has(> .coach-page) { padding-bottom: 0; }
   .bottom-nav { position: static; width: 100%; max-width: none; transform: none; border-bottom-left-radius: 21px; border-bottom-right-radius: 21px; }
   .toast { position: absolute; bottom: 96px; }
   .door { max-width: 1120px; }

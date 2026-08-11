@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- external video thumbnails and user food previews cannot use the app image pipeline. */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
@@ -10,6 +10,7 @@ import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { buildWeeklyReview, restTile, themeStatusLabel } from "../../lib/weekly-review";
 import { firstWeekPlan, isPlaceholderMemory, unlockCards } from "../../lib/first-session";
 import { toAthleteVoice } from "../../lib/athlete-voice";
+import { toHouseStyle } from "../../lib/house-style";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -37,9 +38,15 @@ type MacroValues = { calories: number; protein: number; carbs: number; fat: numb
 export type AthleteSetup = { disciplines: string[]; experienceLevel: string; sessionsPerWeek: number; sessionTypes: string[]; competitionIntent: string; age: number | null; calculatorSex: "female" | "male" | "manual" | null; heightCm: number | null; weightKg: number | null; dietaryRestrictions: string[]; foodPreferences: string; foodsToAvoid: string; mealsPerDay: number | null; trainingTime: string };
 type NutritionEntry = MacroValues & { id: string; description: string; photoUrl: string | null; created_at?: string; createdAt?: string };
 
+// The generation-time sanitiser in lib/claude.ts only reaches text written from
+// now on. Every answer already stored in somebody's conversation was written
+// before it existed, so the same rule runs again on the way to the screen.
 function cleanAiDisplay(value: string) {
-  return toAthleteVoice(value).replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s*[-*]\s+/gm, "").replace(/^\s{0,3}#{1,6}\s*/gm, "").trim();
+  return toHouseStyle(toAthleteVoice(value)).replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s*[-*]\s+/gm, "").replace(/^\s{0,3}#{1,6}\s*/gm, "").trim();
 }
+
+/** Positioning a scroll container has to happen before paint, and there is no paint on the server. */
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function useProductData(initialUrl = "/api/product") {
   const [data, setData] = useState<ProductData | null>(null);
@@ -189,10 +196,25 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const [safety, setSafety] = useState<{ signal: SafetySignal; messageId: string } | null>(null);
   const voice = useVoiceField(question, setQuestion);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const threadRef = useRef<HTMLElement | null>(null);
   const composeRef = useRef<HTMLTextAreaElement | null>(null);
   async function loadChat(chatId?: string) { setLoading(true); setError(""); try { const response = await fetch(chatId ? `/api/coach?chatId=${encodeURIComponent(chatId)}` : "/api/coach"); const data = await response.json() as { messages?: CoachMessage[]; chats?: CoachChat[]; activeChatId?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setMessages(data.messages ?? []); setChats(data.chats ?? []); setActiveChatId(data.activeChatId ?? ""); setSuggestions(data.suggestions ?? []); setFailure(null); } catch (caught) { setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); } finally { setLoading(false); } }
   useEffect(() => { let active = true; void fetch("/api/coach").then(async (response) => { const data = await response.json() as { messages?: CoachMessage[]; chats?: CoachChat[]; activeChatId?: string; suggestions?: string[]; error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); if (active) { setMessages(data.messages ?? []); setChats(data.chats ?? []); setActiveChatId(data.activeChatId ?? ""); setSuggestions(data.suggestions ?? []); } }).catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : "Coach history couldn’t load."); }).finally(() => { if (active) setLoading(false); }); return () => { active = false; }; }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+  // Arriving at a conversation means arriving at the end of it. This used to be a
+  // smooth scrollIntoView, which animated from the top of a container whose height
+  // was wrong, so a returning athlete landed on their oldest question with the
+  // newest one thousands of pixels below the fold.
+  //
+  // The first scroll of a loaded thread is instant and happens before paint, so
+  // there is no visible travel. Everything after it animates, because then the
+  // movement is telling you something arrived.
+  const settled = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    const thread = threadRef.current;
+    if (!thread || (!messages.length && !sending)) return;
+    thread.scrollTo({ top: thread.scrollHeight, behavior: settled.current ? "smooth" : "auto" });
+    settled.current = true;
+  }, [messages.length, sending]);
   async function send(explicitQuestion?: string, retryMessageId?: string) {
     const pending = (explicitQuestion ?? question).trim();
     if (!pending || sending) return;
@@ -242,7 +264,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
     : failure ? `${failure.message} Your message was preserved.` : "";
   return <main className="page product-page native-page coach-page"><header className="page-header coach-header"><div><p className="question-progress">YOUR COACH</p><h1 className="page-title">Ask FightIQ</h1></div><button className="new-chat-button" onClick={() => void newChat()} disabled={sending}><Plus size={15} /> New chat</button></header>
     {chats.length > 1 && <label className="coach-chat-picker"><span>CHAT</span><select value={activeChatId} onChange={(event) => void loadChat(event.target.value)}>{chats.map((chat) => <option value={chat.id} key={chat.id}>{chat.title}</option>)}</select></label>}
-    <section className="coach-thread">
+    <section className="coach-thread" ref={threadRef}>
       {loading && <LoadingState label="Loading your conversation…" />}
       {!loading && messages.length === 0 && <div className="coach-empty"><div className="coming-icon"><MessageCircle size={25} /></div><h2>What do you want to sharpen?</h2></div>}
       {messages.map((message) => {

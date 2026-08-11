@@ -34,13 +34,55 @@ Determined by: `grep -rn "cloudflare:workers"`, reading `worker/index.ts`, and
 
 This corrects a premise worth correcting before anyone plans around it.
 
-`SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_JWT_SECRET` are read in
-`getProductRuntime` and used to verify sign-in tokens. `grep -rn "supabase"`
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are read in `getProductRuntime` and used
+to verify sign-in tokens. `SUPABASE_JWT_SECRET` is read too, but it is now a
+legacy fallback rather than a requirement: see "Sign-in keys are asymmetric now"
+below. `grep -rn "supabase"`
 against `lib/product-db.ts` and `lib/debrief-db.ts` returns **nothing**: no
 query, no table, no connection.
 
 **Every table this app owns lives in Cloudflare D1**, and there are no Supabase
 migrations to apply anywhere.
+
+### Sign-in keys are asymmetric now
+
+Supabase migrated projects from one shared HS256 secret to asymmetric signing
+keys. A project publishes the public half of its key at
+
+```
+<SUPABASE_URL>/auth/v1/.well-known/jwks.json
+```
+
+and signs access tokens with **ES256**. That document is the authority on what
+this app will accept, and for this project it advertises exactly one key, EC
+P-256, and no HS256 key at all.
+
+**This broke sign-in completely, and it is worth knowing what it looked like**,
+because nothing about the symptom pointed at authentication. Signing up worked.
+The account really was created in Supabase. Then the very next request could not
+verify the access token it had just been handed, resolved to nobody, and
+returned the person to the landing page as though they had never signed up. A
+verifier that only knows HS256 rejects every token a migrated project issues,
+and rejecting a token is indistinguishable from never having signed in.
+
+`lib/jwks.ts` fetches and caches that document, and `verifyEs256` in
+`lib/jwt.ts` verifies against it, selecting the key by the token's `kid`. Keys
+rotate, which is the point of publishing them, so an unrecognised `kid` triggers
+one refetch rather than a rejection, rate limited so a stream of junk tokens
+cannot become a stream of outbound requests.
+
+**The consequence for configuration:** the JWKS URL is derived from
+`SUPABASE_URL`, so that variable alone is enough to verify a session.
+`SUPABASE_JWT_SECRET` is no longer required, and requiring it was itself a bug:
+`supabaseConfig()` returned null without it, which switched email sign-in off
+on exactly the projects where it now works. The HS256 path is kept, and runs
+only when a legacy secret is present, so a project that has not migrated is
+unaffected.
+
+Which verifier runs is decided by what the deployment is configured with, never
+by the token's own `alg` header. On a deployment with JWKS and no legacy secret,
+an HS256 token is rejected however it is signed, because nothing calls the HS256
+path at all. There is a test for exactly that.
 
 ### How the schema actually reaches production
 
@@ -79,7 +121,8 @@ failure paths in `lib/health.ts`.
 | Variable | Required | Effect if absent |
 | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | For the product to be the product | Coach and the debrief return `AI_NOT_CONFIGURED`. The app loads, logs sessions and shows history. It cannot think. |
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET` | For email sign-in | Email accounts cannot sign in. Header-based identity still works. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | For email sign-in | Email accounts cannot sign in. Header-based identity still works. |
+| `SUPABASE_JWT_SECRET` | No | Legacy fallback for a project still signing with HS256. A migrated project does not need it and it verifies nothing there. |
 | `YOUTUBE_API_KEY` | No | `liveVideoSearch` false, curated studies only. This is its current live state. |
 | `FIGHTIQ_OWNER_EMAILS` | No | `/admin` returns 404 to everyone, including the owner. This is its current live state. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | No | Development only. |
@@ -209,8 +252,8 @@ One. Everything else degrades a feature.
 | --- | --- | --- | --- |
 | `ANTHROPIC_API_KEY` | For the product to think | `lib/product-db.ts:106`, `lib/debrief-server.ts:14`; failures raised at `lib/debrief-ai.ts:131`, `lib/product-ai.ts:154` and `:357` | Sessions still save and history still shows. The debrief and Coach return `AI_NOT_CONFIGURED`. |
 | `SUPABASE_URL` | Only for email sign-in | `lib/current-athlete.ts:15`, `lib/auth-routes.ts:8` | Email sign-in unavailable. Header identity still works. |
-| `SUPABASE_ANON_KEY` | Only for email sign-in | `lib/auth-routes.ts:8` | As above. Set all three or none. |
-| `SUPABASE_JWT_SECRET` | Only for email sign-in | `lib/current-athlete.ts:16` | As above. |
+| `SUPABASE_ANON_KEY` | Only for email sign-in | `lib/auth-routes.ts:8` | As above. Set both, or neither. |
+| `SUPABASE_JWT_SECRET` | **No** | `lib/current-athlete.ts` | Nothing, on a project that has migrated to asymmetric signing keys. Kept only so a project still signing with HS256 keeps working. |
 | `YOUTUBE_API_KEY` | No | `lib/product-db.ts:105` | Curated studies only. This is its current live state. |
 | `FIGHTIQ_OWNER_EMAILS` | No | `lib/product-db.ts:107` | `/admin` returns 404 to everyone. This is its current live state. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | No | `lib/product-db.ts:107`, `lib/debrief-server.ts:14` | Development only. |

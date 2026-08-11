@@ -11,7 +11,8 @@
 // Both paths produce the same Athlete, and the rest of the app never learns
 // which one somebody used.
 
-import { verifyHs256 } from "./jwt";
+import { verifyEs256, verifyHs256 } from "./jwt";
+import { type JwksSource } from "./jwks";
 
 export type AuthProvider = "email" | "chatgpt";
 
@@ -24,7 +25,18 @@ export type Athlete = {
 };
 
 export type IdentityConfig = {
-  /** Supabase project JWT secret. Without it, email sign in is switched off rather than insecure. */
+  /**
+   * The project's published verifying keys. This is the current path: Supabase
+   * signs access tokens with ES256 and publishes the public half.
+   */
+  jwks?: JwksSource;
+  /**
+   * The old shared HS256 secret, kept only as a fallback.
+   *
+   * A project that has not migrated still signs with this, so removing it would
+   * break those deployments for no gain. It is no longer required for email
+   * sign in to work, and it verifies nothing on a migrated project.
+   */
   jwtSecret?: string;
   /** https://<ref>.supabase.co/auth/v1, checked on every token. */
   issuer?: string;
@@ -58,15 +70,27 @@ export function readCookie(header: string | null | undefined, name: string): str
   return "";
 }
 
-/** The athlete carried by a verified Supabase access token, or null. */
+/**
+ * The athlete carried by a verified Supabase access token, or null.
+ *
+ * Two signing schemes, tried in the order a deployment is configured for rather
+ * than in the order the token asks for. ES256 against the project's published
+ * keys is what Supabase issues now. HS256 runs only when a legacy secret is
+ * present, so a deployment that has migrated cannot be talked into accepting a
+ * token signed with a shared secret by any header a token can carry.
+ *
+ * Every failure is the same null. A caller must not be able to tell "expired"
+ * from "wrong key" from "not configured", because each of those is the same
+ * answer to the only question being asked.
+ */
 export async function athleteFromAccessToken(token: string, config: IdentityConfig): Promise<Athlete | null> {
-  if (!token || !config.jwtSecret) return null;
-  const verified = await verifyHs256(token, {
-    secret: config.jwtSecret,
-    issuer: config.issuer,
-    audience: "authenticated",
-    now: config.now,
-  });
+  if (!token) return null;
+  const claims = { issuer: config.issuer, audience: "authenticated", now: config.now } as const;
+
+  let verified = config.jwks ? await verifyEs256(token, { ...claims, keys: config.jwks }) : null;
+  if (!verified && config.jwtSecret) {
+    verified = await verifyHs256(token, { ...claims, secret: config.jwtSecret });
+  }
   if (!verified) return null;
   const email = verified.email.trim();
   return {

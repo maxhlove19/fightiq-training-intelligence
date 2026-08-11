@@ -134,7 +134,8 @@ curl -s https://<your-host>/api/health
 | `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
 | `FIGHTIQ_OWNER_EMAILS` | For `/admin` | Nobody can open the owner view. The app itself is unaffected. |
-| `SUPABASE_URL` + `SUPABASE_ANON_KEY` + `SUPABASE_JWT_SECRET` | For email sign up | Email sign up is off and says so. ChatGPT sign in still works. All three are needed, or none apply. |
+| `SUPABASE_URL` + `SUPABASE_ANON_KEY` | For email sign up | Email sign up is off and says so. ChatGPT sign in still works. Both are needed, or neither applies. |
+| `SUPABASE_JWT_SECRET` | No | Nothing on a current Supabase project. It is a fallback for a project still signing tokens with the old shared HS256 secret. |
 
 The bindings themselves are declared in `.openai/hosting.json`.
 
@@ -246,9 +247,16 @@ here rolls its own authentication: password hashing, reset tokens, email
 confirmation and rate limiting are Supabase's job, and they are exactly the
 things that are quietly easy to get wrong.
 
-Set `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_JWT_SECRET`. All three, or
-email sign up stays switched off and says so rather than half working. **The
-database does not move.** Supabase Auth is used as an identity provider; every
+Set `SUPABASE_URL` and `SUPABASE_ANON_KEY`. Both, or email sign up stays
+switched off and says so rather than half working.
+
+**`SUPABASE_JWT_SECRET` is not one of them any more.** Supabase now signs access
+tokens with ES256 and publishes the public half of the key at
+`<SUPABASE_URL>/auth/v1/.well-known/jwks.json`, so the app fetches and caches
+that document and verifies against it. The URL is all it needs. The old shared
+secret is still read, and still works for a project that has not migrated, but
+on a migrated project it verifies nothing at all. **The database does not
+move.** Supabase Auth is used as an identity provider; every
 row still lives in D1.
 
 Two settings on the Supabase side are not optional:

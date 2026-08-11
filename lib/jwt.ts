@@ -8,11 +8,20 @@
 // It uses WebCrypto, which exists on Cloudflare Workers, on Vercel's edge and
 // in Node, so the same verification runs everywhere this app might live.
 //
-// Deliberately supports exactly one algorithm: HS256. Accepting a list is how
-// algorithm confusion attacks work, where a token arrives saying alg "none" or
-// asking to be checked against a public key as though it were a shared secret.
-// The header's algorithm is not consulted for what to do; it is only checked
-// for whether it matches what we already decided to accept.
+// It supports two algorithms, HS256 and ES256, and the way it does that is the
+// most important thing in this file.
+//
+// Accepting a list of algorithms is how algorithm confusion attacks work: a
+// token arrives saying alg "none", or asking to be checked against a public key
+// as though that key were a shared secret. So the token's header still never
+// decides anything. Each verify function accepts exactly one algorithm, decided
+// before the token was read, and checks the header only to confirm it matches.
+// Which function runs is chosen by what the deployment is configured with, in
+// lib/identity.ts, never by what the token asks for.
+//
+// The practical consequence, and one of the tests: on a deployment configured
+// with JWKS and no legacy secret, an HS256 token is rejected no matter how it
+// is signed, because nothing ever calls the HS256 path.
 
 export type VerifiedToken = {
   /** The subject: a stable user id. */
@@ -23,6 +32,22 @@ export type VerifiedToken = {
   /** Seconds since the epoch. */
   exp: number;
   raw: Record<string, unknown>;
+};
+
+/** Everything checked after a signature is confirmed, whichever algorithm confirmed it. */
+export type ClaimOptions = {
+  /** Required issuer, when the caller knows it. */
+  issuer?: string;
+  /** Required audience. Supabase signs user tokens with "authenticated". */
+  audience?: string;
+  /** Seconds of clock skew allowed. Small on purpose. */
+  leewaySeconds?: number;
+  now?: Date;
+};
+
+export type VerifyEs256Options = ClaimOptions & {
+  /** Resolves a key id to a verifying key. See lib/jwks.ts. */
+  keys: { get(kid: string): Promise<CryptoKey | null> };
 };
 
 export type VerifyOptions = {
@@ -94,6 +119,18 @@ export async function verifyHs256(token: string, options: VerifyOptions): Promis
   ));
   if (!sameBytes(signature, expected)) return null;
 
+  return checkClaims(payloadPart, options);
+}
+
+/**
+ * Everything that must be true of a token once its signature has been proved.
+ *
+ * Shared by both algorithms on purpose. Expiry, issuer, audience and the
+ * presence of a subject are properties of the token, not of how it was signed,
+ * and a second copy of these rules is how one path quietly ends up more
+ * permissive than the other.
+ */
+function checkClaims(payloadPart: string, options: ClaimOptions): VerifiedToken | null {
   const claims = decodeJson(payloadPart);
   if (!claims) return null;
 
@@ -122,4 +159,55 @@ export async function verifyHs256(token: string, options: VerifyOptions): Promis
     : typeof metadata.name === "string" && metadata.name.trim() ? metadata.name.trim() : null;
 
   return { sub, email: readString(claims, "email"), name, exp, raw: claims };
+}
+
+/**
+ * Verifies an ES256 token against a project's published keys.
+ *
+ * The key is chosen by the token's `kid`, which is the one thing the header is
+ * allowed to influence, and it influences only *which* public key is tried, not
+ * whether a signature is required or which algorithm is accepted. An unknown
+ * kid resolves to no key and the token is rejected.
+ *
+ * A JWT's ECDSA signature is the raw r||s pair, 64 bytes for P-256, which is
+ * exactly what WebCrypto expects. No DER unwrapping, and a signature of any
+ * other length is rejected before any cryptography happens.
+ */
+export async function verifyEs256(token: string, options: VerifyEs256Options): Promise<VerifiedToken | null> {
+  if (typeof token !== "string" || !options?.keys) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [headerPart, payloadPart, signaturePart] = parts;
+  if (!headerPart || !payloadPart || !signaturePart) return null;
+
+  const header = decodeJson(headerPart);
+  if (!header || header.alg !== "ES256") return null;
+  const kid = typeof header.kid === "string" ? header.kid : "";
+  if (!kid) return null;
+
+  let signature: Uint8Array;
+  try { signature = base64UrlToBytes(signaturePart); } catch { return null; }
+  if (signature.length !== 64) return null;
+
+  const key = await options.keys.get(kid);
+  if (!key) return null;
+
+  // Copied into a plain ArrayBuffer rather than cast. WebCrypto wants a
+  // BufferSource and a Uint8Array can be backed by a SharedArrayBuffer, which
+  // is not one. Sixty-four bytes, so the copy costs nothing worth measuring.
+  const signatureBytes = new ArrayBuffer(signature.length);
+  new Uint8Array(signatureBytes).set(signature);
+
+  let ok = false;
+  try {
+    ok = await crypto.subtle.verify(
+      { name: "ECDSA", hash: "SHA-256" },
+      key,
+      signatureBytes,
+      new TextEncoder().encode(`${headerPart}.${payloadPart}`),
+    );
+  } catch { return null; }
+  if (!ok) return null;
+
+  return checkClaims(payloadPart, options);
 }

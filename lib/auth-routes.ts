@@ -12,9 +12,17 @@ export function supabaseConfig(): SupabaseConfig | null {
   const runtime = env as unknown as AuthEnv;
   const url = (runtime.SUPABASE_URL ?? "").trim();
   const anonKey = (runtime.SUPABASE_ANON_KEY ?? "").trim();
-  // Without the JWT secret the server could mint a session it cannot then
-  // verify, which would look like a silent sign in failure on the next request.
-  if (!url || !anonKey || !(runtime.SUPABASE_JWT_SECRET ?? "").trim()) return null;
+  // This used to also require SUPABASE_JWT_SECRET, on the reasoning that
+  // without it the server could mint a session it cannot then verify. The
+  // reasoning was right and the gate is now the wrong one: a migrated project
+  // signs with ES256 and publishes the verifying keys at a path derived from
+  // SUPABASE_URL, so the secret proves nothing about whether a session can be
+  // verified, and requiring it switches email sign in off on exactly the
+  // projects where it works.
+  //
+  // The URL is what carries that guarantee now. See identityConfig() in
+  // lib/current-athlete.ts, which builds the verifier from the same value.
+  if (!url || !anonKey) return null;
   return { url, anonKey };
 }
 

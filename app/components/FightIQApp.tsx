@@ -687,7 +687,7 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} defaults={logDefaults} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}
-    {screen === "game" && <GameScreen />}
+    {screen === "game" && <GameScreen provider={provider} />}
     {screen === "workout" && <WorkoutScreen onBack={goHome} />}
     {screen === "food" && <FoodScreen onBack={goHome} />}
     {screen !== "log" && screen !== "workout" && screen !== "food" && <nav className="bottom-nav" aria-label="Primary navigation">

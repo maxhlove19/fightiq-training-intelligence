@@ -282,6 +282,26 @@ export const APP_TABLES: string[] = [
       ok INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL
     )`,
+  // What deleted accounts spent, with nothing left to identify who.
+  //
+  // Self-service deletion purges model_usage entirely for the owner it
+  // belongs to, because "counts and identifiers only" still names an owner.
+  // Before that delete runs, their rows are folded into this table by day,
+  // surface, model and effort, so the total the product spent does not
+  // disappear along with the person. Nothing here can be traced to an athlete.
+  `CREATE TABLE IF NOT EXISTS model_usage_daily (
+      day TEXT NOT NULL,
+      surface TEXT NOT NULL,
+      model TEXT NOT NULL,
+      effort TEXT NOT NULL,
+      calls INTEGER NOT NULL DEFAULT 0,
+      ok_calls INTEGER NOT NULL DEFAULT 0,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, surface, model, effort)
+    )`,
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,

@@ -13,6 +13,8 @@ import { toAthleteVoice } from "../../lib/athlete-voice";
 import { toHouseStyle } from "../../lib/house-style";
 import { shortDate } from "../../lib/when";
 import { createProductStore } from "../../lib/product-store";
+import { type AuthProvider } from "../../lib/identity";
+import { clearOfflineCache } from "./OfflineReady";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -430,7 +432,53 @@ function WeightRecord({ weight, onLogged }: { weight: ProductData["weight"]; onL
   </section>;
 }
 
-export function GameScreen() {
+/**
+ * Deleting your own data. One person can only be talked out of an accidental
+ * tap by making the confirmation cost more than a tap, so the button only
+ * unlocks once the word DELETE has actually been typed.
+ */
+function DeleteAccountSection({ provider }: { provider: AuthProvider }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  async function confirmDelete() {
+    setDeleting(true); setError("");
+    try {
+      const response = await fetch("/api/account/delete", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: confirmText.trim() }) });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+        setError(payload?.error?.message ?? "Could not delete your data. Try again.");
+        setDeleting(false);
+        return;
+      }
+      clearOfflineCache();
+      productStore.clear();
+      window.location.href = provider === "chatgpt" ? "/signout-with-chatgpt?return_to=%2F" : "/";
+    } catch {
+      setError("Could not reach FightIQ. Check your connection and try again.");
+      setDeleting(false);
+    }
+  }
+  return <details className="macro-settings"><summary><span>DELETE MY DATA</span><ChevronRight size={15} /></summary>
+    <div className="settings-body">
+      <p className="danger-zone-intro">Every session, debrief, focus period, weigh-in and Coach conversation is removed for good. There is no copy kept anywhere, and no way for FightIQ to bring any of it back once this runs.</p>
+      {!confirmOpen
+        ? <button className="danger-button" onClick={() => setConfirmOpen(true)}>Delete my data</button>
+        : <>
+          <label htmlFor="confirm-delete-input">TYPE DELETE TO CONFIRM</label>
+          <input id="confirm-delete-input" value={confirmText} onChange={(event) => setConfirmText(event.target.value)} placeholder="DELETE" autoComplete="off" />
+          {error && <p className="error-message" role="alert">{error}</p>}
+          <div className="danger-zone-actions">
+            <button className="danger-button" disabled={confirmText.trim() !== "DELETE" || deleting} onClick={() => void confirmDelete()}>{deleting ? "DELETING…" : "Permanently delete"}</button>
+            <button className="secondary-button" onClick={() => { setConfirmOpen(false); setConfirmText(""); setError(""); }} disabled={deleting}>Cancel</button>
+          </div>
+        </>}
+    </div>
+  </details>;
+}
+
+export function GameScreen({ provider }: { provider: AuthProvider }) {
   const { data, error, reload } = useProductData();
   const [editing, setEditing] = useState(false);
   const [focus, setFocus] = useState("");
@@ -473,6 +521,7 @@ export function GameScreen() {
       <WeightRecord key={data.weight.latest?.id ?? "empty"} weight={data.weight} onLogged={(next) => productStore.set({ ...data, weight: next })} />
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}
       {saved && <p className="saved-note" role="status"><Check size={14} /> My Game updated.</p>}
+      <DeleteAccountSection provider={provider} />
       </>;
     })()}
   </main>;

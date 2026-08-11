@@ -79,13 +79,18 @@ export const APP_TABLES: string[] = [
       observed_at TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
+  // What FightIQ suggested and when, as a history rather than a value the next
+  // debrief overwrites. Same class of fix as focus_periods and
+  // athlete_weigh_ins: a suggestion an athlete acted on or ignored is a fact
+  // about a moment, not a slot the next debrief is allowed to erase.
   `CREATE TABLE IF NOT EXISTS fighter_focus_recommendations (
-      owner_id TEXT PRIMARY KEY NOT NULL,
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
       focus TEXT NOT NULL,
       reason TEXT NOT NULL,
       confidence REAL NOT NULL,
       entry_id TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      created_at TEXT NOT NULL
     )`,
   `CREATE TABLE IF NOT EXISTS debrief_generation_leases (
       entry_id TEXT PRIMARY KEY NOT NULL,
@@ -335,7 +340,7 @@ export const APP_INDEXES: string[] = [
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_training_entries_owner_client_key ON training_entries (owner_id, client_key)",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_fighter_brain_evidence_entry_claim ON fighter_brain_evidence (owner_id, entry_id, category, canonical_key)",
   "CREATE INDEX IF NOT EXISTS idx_fighter_brain_evidence_owner_category_observed ON fighter_brain_evidence (owner_id, category, observed_at)",
-  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_updated ON fighter_focus_recommendations (updated_at)",
+  "CREATE INDEX IF NOT EXISTS idx_fighter_focus_recommendations_owner_created ON fighter_focus_recommendations (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_debrief_generation_leases_owner_expires ON debrief_generation_leases (owner_id, expires_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_messages_owner_created ON coach_messages (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_coach_chats_owner_updated ON coach_chats (owner_id, updated_at)",

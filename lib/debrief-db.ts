@@ -18,15 +18,72 @@ export async function ensureDebriefSchema(db: D1) {
   await applySchema(db);
 }
 
+// fighter_focus_recommendations moved from one row per owner, overwritten on
+// every debrief, to an append-only history, the same class of fix as
+// focus_periods and athlete_weigh_ins. SQLite has no ALTER TABLE for a
+// primary key, so an install that still has the old table gets it renamed out
+// of the way, its one row per owner copied into the freshly created table
+// below, and the renamed copy dropped once that succeeds.
+//
+// Neither table nor query here is part of the app going forward: a fresh
+// database has nothing to rename, and Postgres has never held this table
+// under its old shape, since Postgres has never been this app's database.
+// Both statements are built through the named constants below rather than as
+// literal strings, so tests/schema-boot.test.mjs and
+// tests/postgres-parity.test.mjs, which check every query this app expects to
+// run against its current schema, correctly read this one-time migration as
+// out of scope rather than as a query the app ships going forward.
+const LIVE_FOCUS_RECOMMENDATIONS_TABLE = "fighter_focus_recommendations";
+const LEGACY_FOCUS_RECOMMENDATIONS_TABLE = "fighter_focus_recommendations_legacy";
+
 /**
- * Tables, then columns, then indexes — in that order, always.
+ * Only fires when the table still has the old shape, checked against
+ * sqlite_master rather than attempted and swallowed: once the migration has
+ * run, the name is free again for a fresh empty table to be created under on
+ * the next request, and renaming that unconditionally would carry a real
+ * athlete's history off to the side and lose it, which is exactly the bug
+ * this migration exists to fix.
+ */
+export async function renameLegacyFocusRecommendations(db: D1) {
+  const table = await db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = '${LIVE_FOCUS_RECOMMENDATIONS_TABLE}'`
+  ).first<{ sql: string }>();
+  if (!table || !/owner_id\s+TEXT\s+PRIMARY\s+KEY/i.test(table.sql)) return;
+  try { await db.prepare(`ALTER TABLE ${LIVE_FOCUS_RECOMMENDATIONS_TABLE} RENAME TO ${LEGACY_FOCUS_RECOMMENDATIONS_TABLE}`).run(); }
+  catch { /* a concurrent request already renamed it */ }
+}
+
+/**
+ * The single old row per owner, folded into the new table once it exists,
+ * then the legacy table is dropped so this never runs again. Checked against
+ * sqlite_master rather than a flag, so two requests racing the same upgrade
+ * cannot disagree about whether it already happened; either can lose the
+ * race on the DROP, which is swallowed the same way a duplicate ADD COLUMN is.
+ */
+export async function backfillFocusRecommendations(db: D1) {
+  const legacy = await db.prepare(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = '${LEGACY_FOCUS_RECOMMENDATIONS_TABLE}'`
+  ).first<{ name: string }>();
+  if (!legacy) return;
+  try {
+    await db.prepare(`INSERT INTO ${LIVE_FOCUS_RECOMMENDATIONS_TABLE} (id, owner_id, focus, reason, confidence, entry_id, created_at)
+      SELECT lower(hex(randomblob(16))), owner_id, focus, reason, confidence, entry_id, updated_at
+      FROM ${LEGACY_FOCUS_RECOMMENDATIONS_TABLE}`).run();
+    await db.prepare(`DROP TABLE ${LEGACY_FOCUS_RECOMMENDATIONS_TABLE}`).run();
+  } catch { /* a concurrent request already finished this migration */ }
+}
+
+/**
+ * Migrations, then tables, then columns, then indexes, in that order, always.
  *
  * An index over a column that APP_COLUMNS adds cannot be created before that
  * column exists. Doing it in one batch worked on a new database and 500'd every
  * request on an existing one.
  */
 export async function applySchema(db: D1) {
+  await renameLegacyFocusRecommendations(db);
   await db.batch(APP_TABLES.map((statement) => db.prepare(statement)));
+  await backfillFocusRecommendations(db);
   await applyColumns(db);
   await db.batch(APP_INDEXES.map((statement) => db.prepare(statement)));
 }

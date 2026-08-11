@@ -49,11 +49,9 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
     db.prepare(`UPDATE training_followups SET confidence_after = ?
       WHERE entry_id = ? AND owner_id = ? AND sequence = ? AND status IN ('answered', 'skipped')`)
       .bind(result.confidence, entryId, ownerId, sequence - 1),
-    ...(shouldRecommendFocus ? [db.prepare(`INSERT INTO fighter_focus_recommendations (owner_id, focus, reason, confidence, entry_id, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(owner_id) DO UPDATE SET focus = excluded.focus, reason = excluded.reason,
-        confidence = excluded.confidence, entry_id = excluded.entry_id, updated_at = excluded.updated_at`)
-      .bind(ownerId, clip(result.next_session_focus, 240), clip(result.fightiq_explanation || result.takeaway, 500), result.confidence, entryId, now)] : []),
+    ...(shouldRecommendFocus ? [db.prepare(`INSERT INTO fighter_focus_recommendations (id, owner_id, focus, reason, confidence, entry_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .bind(crypto.randomUUID(), ownerId, clip(result.next_session_focus, 240), clip(result.fightiq_explanation || result.takeaway, 500), result.confidence, entryId, now)] : []),
     // A fresh completed conversation should create the next brief from the new
     // evidence, rather than revive a brief calculated before this session.
     ...(result.status === "complete" ? [db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")

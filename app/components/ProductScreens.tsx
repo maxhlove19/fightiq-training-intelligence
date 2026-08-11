@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- external video thumbnails and user food previews cannot use the app image pipeline. */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent } from "react";
 import {
   ArrowLeft, Camera, Check, ChevronRight, Dumbbell, ExternalLink, ImagePlus,
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
@@ -36,6 +36,8 @@ export type ProductData = {
   focusHistory: Array<{ id: string; focus: string; reason: string; source: string; startedAt: string; endedAt: string | null; sessions: number; days: number; spanDays: number; disciplines: Array<{ name: string; sessions: number }>; closingTakeaway: string | null }>;
   /** Everything ever logged, rather than the last seven days of it. */
   lifetime: { sessions: number; days: number; firstSessionAt: string | null; latestSessionAt: string | null; disciplines: Array<{ name: string; sessions: number }> };
+  /** Every weigh-in on record, oldest first. See lib/weight-history.ts. */
+  weight: { entries: Array<{ id: string; weightKg: number; source: string; recordedAt: string }>; latest: { id: string; weightKg: number; source: string; recordedAt: string } | null; first: { id: string; weightKg: number; source: string; recordedAt: string } | null; changeKg: number | null; changeDays: number };
   nutrition: { entries: NutritionEntry[]; totals: MacroValues };
   recentWorkouts: unknown[];
 };
@@ -364,6 +366,70 @@ function FocusHistory({ periods, lifetime }: { periods: ProductData["focusHistor
   </section>;
 }
 
+/**
+ * The weight curve, and the only way to add to it.
+ *
+ * Weight used to live inside the onboarding blob, which onboarding overwrites,
+ * so changing it destroyed the previous number and the only way to record a new
+ * one was to redo setup. In combat sports this curve is half of what an athlete
+ * is managing, so it gets a place on the screen and a single field to add to it.
+ */
+function WeightRecord({ weight, onLogged }: { weight: ProductData["weight"]; onLogged: (next: ProductData["weight"]) => void }) {
+  // Held locally and written through on save, so a logged weight is on screen
+  // the moment it is saved rather than after a refetch of the whole payload.
+  // Reset by the key at the call site when fresh data arrives, rather than by an
+  // effect that would re-render every time the parent does.
+  const [record, setRecord] = useState(weight);
+  const [entry, setEntry] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const points = record.entries.slice(-14);
+  const low = Math.min(...points.map((item) => item.weightKg));
+  const high = Math.max(...points.map((item) => item.weightKg));
+  const span = high - low || 1;
+  async function save() {
+    const value = Number(entry.replace(",", "."));
+    if (!Number.isFinite(value)) { setError("Enter your weight in kilograms."); return; }
+    setSaving(true); setError("");
+    try {
+      const response = await fetch("/api/weight", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ weightKg: value }) });
+      const payload = await response.json() as { weight?: ProductData["weight"]; error?: { message?: string } };
+      if (!response.ok || !payload.weight) throw new Error(payload.error?.message ?? "That weight could not be saved.");
+      setRecord(payload.weight);
+      // Written through to the shared copy as well, or navigating away and back
+      // would read the old weight out of the store until it revalidated.
+      onLogged(payload.weight);
+      setEntry("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "That weight could not be saved.");
+    } finally { setSaving(false); }
+  }
+  return <section className="weight-record">
+    <span className="field-label">BODYWEIGHT</span>
+    {record.latest ? <>
+      <div className="weight-headline">
+        <strong>{record.latest.weightKg.toFixed(1)}<em>kg</em></strong>
+        {/* Only ever stated across a real span. "Down 2kg" means nothing without
+            the window it happened in, and a camp is judged in months. */}
+        {record.changeKg !== null && record.changeKg !== 0
+          ? <span className={record.changeKg < 0 ? "down" : "up"}>{record.changeKg < 0 ? "down" : "up"} {Math.abs(record.changeKg).toFixed(1)}kg over {record.changeDays === 1 ? "a day" : `${record.changeDays} days`}</span>
+          : <span className="steady">{record.entries.length > 1 ? "steady" : `since ${shortDate(record.latest.recordedAt)}`}</span>}
+      </div>
+      {points.length > 1 && <ol className="weight-curve" aria-hidden="true">
+        {points.map((point) => <li key={point.id} style={{ "--at": `${Math.round(((point.weightKg - low) / span) * 100)}%` } as CSSProperties}><i /></li>)}
+      </ol>}
+      {points.length > 1 && <p className="weight-range">{low.toFixed(1)}kg to {high.toFixed(1)}kg across {points.length === record.entries.length ? "every weigh-in" : `the last ${points.length}`}, since {shortDate(points[0].recordedAt)}</p>}
+    </> : <p className="weight-empty">No weight on record yet. Log one and FightIQ keeps every one after it, so you can see the curve rather than a single number.</p>}
+    <div className="weight-entry">
+      <input inputMode="decimal" value={entry} placeholder="Today in kg" aria-label="Today's weight in kilograms"
+        onChange={(event) => setEntry(event.target.value)}
+        onKeyDown={(event) => { if (event.key === "Enter" && entry.trim() && !saving) void save(); }} />
+      <button onClick={() => void save()} disabled={!entry.trim() || saving}>{saving ? "SAVING…" : "LOG"}</button>
+    </div>
+    {error && <p className="error-message" role="alert">{error}</p>}
+  </section>;
+}
+
 export function GameScreen() {
   const { data, error, reload } = useProductData();
   const [editing, setEditing] = useState(false);
@@ -404,6 +470,7 @@ export function GameScreen() {
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
       <FocusHistory periods={data.focusHistory} lifetime={data.lifetime} />
+      <WeightRecord key={data.weight.latest?.id ?? "empty"} weight={data.weight} onLogged={(next) => productStore.set({ ...data, weight: next })} />
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}
       {saved && <p className="saved-note" role="status"><Check size={14} /> My Game updated.</p>}
       </>;

@@ -5,6 +5,7 @@ import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getM
 import { openingFromMemory } from "../../../lib/first-session";
 import { homeInsight } from "../../../lib/home-insight";
 import { getFocusHistory, getTrainingLifetime } from "../../../lib/focus-history";
+import { getWeightRecord } from "../../../lib/weight-history";
 
 export const dynamic = "force-dynamic";
 
@@ -54,9 +55,10 @@ export async function GET(request: Request) {
     buildLearnFeed({ db, ownerId, memory: recommendationMemory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
     getActiveTrainingExperiment(db, ownerId),
   ]);
-  const [focusHistory, lifetime] = await Promise.all([
+  const [focusHistory, lifetime, weight] = await Promise.all([
     getFocusHistory(db, ownerId),
     getTrainingLifetime(db, ownerId),
+    getWeightRecord(db, ownerId),
   ]);
   const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
   // Day one has no training to read, which used to mean the largest card on the
@@ -79,6 +81,8 @@ export async function GET(request: Request) {
     // logged rather than the last seven days of it.
     focusHistory,
     lifetime,
+    /** Every weigh-in on record, oldest first. See lib/weight-history.ts. */
+    weight,
     // The headline is the finding, not a label describing the card. See
     // lib/home-insight.ts.
     insight: {

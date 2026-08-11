@@ -4,6 +4,7 @@ import { buildLearnFeed } from "../../../lib/video-recommendations";
 import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 import { openingFromMemory } from "../../../lib/first-session";
 import { homeInsight } from "../../../lib/home-insight";
+import { getFocusHistory, getTrainingLifetime } from "../../../lib/focus-history";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +46,17 @@ export async function GET(request: Request) {
   const recommendationMemory = athleteSetup.disciplines.length
     ? { ...memory, oneTimeObservations: [...memory.oneTimeObservations, `${athleteSetup.disciplines.join(" ")} ${athleteSetup.sessionTypes.join(" ")} ${athleteSetup.competitionIntent}`] }
     : memory;
+  // Read after getMemorySnapshot, never alongside it: that call is what decides
+  // the current focus and therefore what opens or closes a period, so reading in
+  // parallel would race the write and show a history one request out of date.
   const [preTrainingBrief, learn, activeExperiment] = await Promise.all([
     getOrCreatePreTrainingBrief(db, ownerId, memory),
     buildLearnFeed({ db, ownerId, memory: recommendationMemory, youtubeApiKey, refreshCursor: cursor, topicOverride: topic }),
     getActiveTrainingExperiment(db, ownerId),
+  ]);
+  const [focusHistory, lifetime] = await Promise.all([
+    getFocusHistory(db, ownerId),
+    getTrainingLifetime(db, ownerId),
   ]);
   const latestCompletedTraining = memory.recentTraining.find((entry) => Boolean(entry.takeaway));
   // Day one has no training to read, which used to mean the largest card on the
@@ -67,6 +75,10 @@ export async function GET(request: Request) {
     },
     onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
+    // What they have worked on and for how long, and everything they have ever
+    // logged rather than the last seven days of it.
+    focusHistory,
+    lifetime,
     // The headline is the finding, not a label describing the card. See
     // lib/home-insight.ts.
     insight: {

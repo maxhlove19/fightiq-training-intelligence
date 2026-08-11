@@ -9,6 +9,7 @@ import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, Wor
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
 import { openingGreeting } from "../../lib/first-session";
+import { sessionDay } from "../../lib/when";
 import { clearOfflineCache } from "./OfflineReady";
 import { disciplineFromSetup, notePlaceholder, sessionTypeFromSetup } from "../../lib/log-defaults";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
@@ -223,6 +224,7 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
           aria: `${weeklySessions} training ${weeklySessions === 1 ? "session" : "sessions"} logged this week. Open My Game to set a weekly target.` }
       : { value: "-", label: "SET TARGET", scored: false,
           aria: "No weekly training target set yet. Open My Game to set one." };
+  const latestSession = product?.memory.recentTraining.find((entry) => Boolean(entry.takeaway)) ?? product?.memory.recentTraining[0] ?? null;
   const briefLabel = activeExperiment ? "TRAINING NOW" : "TRAIN NEXT";
   // Before the first session there is no brief built from training, so the rail
   // carries the opening cue rather than sitting empty on the busiest screen.
@@ -264,6 +266,10 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
             <p className="eyebrow">FIGHTIQ INSIGHT</p>
             <h2>{insight.title}</h2>
             <p className="home-insight-body">{insight.body}</p>
+            {/* Which night. A takeaway that says "in this session" is vague to
+                everyone except the app, and a fighter wants to know whether it
+                is talking about Sunday's rounds or last Tuesday's drilling. */}
+            {latestSession && <p className="home-insight-from">From {sessionDay(latestSession.createdAt)}, {latestSession.discipline}</p>}
             <button className="home-insight-link" onClick={onGame}>OPEN MY GAME <ChevronRight size={14} /></button>
           </div>
           <div className="home-insight-media" aria-hidden="true">

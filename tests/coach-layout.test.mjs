@@ -12,7 +12,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 
-const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+// Comments stripped first: a rule preceded by a block comment is otherwise
+// invisible to the matcher below, which would make these tests quietly pass by
+// finding nothing at all.
+const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 const screens = readFileSync(new URL("../app/components/ProductScreens.tsx", import.meta.url), "utf8");
 
 function rulesFor(selector) {
@@ -46,6 +49,39 @@ test("the composer is laid out, not stuck", () => {
   for (const body of rulesFor(".coach-compose")) {
     assert.ok(!/position:\s*sticky/.test(body), "the composer must not rely on sticky");
   }
+});
+
+test("the composer is still a containing block for the controls inside it", () => {
+  // Removing `position: sticky` also removed the positioned ancestor the mic and
+  // send buttons resolve against, so both escaped the phone frame and rendered
+  // about 200px outside it in the corner of the browser window. Invisible on a
+  // phone, where the frame fills the viewport, which is how it survived a review.
+  const composeRules = rulesFor(".coach-compose");
+  assert.ok(
+    composeRules.some((body) => /position:\s*(relative|sticky|absolute|fixed)/.test(body)),
+    "the composer must be positioned, or its absolute children escape the frame",
+  );
+  // The children that depend on it, so this test fails for the right reason if
+  // one of them is ever restyled.
+  for (const selector of [".compose-send", ".answer-mic"]) {
+    assert.ok(
+      rulesFor(selector).some((body) => /position:\s*absolute/.test(body)),
+      `${selector} is absolutely positioned and relies on the composer`,
+    );
+  }
+});
+
+test("every control has a visible focus ring, not just the twelve on a list", () => {
+  // The ring used to be an explicit list of selectors, so any control added
+  // afterwards had no visible focus at all and keyboard users were navigating an
+  // app that never showed them where they were.
+  assert.match(css, /:where\(a\[href\], button,[\s\S]{0,120}\):focus-visible/);
+  assert.match(css, /outline:\s*var\(--focus-ring\)/);
+});
+
+test("a press is felt, and a disabled control does not pretend otherwise", () => {
+  assert.match(css, /:where\(button, \[role="button"\]\):not\(:disabled\):active/);
+  assert.match(css, /:where\(button, input, textarea, select\):disabled/);
 });
 
 test("a coaching answer is never clamped", () => {

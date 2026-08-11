@@ -67,3 +67,19 @@ Open it directly in a browser; there is no build step.
 - **Scrolling flex columns** (`.view`, `.w-scroll`) set `flex:0 0 auto` on their
   children. Without it, children shrink below their content height and overlap
   the rows underneath.
+
+## House style
+
+No em dashes. Not in the cover, not in the demo copy, not in the sample debrief
+text. They are the clearest single tell that a machine wrote something, and the
+first thing a reader notices. The app enforces the same rule in
+`tests/copy-voice.test.mjs`.
+
+## The cover
+
+The problem goes first, before the product name: the reader has to recognise
+themselves in the first line or nothing after it matters. The fighter is
+embedded as a data URI because the artifact CSP blocks every external host, so
+there is no other way to put a picture on the page. Four banner headlines carry
+the rest, one idea each. The whole cover is under 400 words; it was 1,150, and
+that was too long to read standing up.

@@ -281,9 +281,104 @@ getting an answer.
    the accent colour, make `--nav-height` one number, then set a per-screen
    ceiling in `scripts/layout-sweep.mjs` at the honest number and let it fail on
    drift.
-6. Product build order, **not agreed yet, do not start**: voice capture, the
-   before-class surface, the personal position map with a share export, training
-   partners as a first-class entity, live video search.
+6. **The product sequence.** Agreed and ordered. See "The sequence, with
+   checkable milestones" below, and follow it in order rather than picking from
+   it.
+
+---
+
+## The sequence, with checkable milestones
+
+This is the order. Do not skip ahead, and do not start an item whose milestone
+above it is unmet.
+
+1. **The four fixes.** Onboarding cut, desktop treatment, the three day counts,
+   the two glyphs. **Milestone: all four merged and verified on the live site.**
+2. **Voice capture.** Speak after training, get a structured log. It is the only
+   capture method that survives the friction test, and it was requested verbatim
+   by a user in the research. **Milestone: a session logged end to end by voice
+   with no typing.**
+3. **The personal map, with a share export.** The product and the distribution at
+   the same time. **Milestone: an image a person would actually post, legible at
+   phone screenshot size rather than on a desktop canvas.**
+4. **Twenty or more real sessions logged**, plus at least one weekly review
+   generated against a month of history. A waiting milestone, not a build task.
+   Nothing below it can be decided honestly before it is met.
+5. **Stripe and the paywall.** Last, deliberately. Building billing for zero
+   users is waste, and the paywall is the least urgent thing here rather than the
+   most.
+
+Video search and the before-class surface are held until 2 and 3 are real.
+
+### The three rules on the map
+
+They are the difference between 733 upvotes and being mocked. The evidence is in
+the map constraint above.
+
+- It contains **only positions the athlete has personally been in.** Eleven
+  sessions produces a small map, and it should look small.
+- **The edges are the product. The nodes are only labels.**
+- The share export must be **an image a person would post**, which means it is
+  designed at phone screenshot size.
+
+---
+
+## Pricing, decided. Do not re-argue these from memory.
+
+**Target: 167 subscribers at $12 a month.** Not 830 at a lower price. The scarce
+thing is people who ever see the product, not willingness to pay, so cutting the
+price makes the only genuinely hard problem proportionally harder. The same
+athlete pays $85 to $210 a month for gym membership and around $108 for an
+average instructional. $12 signals part of my training. Under $5 signals toy.
+
+**No advertising.** Three reasons, and the second is decisive. Ad revenue at this
+scale is orders of magnitude short of the target. It puts an advertisement beside
+the personal map, which is the one artefact the whole distribution plan depends
+on being worth screenshotting. And an ad SDK is third-party tracking inside a
+product that has a tested rule against recording content.
+
+### Where the free and paid line sits, and why it is there
+
+**The line is drawn where the cost line already is**, so free users are cheap by
+construction rather than by discipline.
+
+**Free: capture and the artefact.** Storing a session, transcribing voice,
+building the map, and the share export. All near zero marginal cost, and
+simultaneously the entire marketing engine.
+
+**Paid: the reasoning.** Coach, the pattern read across months, video search, and
+**the debrief**. The debrief belongs on the paid side specifically because it is
+the most expensive call this app makes, it runs Opus at high effort with
+thinking, and it fires on every logged session. Free capture with a free debrief
+would have made free users the most expensive thing the product owns, which is
+the exact opposite of the intent.
+
+So capture and reading are separate. Storing what happened is free. A model
+reading it for a pattern is paid.
+
+**Build the check at the same choke point as `recordModelUsage`,** so the tier
+and the cost accounting are one decision in one place. There are only four model
+call sites and every one already names its surface, which is the same list an
+entitlement check needs.
+
+### The thresholds, derived rather than guessed
+
+Payment processing at roughly 2.9% plus 30c takes about 45c from $4.99 and about
+65c from $12, which is 9% of the low price against 5.4% of the higher one. For a
+70% gross margin:
+
+- **$4.99 requires cost per active subscriber under about $1.36 a month.**
+- **$12 requires cost per active subscriber under about $3.40 a month.**
+
+`/api/admin/cost` measures this. Do not price from a guess.
+
+**When the number becomes trustworthy:** at least 20 sessions logged, and at
+least one weekly review generated against a month of history, because that is the
+call whose cost grows with the size of the record and a week of data cannot
+reveal a cost that scales with months. Realistically three to four weeks of
+normal training. Anything sooner is noise dressed as a decision.
+
+---
 
 ## Not now. Do not touch these.
 

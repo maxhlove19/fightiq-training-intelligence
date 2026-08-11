@@ -239,14 +239,15 @@ export function firstWeekPlan(sessionsPerWeek: number): Array<{ after: string; g
 }
 
 /**
- * The one line under the greeting on day one. "Let's keep building your game"
- * is a lie to somebody who has built nothing here yet, and a reader hears it.
+ * The one line under the greeting. "Let's keep building your game" is a lie to
+ * somebody who has built nothing here yet, and empty encouragement even once
+ * there is a real number to say instead.
  */
 export function openingGreeting(sessionsLogged: number): string {
   if (sessionsLogged === 0) return "Your first session is the one that starts everything.";
   if (sessionsLogged === 1) return "One session in. Two more and patterns start showing up.";
   if (sessionsLogged === 2) return "Two sessions in. FightIQ is starting to see a shape.";
-  return "Let’s keep building your game.";
+  return `${sessionsLogged} sessions in. This is what your training actually shows.`;
 }
 
 /**

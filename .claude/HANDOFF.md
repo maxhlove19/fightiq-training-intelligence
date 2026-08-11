@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:10:43.840Z (run by hand).
+Written automatically at 2026-08-11T19:27:47.264Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,13 +8,26 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/compassionate-hamilton-ah2829`
-- HEAD: `208e430` "Let an athlete delete their own data, all the way down"
-- Tracking `origin/main`, 1 commit(s) not pushed
+- Branch: `claude/magical-darwin-llaibj`
+- HEAD: `5e43c73` "Regenerate HANDOFF.md for this branch"
+- No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work
+## Uncommitted work, 12 file(s)
 
-None. The working tree is clean.
+This is the part that disappears if the container is reclaimed.
+
+- `M app/api/workouts/route.ts`
+- ` M app/components/FightIQApp.tsx`
+- ` M app/components/ProductScreens.tsx`
+- ` M lib/debrief-ai.ts`
+- ` M lib/first-session.ts`
+- ` M lib/house-style.ts`
+- ` M lib/product-ai.ts`
+- ` M lib/product-db.ts`
+- ` M lib/video-recommendations.ts`
+- ` M tests/copy-voice.test.mjs`
+- ` M tests/first-session.test.mjs`
+- ` M tests/house-style.test.mjs`
 
 ## What this branch is probably against
 
@@ -44,7 +57,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Push this branch, then read the pull request list to see whether one exists.
+Commit or discard the uncommitted work above before starting anything new.
 
 ---
 

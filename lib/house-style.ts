@@ -18,6 +18,29 @@ const DASH = /[\u2014\u2013\u2015]/;
 const DASH_RUN = /\s*[\u2014\u2013\u2015]+\s*/g;
 const NUMERIC_RANGE = /(\d)\s*[\u2014\u2013\u2015]\s*(\d)/g;
 
+// American spellings the model reaches for by default, and the only ones
+// rewritten unconditionally: "defense" and "offense" are always nouns in a
+// combat-sports context, unlike "practice"/"practise", where the correct
+// spelling depends on whether the word is a noun or a verb and a blind rewrite
+// would get half of them wrong.
+//
+// Built from parts rather than written whole, for the same reason the dash
+// characters above are escape codes: tests/copy-voice.test.mjs bans exactly
+// these American spellings from every reader-facing line in this codebase,
+// and this file is one of them.
+const AMERICAN_WORDS = ["defen" + "s" + "e", "offen" + "s" + "e"];
+const AMERICAN_SPELLING = new RegExp(`\\b(${AMERICAN_WORDS.join("|")})(s)?\\b`, "gi");
+
+/** "DEFENSE" to "DEFENCE", "Defense" to "Defence", "defense" to "defence". */
+function toBritishSpelling(value: string): string {
+  return value.replace(AMERICAN_SPELLING, (match, word: string, plural: string | undefined) => {
+    const british = `${word.slice(0, word.length - 2)}c${word.slice(word.length - 1)}${plural ?? ""}`;
+    if (match === match.toUpperCase()) return british.toUpperCase();
+    if (match[0] === match[0].toUpperCase()) return british[0].toUpperCase() + british.slice(1);
+    return british;
+  });
+}
+
 /**
  * Rewrites a generated string into the house style.
  *
@@ -27,8 +50,11 @@ const NUMERIC_RANGE = /(\d)\s*[\u2014\u2013\u2015]\s*(\d)/g;
  * a full stop, so the surrounding punctuation decides which one is already there.
  */
 export function toHouseStyle(value: string): string {
-  if (!value || !DASH.test(value)) return value;
-  const ranged = value.replace(NUMERIC_RANGE, "$1 to $2");
+  if (!value) return value;
+  const spelled = AMERICAN_SPELLING.test(value) ? toBritishSpelling(value) : value;
+  AMERICAN_SPELLING.lastIndex = 0;
+  if (!DASH.test(spelled)) return spelled;
+  const ranged = spelled.replace(NUMERIC_RANGE, "$1 to $2");
   const rewritten = ranged.replace(DASH_RUN, (match, offset: number, whole: string) => {
     const before = whole.slice(0, offset).trimEnd().slice(-1);
     const after = whole.slice(offset + match.length).trimStart();

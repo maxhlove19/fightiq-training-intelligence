@@ -172,7 +172,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     }
     setRefreshing(false);
   }
-  return <main className="page product-page native-page learn-page"><ScreenHeader title="Learn" kicker="PERSONALIZED FOR YOUR GAME" />
+  return <main className="page product-page native-page learn-page"><ScreenHeader title="Learn" kicker="PERSONALISED FOR YOUR GAME" />
     {!data && !error && <LoadingState />}
     {error && <div className="compact-error" role="alert"><p>{error}</p><button onClick={() => void reload()}><RefreshCw size={15} /> Retry</button></div>}
     {data && <>
@@ -271,7 +271,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const failureText = failure?.message.toLowerCase().includes("preserved")
     ? failure.message
     : failure ? `${failure.message} Your message was preserved.` : "";
-  return <main className="page product-page native-page coach-page"><header className="page-header coach-header"><div><p className="question-progress">YOUR COACH</p><h1 className="page-title">Ask FightIQ</h1></div><button className="new-chat-button" onClick={() => void newChat()} disabled={sending}><Plus size={15} /> New chat</button></header>
+  return <main className="page product-page native-page coach-page"><header className="page-header coach-header"><div><p className="question-progress">ANSWERS FROM YOUR TRAINING</p><h1 className="page-title">Ask FightIQ</h1></div><button className="new-chat-button" onClick={() => void newChat()} disabled={sending}><Plus size={15} /> New chat</button></header>
     {chats.length > 1 && <label className="coach-chat-picker"><span>CHAT</span><select value={activeChatId} onChange={(event) => void loadChat(event.target.value)}>{chats.map((chat) => <option value={chat.id} key={chat.id}>{chat.title}</option>)}</select></label>}
     <section className="coach-thread" ref={threadRef}>
       {loading && <LoadingState label="Loading your conversation…" />}
@@ -492,7 +492,7 @@ export function GameScreen({ provider }: { provider: AuthProvider }) {
     setSaving(false);
     if (response.ok) { setEditing(false); setSaved(true); await reload(); }
   }
-  return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
+  return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="BUILT FROM YOUR SESSIONS" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && (() => {
       // A card with only a placeholder in it has nothing, whether that is day

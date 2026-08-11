@@ -82,11 +82,13 @@ test("no brief tells a new athlete the app cannot help yet", () => {
 
 test("the greeting stops claiming a history that does not exist", () => {
   // "Let's keep building your game" to somebody who has built nothing here is
-  // the first sentence they read, and it is false.
+  // the first sentence they read, and it is false. It is also encouragement
+  // with no information once there is a real number to say instead.
   assert.doesNotMatch(openingGreeting(0), /keep building/i);
   assert.doesNotMatch(openingGreeting(1), /keep building/i);
   assert.notEqual(openingGreeting(0), openingGreeting(1));
-  assert.match(openingGreeting(9), /keep building/i);
+  assert.doesNotMatch(openingGreeting(9), /keep building/i);
+  assert.match(openingGreeting(9), /9 sessions/);
 });
 
 test("every brief carries a mission somebody could go and do", () => {

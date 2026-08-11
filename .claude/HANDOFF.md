@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T20:17:31.602Z (run by hand).
+Written automatically at 2026-08-11T20:28:52.288Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,18 +8,13 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/magical-darwin-2gwd8c`
-- HEAD: `05c80c2` "Regenerate HANDOFF.md for this branch"
+- Branch: `claude/magical-darwin-xmx2g3`
+- HEAD: `025f260` "Collapse the four competing :root blocks into one honest token layer"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work, 4 file(s)
+## Uncommitted work
 
-This is the part that disappears if the container is reclaimed.
-
-- `M app/globals.css`
-- ` M scripts/layout-sweep.mjs`
-- ` M scripts/token-check.mjs`
-- ` M tests/hooks.test.mjs`
+None. The working tree is clean.
 
 ## What this branch is probably against
 
@@ -49,7 +44,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Commit or discard the uncommitted work above before starting anything new.
+Read goals.md, take the top unblocked item, and start one branch for it.
 
 ---
 

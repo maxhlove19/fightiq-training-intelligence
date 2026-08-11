@@ -9,6 +9,7 @@
 // this app's whole promise is that the thing reading your notes is better than
 // you at spotting the pattern, and there is no point charging for a cheap guess.
 import Anthropic from "@anthropic-ai/sdk";
+import { applyHouseStyle } from "./house-style";
 
 /**
  * Opus 5. Fixed id, no date suffix.
@@ -171,11 +172,16 @@ export async function requestJson(call: JsonCall): Promise<unknown> {
   }
   const text = readText(message);
   if (!text) throw new ClaudeError("AI_EMPTY", 502, { stopReason: message.stop_reason ?? "none" });
+  let parsed: unknown;
   try {
-    return JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch {
     throw new ClaudeError("AI_UNPARSEABLE", 502, { length: text.length });
   }
+  // Every readable string the product will ever show comes back through here, so
+  // the house style is applied once, to all of it, rather than at each of the four
+  // call sites where somebody would eventually forget.
+  return applyHouseStyle(parsed);
 }
 
 function rethrow(error: unknown): never {

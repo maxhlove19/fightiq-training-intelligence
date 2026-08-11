@@ -138,14 +138,38 @@ The bindings themselves are declared in `.openai/hosting.json`.
 
 ### The schema takes care of itself
 
-Every table and index lives in `lib/schema.ts`, and every request applies the
-whole list idempotently. A brand-new database needs no migration step before
-first use — the first request creates what it needs.
+Every table, column and index lives in `lib/schema.ts`, and every request
+applies the whole thing idempotently. A brand-new database needs no migration
+step; neither does an existing one.
 
-Adding a table means adding it to `lib/schema.ts` and nowhere else.
-`tests/schema-boot.test.mjs` prepares every SQL statement in the codebase
-against a fresh in-memory database, so a query written against a table that
-does not exist fails in CI rather than on someone's first screen.
+**Order matters, and it is not negotiable.** `applySchema` runs tables, then
+`APP_COLUMNS`, then indexes. An index over a column that `APP_COLUMNS` adds
+cannot be created until that column exists — and on a database that predates
+the column, it does not. Doing both in one batch worked perfectly on a fresh
+database and returned 500 on *every request* against one with data in it,
+because a D1 batch is all-or-nothing.
+
+- Adding a **table** or **index**: add it to `APP_TABLES` / `APP_INDEXES`.
+- Adding a **column** to a table that already exists anywhere: add it to the
+  `CREATE TABLE` *and* to `APP_COLUMNS`. SQLite has no `ADD COLUMN IF NOT
+  EXISTS`, so each is attempted alone and the duplicate-column failure is the
+  success case on every run after the first.
+
+`tests/schema-boot.test.mjs` does both halves: it prepares every SQL statement
+in the codebase against a fresh database, *and* it builds the database an older
+version of this app would have had and upgrades it using the app's own
+`applySchema` rather than a restatement of it.
+
+### What stops one account spending everything
+
+Every debrief and every Coach answer is a paid model call. `lib/usage-limits.ts`
+caps how many one account can start — twelve sessions an hour and forty a day,
+Coach looser again. The ceilings sit far above real use; a heavy training week
+never approaches one, and the tests assert that.
+
+It gates the reading, never the keeping: a session note is always saved, and
+only its debrief waits. The counts come from rows the app already writes,
+through indexes it already has, so nothing is written just to count it.
 
 ### The return-to-training hold
 
@@ -172,7 +196,8 @@ this ladder and it is the one that counts.
 
 ### Before you point real athletes at it
 
-- `npm test` — build, then the unit and boot suites.
+- `npm test` — type check, build, then the unit and boot suites. It fails on a
+  single type error; the codebase is at zero.
 - `npm run preflight -- https://<your-host>` and confirm it exits 0.
 - Set `OPENAI_API_KEY` before launch. Without it the app is honest and loses
   nothing, but it does not do the thing it is for.
@@ -181,10 +206,15 @@ this ladder and it is the one that counts.
 - Log one session end to end and confirm the debrief returns.
 - Log a session containing "got rocked, still foggy" and confirm the hold opens,
   the home screen leads with it, and a sparring plan is refused.
+- Log an ordinary hard session — "he caught me with a body kick, ribs are sore"
+  — and confirm **nothing** is held. A false positive costs an athlete a week.
+- Deploy over a database that already has data in it, not only a fresh one.
 
 ## Useful Commands
 
 - `npm run dev`: start local development
+- `npm run preflight -- <url>`: check a deployment's configuration, exit non-zero if unusable
+- `npm run typecheck`: type check alone
 - `npm run build`: verify the vinext build output
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes

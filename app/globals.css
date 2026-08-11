@@ -1461,3 +1461,34 @@ body { letter-spacing: .003em; }
 .door-single .door-close { padding-top: 0; }
 .door-single .door-wordmark { margin: 0 0 22px; }
 .door-single .door-auth a.door-button { display: block; margin-top: 4px; text-align: center; text-decoration: none; }
+
+/* On a laptop this was a 460px column stranded in a large dark field, which is
+   the loudest cheap signal after the URL. It does not need a desktop layout, it
+   needs to look deliberate: a device-sized app presented as one, on a ground
+   that was chosen rather than left over. */
+@media (min-width: 900px) {
+  body { background: #01030a; }
+  /* A column that scrolls inside its own frame, with the nav pinned to the
+     frame rather than the viewport. Anything else leaves the nav floating over
+     empty ground or running off the bottom of the screen. */
+  .app-frame {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 468px);
+    max-width: 468px;
+    height: calc(100dvh - 56px);
+    min-height: 0;
+    margin: 28px auto;
+    padding-bottom: 0;
+    border: 1px solid #14203a;
+    border-radius: 22px;
+    box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(120,160,220,.05);
+    overflow: hidden;
+  }
+  .app-frame.home-frame { padding-bottom: 0; }
+  .app-frame > main { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .app-frame > main.native-page, .app-frame > main.analysis-page, .app-frame > main.log-page { min-height: 0; }
+  .bottom-nav { position: static; width: 100%; max-width: none; transform: none; border-bottom-left-radius: 21px; border-bottom-right-radius: 21px; }
+  .toast { position: absolute; bottom: 96px; }
+  .door { max-width: 1120px; }
+}

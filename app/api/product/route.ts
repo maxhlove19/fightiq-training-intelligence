@@ -3,6 +3,7 @@ import { recordAthleteVisit } from "../../../lib/accounts-db";
 import { buildLearnFeed } from "../../../lib/video-recommendations";
 import { ensureProductSchema, getActiveTrainingExperiment, getAthleteSetup, getMemorySnapshot, getOrCreatePreTrainingBrief, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 import { openingFromMemory } from "../../../lib/first-session";
+import { homeInsight } from "../../../lib/home-insight";
 
 export const dynamic = "force-dynamic";
 
@@ -66,9 +67,15 @@ export async function GET(request: Request) {
     },
     onboarding: { status: profile.onboarding_completed_at ? "complete" : ((trainingCount?.count ?? 0) || (foodCount?.count ?? 0)) ? "legacy" : "required" },
     memory,
+    // The headline is the finding, not a label describing the card. See
+    // lib/home-insight.ts.
     insight: {
-      title: opening?.title ?? (latestCompletedTraining ? "Here’s what matters next." : "Build your baseline."),
-      body: opening?.body ?? latestCompletedTraining?.takeaway ?? memory.focusReason,
+      ...homeInsight({
+        opening,
+        latestTakeaway: latestCompletedTraining?.takeaway,
+        latestFocus: latestCompletedTraining?.focus,
+        focusReason: memory.focusReason,
+      }),
       currentFocus: memory.currentFocus,
     },
     opening,

@@ -186,8 +186,8 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
       // One mention is not a thread. Saying it is teaches an athlete to discount
       // the summary, and then the weeks where it is true get discounted too.
       ? themes[0].sessions > 1
-        ? `${themes[0].label} was the thread running through the week.`
-        : `${themes[0].label} came up once. Worth seeing whether it repeats.`
+        ? `${sentenceCase(themes[0].label)} was the thread running through the week.`
+        : `${sentenceCase(themes[0].label)} came up once. Worth seeing whether it repeats.`
       : "Your notes did not repeat a theme this week. Worth writing down what specifically broke down next time.";
 
   return { hasData: true, sessions: week.length, target, days: days.size, disciplines, hardestGapDays, themes, headline, subline };
@@ -199,4 +199,27 @@ export function themeStatusLabel(status: ThemeStatus) {
   if (status === "quiet_lately") return "went quiet";
   if (status === "came_back") return "came back";
   return "new this week";
+}
+
+/**
+ * The rest-day tile, or nothing.
+ *
+ * "0" next to "days without a gap" is the best possible result rendered as a
+ * failing score, on a day the athlete actually trained. And with only one day
+ * in the window the number is not just unflattering, it is meaningless: there
+ * is no gap to measure between a single day and itself.
+ *
+ * Returns null when there is nothing true to say, because a premium product
+ * leaves a slot out rather than filling it with a zero.
+ */
+/** A label written by a model starts a sentence here, so it has to look like one. */
+function sentenceCase(value: string): string {
+  const clean = value.trim();
+  return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : clean;
+}
+
+export function restTile(daysTrained: number, hardestGapDays: number): { value: string; label: string } | null {
+  if (daysTrained < 2) return null;
+  if (hardestGapDays <= 0) return { value: "None", label: "days off in a row" };
+  return { value: String(hardestGapDays), label: hardestGapDays === 1 ? "day off in a row" : "days off in a row" };
 }

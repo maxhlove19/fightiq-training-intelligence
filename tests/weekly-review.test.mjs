@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildWeeklyReview, themeStatusLabel } from "../lib/weekly-review.ts";
+import { buildWeeklyReview, restTile, themeStatusLabel } from "../lib/weekly-review.ts";
 
 const NOW = new Date("2026-08-10T20:00:00.000Z");
 const daysAgo = (days, hour = 19) => new Date(NOW.getTime() - days * 86400000).toISOString().slice(0, 11) + String(hour).padStart(2, "0") + ":00:00.000Z";
@@ -216,4 +216,19 @@ test("one mention is not called a thread running through the week", () => {
     { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch again", createdAt: at(3) },
   ], 3, now);
   assert.match(twice.subline, /clinch/);
+});
+
+test("a zero rest-day count is never rendered as a failing score", () => {
+  // "0" next to "days without a gap", on a day the athlete trained, is the best
+  // possible result shown as the worst looking number on the screen.
+  assert.deepEqual(restTile(3, 0), { value: "None", label: "days off in a row" });
+  assert.deepEqual(restTile(4, 2), { value: "2", label: "days off in a row" });
+  assert.deepEqual(restTile(3, 1), { value: "1", label: "day off in a row" });
+});
+
+test("with one day trained the gap tile says nothing, so it is not shown", () => {
+  // There is no gap between a single day and itself. Eleven sessions in one day
+  // produced "0 days without a gap", which is meaningless and reads as failure.
+  assert.equal(restTile(1, 0), null);
+  assert.equal(restTile(0, 0), null);
 });

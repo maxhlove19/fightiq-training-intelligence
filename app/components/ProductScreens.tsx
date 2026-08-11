@@ -7,8 +7,9 @@ import {
   LoaderCircle, MessageCircle, Mic, Pencil, Play, Plus, RefreshCw, Save, Send, Sparkles, Target, X,
 } from "lucide-react";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
-import { buildWeeklyReview, themeStatusLabel } from "../../lib/weekly-review";
-import { FIRST_WEEK_CARDS, firstWeekPlan } from "../../lib/first-session";
+import { buildWeeklyReview, restTile, themeStatusLabel } from "../../lib/weekly-review";
+import { firstWeekPlan, isPlaceholderMemory, unlockCards } from "../../lib/first-session";
+import { toAthleteVoice } from "../../lib/athlete-voice";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -37,7 +38,7 @@ export type AthleteSetup = { disciplines: string[]; experienceLevel: string; ses
 type NutritionEntry = MacroValues & { id: string; description: string; photoUrl: string | null; created_at?: string; createdAt?: string };
 
 function cleanAiDisplay(value: string) {
-  return value.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s*[-*]\s+/gm, "").replace(/^\s{0,3}#{1,6}\s*/gm, "").trim();
+  return toAthleteVoice(value).replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1").replace(/^\s*[-*]\s+/gm, "").replace(/^\s{0,3}#{1,6}\s*/gm, "").trim();
 }
 
 function useProductData(initialUrl = "/api/product") {
@@ -276,7 +277,7 @@ function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["r
       <div className="week-stats">
         <div><strong>{review.sessions}</strong><small>{review.sessions === 1 ? "session" : "sessions"}</small></div>
         <div><strong>{review.days}</strong><small>{review.days === 1 ? "day trained" : "days trained"}</small></div>
-        <div><strong>{review.hardestGapDays}</strong><small>{review.hardestGapDays === 0 ? "days without a gap" : review.hardestGapDays === 1 ? "day off in a row" : "days off in a row"}</small></div>
+        {(() => { const rest = restTile(review.days, review.hardestGapDays); return rest ? <div><strong>{rest.value}</strong><small>{rest.label}</small></div> : null; })()}
       </div>
       {review.disciplines.length > 1 && <p className="week-split">{review.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(" · ")}</p>}
       {review.themes.length > 0 && <div className="week-themes">
@@ -308,7 +309,13 @@ export function GameScreen() {
   }
   return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
-    {data && <>
+    {data && (() => {
+      // A card with only a placeholder in it has nothing, whether that is day
+      // one or session eleven. It says what it is waiting for either way.
+      const unlocks = unlockCards(data.sessionsLogged);
+      const strengths = data.memory.strongestAreas.filter((item) => !isPlaceholderMemory(item));
+      const problems = data.memory.recurringProblems.filter((item) => !isPlaceholderMemory(item));
+      return <>
       {/* Day one, this screen was five cards each saying nothing is here yet.
           The rules behind them are real, so it says what they are and what the
           next few sessions unlock instead of asking for patience. */}
@@ -319,15 +326,16 @@ export function GameScreen() {
         : <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />}
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">
-        <section className="game-card"><span>STRENGTHS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.strengths}</p> : data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.problems}</p> : data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.opening ? FIRST_WEEK_CARDS.improvement : data.memory.recentImprovement}</p></section>
+        <section className="game-card"><span>STRENGTHS</span>{strengths.length ? strengths.map((item) => <strong key={item}>{cleanAiDisplay(item)}</strong>) : <p>{unlocks.strengths}</p>}</section>
+        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{problems.length ? problems.map((item) => <strong key={item}>{cleanAiDisplay(item)}</strong>) : <p>{unlocks.problems}</p>}</section>
+        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{isPlaceholderMemory(data.memory.recentImprovement) ? unlocks.improvement : cleanAiDisplay(data.memory.recentImprovement)}</p></section>
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}
       {saved && <p className="saved-note" role="status"><Check size={14} /> My Game updated.</p>}
-    </>}
+      </>;
+    })()}
   </main>;
 }
 

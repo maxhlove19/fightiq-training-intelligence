@@ -37,8 +37,8 @@ const curatedCatalog: CuratedVideo[] = [
   { id: "WZnT87UqcDA", title: "A Technical Mount Escape", creator: "Chewjitsu", discipline: "BJJ / MMA", duration: "Technique", topics: ["mount", "escape", "bridge", "grappling"], description: "Combine sound position with deliberate effort instead of wasting energy." },
   { id: "dLUhx1f8H6o", title: "Masters of the Teep", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Study", topics: ["teep", "distance", "timing", "striking"], description: "Study how elite strikers use the teep to control pace and center line." },
   { id: "yXj9IPvxftw", title: "How to Arm Drag and Take the Back in Jiu-Jitsu", creator: "YouTube technique study", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back take", "angle", "shoulder", "grappling"], description: "Turn a clean arm drag into control before they can square back up." },
-  { id: "iPB3axhgSis", title: "Arm Drag to Back Take", creator: "REALIZE BJJ LIFE", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back", "control", "grappling"], description: "Study the moment after the drag: angle, shoulder control, and back exposure." },
-  { id: "osimrhg-n3U", title: "Arm Drag to Back Take", creator: "JiuJitsu FLO", discipline: "BJJ / MMA", duration: "Quick study", topics: ["arm drag", "back take", "angle", "grappling"], description: "A concise look at turning an arm drag into back exposure." },
+  { id: "iPB3axhgSis", title: "Arm Drag to Back Take: The Angle After the Drag", creator: "REALIZE BJJ LIFE", discipline: "BJJ / MMA", duration: "Technique", topics: ["arm drag", "back", "control", "grappling"], description: "Study the moment after the drag: angle, shoulder control, and back exposure." },
+  { id: "osimrhg-n3U", title: "Arm Drag to Back Take in Two Minutes", creator: "JiuJitsu FLO", discipline: "BJJ / MMA", duration: "Quick study", topics: ["arm drag", "back take", "angle", "grappling"], description: "A concise look at turning an arm drag into back exposure." },
   { id: "FypzZG6xTtc", title: "Master the Roundhouse Kick with This Drill", creator: "Namsaknoi Muay Thai", discipline: "Muay Thai / MMA", duration: "Drill", topics: ["kick", "round kick", "hip", "hip rotation", "pivot", "support foot", "balance"], description: "A focused drill for connecting the standing-foot pivot to hip rotation." },
   { id: "Hl4xhjTzT08", title: "How to Switch Kick: Lead-Leg Roundhouse", creator: "Muay Thai Scholar", discipline: "Muay Thai / MMA", duration: "Technique", topics: ["kick", "round kick", "pivot", "support foot", "balance", "hip rotation"], description: "Study how the support foot and tall posture make the hip turn through." },
 ];
@@ -313,6 +313,24 @@ export async function rememberVideoRefresh(db: D1, ownerId: string, videos: Lear
     .bind(ownerId, video.id, studyTopicFamily.slice(0, 180), now)));
 }
 
+/**
+ * One study per title, whatever its id.
+ *
+ * Two different videos of the same technique, uploaded by two creators under
+ * the same name, are two different ids, so deduping by id let the same line
+ * appear twice in one feed. A reader does not see ids. They see the app
+ * repeating itself, which is the cheapest possible tell.
+ */
+function dedupeByTitle(videos: LearnVideo[]): LearnVideo[] {
+  const seen = new Set<string>();
+  return videos.filter((video) => {
+    const key = video.title.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: MemorySnapshot; youtubeApiKey?: string; refreshCursor: number; topicOverride?: string }) : Promise<LearnFeed> {
   const refresh = args.refreshCursor > 0;
   const studyTopic = queryFor(args.memory, args.refreshCursor, args.topicOverride);
@@ -356,9 +374,9 @@ export async function buildLearnFeed(args: { db: D1; ownerId: string; memory: Me
   });
   // Keep one vetted, exactly-ranked anchor first; fresh YouTube studies then
   // broaden the same topic instead of replacing the feed with search noise.
-  const videos = liveVideos.length
-    ? [curated[0], ...liveVideos.slice(0, 5), ...curated.slice(1)].filter((video): video is LearnVideo => Boolean(video)).slice(0, 12)
-    : curated.slice(0, 12);
+  const videos = dedupeByTitle(liveVideos.length
+    ? [curated[0], ...liveVideos.slice(0, 5), ...curated.slice(1)].filter((video): video is LearnVideo => Boolean(video))
+    : curated).slice(0, 12);
   if (refresh) await rememberVideoRefresh(args.db, args.ownerId, videos, family);
   // Only call a refresh "live" when fresh videos were actually returned. A
   // configured-but-unavailable upstream service must fall back honestly to the

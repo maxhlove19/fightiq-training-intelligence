@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T18:30:55.921Z (run by hand).
+Written automatically at 2026-08-11T19:10:43.840Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,17 +8,13 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/cloudflare-config`
-- HEAD: `8a074e9` "Merge pull request #20 from maxhlove19/claude/handoff-travels"
-- No upstream. Nothing has been pushed from this branch.
+- Branch: `claude/compassionate-hamilton-ah2829`
+- HEAD: `208e430` "Let an athlete delete their own data, all the way down"
+- Tracking `origin/main`, 1 commit(s) not pushed
 
-## Uncommitted work, 3 file(s)
+## Uncommitted work
 
-This is the part that disappears if the container is reclaimed.
-
-- `M DEPLOY.md`
-- `?? CLOUDFLARE-SETUP.md`
-- `?? wrangler.jsonc`
+None. The working tree is clean.
 
 ## What this branch is probably against
 
@@ -48,7 +44,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Commit or discard the uncommitted work above before starting anything new.
+Push this branch, then read the pull request list to see whether one exists.
 
 ---
 

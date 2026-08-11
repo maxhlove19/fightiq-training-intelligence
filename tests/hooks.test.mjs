@@ -267,3 +267,59 @@ test("a cold session is handed the handoff before it is handed the goals", () =>
     "where things stand comes before what the project is for");
   rmSync(dir, { recursive: true, force: true });
 });
+
+test("a branch with commits and no handoff fails the check", () => {
+  // The gap this closes: an unattended run writes a handoff, pushes, opens a PR
+  // and has the container reclaimed with the file still uncommitted.
+  const dir = scratchRepo();
+  const run = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  run("init", "-q", "-b", "main");
+  run("config", "user.email", "t@example.com");
+  run("config", "user.name", "Test");
+  writeFileSync(join(dir, "a.txt"), "one\n");
+  run("add", "-A"); run("commit", "-qm", "base");
+  run("checkout", "-qb", "claude/thing");
+  writeFileSync(join(dir, "b.txt"), "two\n");
+  run("add", "-A"); run("commit", "-qm", "work with no handoff");
+
+  const check = join(process.cwd(), "scripts", "handoff-check.mjs");
+  const without = spawnSync("node", [check], { cwd: dir, encoding: "utf8" });
+  assert.equal(without.status, 1, "a branch with no handoff must fail");
+  assert.match(without.stderr, /no \.claude\/HANDOFF\.md in them/);
+  assert.match(without.stderr, /handoff\.mjs/, "the failure says how to fix it");
+
+  mkdirSync(join(dir, ".claude"), { recursive: true });
+  writeFileSync(join(dir, ".claude", "HANDOFF.md"), "# HANDOFF\n");
+  run("add", "-A"); run("commit", "-qm", "add handoff");
+  const withIt = spawnSync("node", [check], { cwd: dir, encoding: "utf8" });
+  assert.equal(withIt.status, 0, "a branch carrying a handoff passes");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("the handoff check never blocks main or an empty branch", () => {
+  // A gate that fires where it cannot be satisfied is a gate somebody disables.
+  const dir = scratchRepo();
+  const run = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf8" });
+  run("init", "-q", "-b", "main");
+  run("config", "user.email", "t@example.com");
+  run("config", "user.name", "Test");
+  writeFileSync(join(dir, "a.txt"), "one\n");
+  run("add", "-A"); run("commit", "-qm", "base");
+
+  const check = join(process.cwd(), "scripts", "handoff-check.mjs");
+  assert.equal(spawnSync("node", [check], { cwd: dir, encoding: "utf8" }).status, 0, "main is skipped");
+  run("checkout", "-qb", "claude/empty");
+  assert.equal(spawnSync("node", [check], { cwd: dir, encoding: "utf8" }).status, 0, "a branch with no commits is skipped");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("the handoff can be run by hand without hanging", () => {
+  // readFileSync(0) blocks forever on a terminal, so the documented manual run
+  // hung rather than working. A hook that hangs is worse than one that does
+  // nothing, and this is the second time that has been true here.
+  const dir = scratchRepo();
+  const result = spawnSync("node", [join(HOOKS, "handoff.mjs")], { cwd: dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 });
+  assert.equal(result.status, 0);
+  assert.ok(existsSync(join(dir, ".claude", "HANDOFF.md")));
+  rmSync(dir, { recursive: true, force: true });
+});

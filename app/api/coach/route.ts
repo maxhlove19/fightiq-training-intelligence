@@ -196,7 +196,7 @@ export async function POST(request: Request) {
     const history = (historyRows.results ?? []).filter((message) => message.id !== userMessageId).reverse().map((message) => ({
       role: message.role, content: message.content, followUp: message.follow_up, videoMode: message.video_mode, videoTopic: message.video_topic,
     }));
-    const answer = await answerCoach({ apiKey, allowMockAi, ownerId, question, memory, profile, workouts: workoutRows.results ?? [], nutrition, history, activeExperiment });
+    const answer = await answerCoach({ apiKey, allowMockAi, ownerId, db, question, memory, profile, workouts: workoutRows.results ?? [], nutrition, history, activeExperiment });
     const assistantMessageId = crypto.randomUUID();
     const assistantCreatedAt = new Date().toISOString();
     await db.batch([

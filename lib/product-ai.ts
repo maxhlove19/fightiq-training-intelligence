@@ -1,7 +1,9 @@
 import { getAthleteSetup, type FighterProfile, type MemorySnapshot } from "./product-db";
 import { depthBriefing, readNoteDepth } from "./note-depth";
-import { ClaudeError, hashOwner, imagePart, requestJson, type Effort, type UserPart } from "./claude";
+import { CLAUDE_MODEL, ClaudeError, hashOwner, imagePart, requestJson, type Effort, type UserPart } from "./claude";
 import { clip, clipLabel } from "./clip";
+import { recordModelUsage, type ModelSurface } from "./model-cost";
+import type { D1 } from "./debrief-db";
 
 export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
@@ -103,6 +105,8 @@ function coachReplyFrom(value: unknown): CoachReply {
 async function askClaude(args: {
   apiKey: string; ownerId: string; system: string[]; user: UserPart[];
   schema: Record<string, unknown>; effort: Effort; maxTokens: number; timeoutMs: number; failureMessage: string;
+  /** Which surface is spending the money. See lib/model-cost.ts. */
+  surface: ModelSurface; db?: D1;
 }) {
   try {
     return await requestJson({
@@ -114,6 +118,11 @@ async function askClaude(args: {
       effort: args.effort,
       maxTokens: args.maxTokens,
       timeoutMs: args.timeoutMs,
+      // Fire and forget. An athlete waiting on an answer must never also be
+      // waiting on a cost row.
+      onUsage: args.db
+        ? (usage, ok) => { void recordModelUsage(args.db as D1, args.ownerId, { ...usage, surface: args.surface, model: CLAUDE_MODEL, effort: args.effort, ok }); }
+        : undefined,
     });
   } catch (error) {
     if (!(error instanceof ClaudeError)) throw error;
@@ -129,6 +138,8 @@ async function askClaude(args: {
 
 export async function answerCoach(args: {
   apiKey?: string; allowMockAi?: boolean; ownerId: string; question: string; memory: MemorySnapshot; profile: FighterProfile;
+  /** Optional, so a caller without storage still works. Cost is recorded when it is here. */
+  db?: D1;
   workouts: unknown[]; nutrition: unknown; history: Array<{ role: string; content: string; followUp?: string | null; videoMode?: string | null; videoTopic?: string | null }>; activeExperiment?: unknown;
 }) {
   if (!args.apiKey?.trim()) {
@@ -145,6 +156,7 @@ export async function answerCoach(args: {
   const parsed = await askClaude({
     apiKey: args.apiKey,
     ownerId: args.ownerId,
+    surface: "coach", db: args.db,
     // Coach is the surface people will judge this app on. It gets the full
     // effort, and the token ceiling covers the thinking as well as the reply.
     effort: "high",
@@ -293,13 +305,14 @@ const workoutPersonalizationSchema = {
 // Strength selection stays bounded by the equipment-aware safety library. AI
 // can only prioritize among those valid choices and phrase the athlete-specific
 // rationale, so an upstream model failure can never invent a risky movement.
-export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: string; memory: MemorySnapshot; discipline: string; fatigue: string; limitations: string; availableKeys: string[] }) : Promise<WorkoutPersonalization | null> {
+export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: string; db?: D1; memory: MemorySnapshot; discipline: string; fatigue: string; limitations: string; availableKeys: string[] }) : Promise<WorkoutPersonalization | null> {
   if (!args.apiKey?.trim() || !args.availableKeys.length) return null;
   try {
     // Ranking a fixed list is mechanical work. Low effort here keeps a plan
     // appearing straight away, and the safety library already bounds the answer.
     const value = await askClaude({
       apiKey: args.apiKey, ownerId: args.ownerId, effort: "low", maxTokens: 2000, timeoutMs: 25000,
+      surface: "workout-plan", db: args.db,
       schema: workoutPersonalizationSchema, failureMessage: "FightIQ couldn’t personalise that plan.",
       system: ["You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue. Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence instead. Em dashes are the clearest sign a machine wrote something, and this has to read like a coach."],
       user: [{ type: "text", text: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
@@ -338,7 +351,7 @@ const mealSchema = {
   },
 };
 
-export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string }; nutritionContext?: { goal: string; restrictions: string[]; preferences: string; avoid: string; trainingTime: string } }) {
+export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; db?: D1; description: string; image?: { dataUrl: string; mimeType: string }; nutritionContext?: { goal: string; restrictions: string[]; preferences: string; avoid: string; trainingTime: string } }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) return mockMeal(args.description, Boolean(args.image));
     throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503, { cause: "ANTHROPIC_API_KEY is missing from the server runtime." });
@@ -353,6 +366,7 @@ export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean
   // estimate quick, which is what makes anyone log food twice.
   const value = await askClaude({
     apiKey: args.apiKey, ownerId: args.ownerId, effort: "low", maxTokens: 3000, timeoutMs: 30000,
+    surface: "meal-estimate", db: args.db,
     schema: mealSchema, failureMessage: "FightIQ couldn’t read that meal.",
     system: [], user: content,
   });

@@ -262,6 +262,26 @@ export const APP_TABLES: string[] = [
       source TEXT NOT NULL DEFAULT 'onboarding',
       recorded_at TEXT NOT NULL
     )`,
+  // What each model call cost, per owner, per surface.
+  //
+  // Counts and identifiers only. No prompt, no response, no fragment of either:
+  // what an athlete tells a coach about their own body and their own failures is
+  // the most private thing here and it does not belong in a cost table.
+  `CREATE TABLE IF NOT EXISTS model_usage (
+      id TEXT PRIMARY KEY NOT NULL,
+      owner_id TEXT NOT NULL,
+      /** debrief | coach | workout-plan | meal-estimate */
+      surface TEXT NOT NULL,
+      model TEXT NOT NULL,
+      effort TEXT NOT NULL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_read_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+      /** A refusal or a timeout still costs money, so failures are recorded too. */
+      ok INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )`,
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -318,6 +338,9 @@ export const APP_INDEXES: string[] = [
   // in a unique index, so indexing the always-NULL column would have enforced
   // nothing at all while looking like it enforced something.
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_focus_periods_owner_open ON focus_periods (owner_id) WHERE ended_at IS NULL",
+  // Every read is "everything since a date", grouped by owner and surface.
+  "CREATE INDEX IF NOT EXISTS idx_model_usage_created ON model_usage (created_at)",
+  "CREATE INDEX IF NOT EXISTS idx_model_usage_owner_created ON model_usage (owner_id, created_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_weigh_ins_owner_recorded ON athlete_weigh_ins (owner_id, recorded_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_last_seen ON athlete_accounts (last_seen_at)",
   "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_first_seen ON athlete_accounts (first_seen_at)",

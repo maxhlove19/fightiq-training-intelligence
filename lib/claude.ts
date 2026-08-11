@@ -11,6 +11,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { walkStrings, toHouseStyle } from "./house-style";
 import { toAthleteVoice } from "./athlete-voice";
+import { readUsage, type ModelUsage } from "./model-cost";
 
 /**
  * Opus 5. Fixed id, no date suffix.
@@ -52,6 +53,14 @@ export type JsonCall = {
   userHash: string;
   /** Injected so the request shape and every failure path can be tested without a network. */
   fetchImpl?: typeof fetch;
+  /**
+   * Told what the call cost, whether it succeeded or not.
+   *
+   * A callback rather than a database write, so the one place that talks to the
+   * model does not also have to know about storage. Never awaited and never
+   * allowed to throw: a cost row must not be the reason a debrief fails.
+   */
+  onUsage?: (usage: ModelUsage, ok: boolean) => void;
 };
 
 /**
@@ -164,6 +173,11 @@ export async function requestJson(call: JsonCall): Promise<unknown> {
     }
   }
 
+  // Reported before any throw below, because a refusal and a truncation both cost
+  // exactly as much as a successful answer and a cost table that only counts
+  // successes flatters itself.
+  report(call, message.usage, message.stop_reason === "end_turn" || message.stop_reason === "stop_sequence" || message.stop_reason === null);
+
   // Read this before the content. On a refusal there is nothing in content to read.
   if (message.stop_reason === "refusal") {
     throw new ClaudeError("AI_REFUSED", 502, { category: message.stop_details?.category ?? "unknown" });
@@ -189,6 +203,12 @@ export async function requestJson(call: JsonCall): Promise<unknown> {
   // the next answer to talk about the athlete instead of to them. Fixing it only
   // on the way to the screen would have left that loop running.
   return walkStrings(parsed, (text) => toAthleteVoice(toHouseStyle(text)));
+}
+
+/** Never throws, never awaited. A lost row is a rounding error; a lost debrief is not. */
+function report(call: JsonCall, usage: unknown, ok: boolean) {
+  if (!call.onUsage) return;
+  try { call.onUsage(readUsage(usage), ok); } catch { /* cost accounting is never load-bearing */ }
 }
 
 function rethrow(error: unknown): never {

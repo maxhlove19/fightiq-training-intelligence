@@ -254,7 +254,7 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
         <em>FINISH IT</em>
         <ChevronRight size={15} />
       </button>}
-      {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
+      {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor your workouts and food, not guess at them.</strong><ChevronRight size={18} /></button>}
 
       {opening ? (
         // Day one. Six setup screens have to buy something, and what they buy is
@@ -599,7 +599,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
   return (
     <main className="page log-page native-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Tell FightIQ about training</h1></header>
-      <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>{activePlan ? `You planned: ${sessionPlanLabel(activePlan)}` : "Just talk naturally. I’ll organize it for you."}</p></div>
+      <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>{activePlan ? `You planned: ${sessionPlanLabel(activePlan)}` : "Just talk naturally. I’ll organise it for you."}</p></div>
       {defaults.firstSession && defaults.watchFor && !activePlan && <p className="log-watch-for"><span>FIGHTIQ ASKED</span>{defaults.watchFor}</p>}
       <div className="mic-stage"><button className={`mic-button ${listening ? "listening" : ""}`} onClick={toggleListening} aria-label={listening ? "Stop listening" : "Start voice entry"}>{listening ? <X size={34} /> : <Mic size={38} />}</button><span className="record-status">{listening ? "Listening… tap to stop" : speechAvailable ? "Tap to start talking" : "Voice isn’t available in this browser"}</span></div>
       <button className="type-toggle" onClick={() => document.getElementById("transcript")?.focus()}>Type instead</button>

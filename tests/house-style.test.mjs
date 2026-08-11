@@ -13,8 +13,8 @@ import { toHouseStyle, applyHouseStyle, walkStrings } from "../lib/house-style.t
 
 test("a dash standing in for a pause becomes punctuation", () => {
   assert.equal(
-    toHouseStyle("Finish each successful defense with a simple exit — stand up, recover guard."),
-    "Finish each successful defense with a simple exit, stand up, recover guard.",
+    toHouseStyle("Finish each successful pass with a simple exit — stand up, recover guard."),
+    "Finish each successful pass with a simple exit, stand up, recover guard.",
   );
   // Unspaced is the same decision.
   assert.equal(toHouseStyle("It worked—then it stopped working."), "It worked, then it stopped working.");
@@ -44,6 +44,21 @@ test("text without a dash is returned untouched", () => {
   assert.equal(toHouseStyle(clean), clean);
   // Hyphens are not dashes and a compound word must survive.
   assert.equal(toHouseStyle("Ankle-lock execution felt successful."), "Ankle-lock execution felt successful.");
+});
+
+test("American spelling is rewritten to British, case preserved", () => {
+  // The em dash rule was in every system prompt and the model used one anyway.
+  // "Write in British English" is the same kind of instruction, so it gets the
+  // same treatment rather than trusting the prompt.
+  assert.equal(toHouseStyle("Build a reliable offense from that."), "Build a reliable offence from that.");
+  assert.equal(toHouseStyle("Clinch pressure and takedown defense."), "Clinch pressure and takedown defence.");
+  assert.equal(toHouseStyle("DEFENSE wins fights."), "DEFENCE wins fights.");
+  assert.equal(toHouseStyle("Defenses fall apart under pace."), "Defences fall apart under pace.");
+  // A word that already contains "defense" or "offense" as a substring, not as
+  // itself, must survive. There are none in this vocabulary, but the boundary
+  // is what makes that true rather than luck.
+  const clean = "The defense rests on one detail.";
+  assert.equal(toHouseStyle(clean), "The defence rests on one detail.");
 });
 
 test("running it twice changes nothing the second time", () => {

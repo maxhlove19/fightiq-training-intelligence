@@ -46,5 +46,21 @@ test("the model is told the same rule, in every prompt that writes prose", () =>
   for (const file of ["lib/debrief-ai.ts", "lib/product-ai.ts"]) {
     const source = readFileSync(file, "utf8");
     assert.match(source, /Never use em dashes/, `${file} does not tell the model to avoid dashes`);
+    assert.match(source, /British English/, `${file} does not tell the model to write in British English`);
   }
+});
+
+// A small, curated set of words that are American spellings in this codebase
+// with no other job: no CSS keyword, no DOM API option, no function or route
+// name, no proper noun collides with any of them. A wider list would also flag
+// "center" (a CSS class name), "behavior" (a DOM scrollTo option), "analyze"
+// (a function and a route path) and "realize" (part of a YouTube channel
+// name), so it stays narrow rather than fragile.
+const AMERICAN_SPELLING_DENYLIST = /\b(defense|offense|organize[sd]?|organizing|personalize[sd]?|personalizing)\b/i;
+
+test("no reader-facing line uses an American spelling from the denylist", () => {
+  const offenders = readerFacingLines()
+    .filter((entry) => AMERICAN_SPELLING_DENYLIST.test(entry.text))
+    .map((entry) => `${entry.file}:${entry.line}  ${entry.text.trim().slice(0, 110)}`);
+  assert.deepEqual(offenders, [], `American spelling found in copy:\n  ${offenders.join("\n  ")}`);
 });

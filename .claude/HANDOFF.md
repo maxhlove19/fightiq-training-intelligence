@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:10:43.840Z (run by hand).
+Written automatically at 2026-08-11T19:28:05.318Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,9 +8,9 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/compassionate-hamilton-ah2829`
-- HEAD: `208e430` "Let an athlete delete their own data, all the way down"
-- Tracking `origin/main`, 1 commit(s) not pushed
+- Branch: `claude/magical-darwin-llaibj`
+- HEAD: `ea5d5dd` "The slop pass: British spelling, restating headings, hollow encouragement"
+- No upstream. Nothing has been pushed from this branch.
 
 ## Uncommitted work
 
@@ -44,7 +44,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Push this branch, then read the pull request list to see whether one exists.
+Read goals.md, take the top unblocked item, and start one branch for it.
 
 ---
 

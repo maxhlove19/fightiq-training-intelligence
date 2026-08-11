@@ -442,7 +442,7 @@ export function getCoachSuggestions(
   ] : [
     kickIssue ? "What should I watch for in my support-foot pivot?" : experiment ? `What should I notice while I test “${compactTopic(experiment.mission, "this experiment")}”?` : instructor ? `Why does that coach detail work better?` : `How should I test “${focus}” next session?`,
     kickIssue ? "How can I tell timing from a balance problem?" : armDrag ? "How do I stop them squaring after the arm drag?" : confirmedProblem ? `Why does ${shortTopic(confirmedProblem, "this problem")} keep breaking down?` : `What pattern should I watch for in my next live round?`,
-    kickIssue ? "Who should I study for clean round-kick mechanics?" : strength ? `How can I build offense from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
+    kickIssue ? "Who should I study for clean round-kick mechanics?" : strength ? `How can I build offence from ${shortTopic(strength, "my strongest area")}?` : latestDiscipline ? `What should I notice earlier in ${latestDiscipline} rounds?` : `What should I review after my next session?`,
   ];
   const unique: string[] = [];
   for (const candidate of candidates) if (isDistinct(candidate, unique)) unique.push(candidate);
@@ -536,7 +536,6 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     firstSessionAt: rows.at(-1)?.created_at ?? null,
   }).catch(() => undefined);
   const used = [currentFocus];
-  const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
   const counts = (items: string[]) => new Map(items.map((item) => [normalizeInsight(item), (items.filter((other) => normalizeInsight(other) === normalizeInsight(item)).length)]));
   const successCounts = counts(successes);
@@ -558,10 +557,13 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const emergingStrengths = evidenceEmergingStrengths.length
     ? evidenceEmergingStrengths
     : takeDistinct(topValues(successes.filter((item) => (successCounts.get(normalizeInsight(item)) ?? 0) === 2), 8), used, 3);
+  // Evidence tagged "improvement" only, never a bare success or a takeaway
+  // quote: both are true things that happened, not evidence anything changed,
+  // and the label above this text says "RECENT IMPROVEMENT".
   const evidenceImprovement = improvementEvidence[0]?.label;
-  const improvement = isDistinct(evidenceImprovement || improvementCandidate, used)
-    ? titleCase(evidenceImprovement || improvementCandidate)
-    : completedRows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
+  const improvement = evidenceImprovement && isDistinct(evidenceImprovement, used)
+    ? titleCase(evidenceImprovement)
+    : "FightIQ needs another completed debrief to confirm a distinct improvement.";
   used.push(improvement);
   const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
   // A session type, a discipline name or a bare word is not a layer to build.
@@ -575,7 +577,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   // into a sentence, because that is what it was. Inside a sentence a technique
   // name is lowercase, unless it is a proper name like Kimura or Ezekiel.
   const nextEvolution = evolutionTopic
-    ? `Build ${inSentence(evolutionTopic)} as the layer that connects your current focus to reliable offense.`
+    ? `Build ${inSentence(evolutionTopic)} as the layer that connects your current focus to reliable offence.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
   // Sessions are better evidence of what somebody trains than a form they filled
   // in once, so they lead. Experience and competition intent are deliberately

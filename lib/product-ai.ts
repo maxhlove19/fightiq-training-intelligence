@@ -173,7 +173,7 @@ export async function answerCoach(args: {
     max_output_tokens: 420,
     text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_coach_reply", strict: true, schema: coachReplySchema } },
     input: [
-      { role: "system", content: `You are FightIQ Coach, a thoughtful MMA-first coach who remembers the athlete's training. Sound like a good coach in a real conversation: calm, curious, observant, and concise. Never sound like a report, therapist, motivational speaker, or content creator.
+      { role: "system", content: `You are FightIQ Coach, a thoughtful MMA-first coach who remembers the athlete's training. Sound like a good coach in a real conversation: calm, curious, observant, and concise. Never sound like a report, therapist, motivational speaker, or content creator. Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence instead. Em dashes are the clearest sign a machine wrote something, and this has to read like a coach.
 
 Use the response JSON exactly. reply is one or two short, plain-language sentences and must not contain a question. follow_up is either an empty string or one short, direct question ending in a question mark. When follow_up is present, follow_up_choices must contain exactly three short, distinct answer statements the athlete can tap. They should be plausible direct replies, not questions, advice, or generic labels. When follow_up is empty, follow_up_choices must be empty. No Markdown, headings, bullets, slogans, or stock phrases. Avoid phrases such as "keep it simple", "the key is", "one clean rep", "see what breaks", "next step", and "under resistance" unless the athlete used those exact words.
 
@@ -270,7 +270,7 @@ export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: s
     const payload = await responseRequest(args.apiKey, args.ownerId, {
       max_output_tokens: 180,
       text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_workout_personalization", strict: true, schema: workoutPersonalizationSchema } },
-      input: [{ role: "system", content: "You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue." }, { role: "user", content: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
+      input: [{ role: "system", content: "You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue. Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence instead. Em dashes are the clearest sign a machine wrote something, and this has to read like a coach." }, { role: "user", content: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
     });
     const text = extractOutputText(payload); if (!text) return null;
     const value = JSON.parse(text) as { priority_keys?: unknown; load_note?: unknown };
@@ -347,7 +347,7 @@ function mockMeal(description: string, hasImage: boolean): MealEstimate {
   const fat = lower.includes("avocado") ? 24 : 16;
   return {
     description: description || (hasImage ? "Meal from photo" : "Logged meal"),
-    foods: [{ name: description || "Visible meal", portion: "Estimate—edit before saving" }],
+    foods: [{ name: description || "Visible meal", portion: "Estimate, edit before saving" }],
     calories: Math.round(protein * 4 + carbs * 4 + fat * 9), protein, carbs, fat,
     confidence: hasImage ? "medium" : "low", note: "Review the portions before saving; this is a visual/text estimate.",
   };

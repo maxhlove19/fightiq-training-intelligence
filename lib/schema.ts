@@ -214,6 +214,17 @@ export const APP_TABLES: string[] = [
       served_at TEXT NOT NULL,
       PRIMARY KEY (owner_id, video_id)
     )`,
+  // Who has actually signed up. Sign-in gives the app a stable id and nothing
+  // else, so without this an owner cannot tell whether they have five athletes
+  // or five hundred, let alone who came back.
+  `CREATE TABLE IF NOT EXISTS athlete_accounts (
+      owner_id TEXT PRIMARY KEY NOT NULL,
+      email TEXT,
+      display_name TEXT,
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      visits INTEGER NOT NULL DEFAULT 1
+    )`,
   `CREATE TABLE IF NOT EXISTS training_holds (
       id TEXT PRIMARY KEY NOT NULL,
       owner_id TEXT NOT NULL,
@@ -264,6 +275,8 @@ export const APP_INDEXES: string[] = [
   "CREATE INDEX IF NOT EXISTS idx_video_recommendation_history_owner_served ON video_recommendation_history (owner_id, served_at)",
   // Reads are always "the open hold for this athlete", so cleared_at leads.
   "CREATE INDEX IF NOT EXISTS idx_training_holds_owner_open ON training_holds (owner_id, cleared_at, opened_at)",
+  "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_last_seen ON athlete_accounts (last_seen_at)",
+  "CREATE INDEX IF NOT EXISTS idx_athlete_accounts_first_seen ON athlete_accounts (first_seen_at)",
 ];
 
 /** Everything, in order, for anything building a database from nothing. */

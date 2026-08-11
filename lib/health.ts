@@ -32,7 +32,7 @@ export function summariseHealth(checks: HealthChecks): HealthReport {
   const notes: string[] = [];
   if (!checks.database) notes.push("No D1 binding named DB. Nothing can be saved or read.");
   else if (!checks.schema) notes.push("The database is bound but the schema could not be applied.");
-  if (!checks.sessionAnalysis) notes.push("No OPENAI_API_KEY. Sessions still save and are kept in full; the debrief and Coach say the reading half is not switched on. Adding the key makes past sessions readable — nothing is lost in the meantime.");
+  if (!checks.sessionAnalysis) notes.push("No OPENAI_API_KEY. Sessions still save and are kept in full; the debrief and Coach say the reading half is not switched on. Adding the key makes past sessions readable, and nothing is lost in the meantime.");
   if (!checks.photoUploads) notes.push("No R2 binding named UPLOADS. Meal photos cannot be stored.");
   if (!checks.liveVideoSearch) notes.push("No YOUTUBE_API_KEY. Learn serves the curated studies only, which is a supported way to run.");
 

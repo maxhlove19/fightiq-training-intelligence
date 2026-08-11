@@ -188,7 +188,7 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
       ? themes[0].sessions > 1
         ? `${themes[0].label} was the thread running through the week.`
         : `${themes[0].label} came up once. Worth seeing whether it repeats.`
-      : "Your notes did not repeat a theme this week — worth writing down what specifically broke down next time.";
+      : "Your notes did not repeat a theme this week. Worth writing down what specifically broke down next time.";
 
   return { hasData: true, sessions: week.length, target, days: days.size, disciplines, hardestGapDays, themes, headline, subline };
 }

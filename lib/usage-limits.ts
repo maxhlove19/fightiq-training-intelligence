@@ -42,11 +42,11 @@ export const LIMITS: Record<LimitKind, { hour: number; day: number }> = {
 
 const COPY: Record<LimitKind, { hour: string; day: string }> = {
   session_debrief: {
-    hour: "That is a lot of sessions in one hour. Your notes are all saved — FightIQ will read the rest shortly.",
+    hour: "That is a lot of sessions in one hour. Your notes are all saved, and FightIQ will read the rest shortly.",
     day: "Every session you logged today is saved. FightIQ has read as many as it can in a day; open any of them tomorrow and it will pick up where it left off.",
   },
   coach_question: {
-    hour: "Coach needs a short breather. Your training is all still here — try again in a few minutes.",
+    hour: "Coach needs a short breather. Your training is all still here. Try again in a few minutes.",
     day: "Coach is done for today. Everything you logged is saved, and it will be back tomorrow.",
   },
 };

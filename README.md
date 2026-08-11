@@ -133,6 +133,7 @@ curl -s https://<your-host>/api/health
 | R2 binding `UPLOADS` | For meal photos | Everything else works; photos cannot be stored. |
 | `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
+| `FIGHTIQ_OWNER_EMAILS` | For `/admin` | Nobody can open the owner view. The app itself is unaffected. |
 
 The bindings themselves are declared in `.openai/hosting.json`.
 
@@ -159,6 +160,29 @@ because a D1 batch is all-or-nothing.
 in the codebase against a fresh database, *and* it builds the database an older
 version of this app would have had and upgrades it using the app's own
 `applySchema` rather than a restatement of it.
+
+### Accounts and the owner view
+
+Sign-in is the platform's: athletes sign in with ChatGPT, and Dispatch owns
+`/signin-with-chatgpt`, `/signout-with-chatgpt` and `/callback`. Do not add app
+routes for those paths.
+
+What the app adds is a record of who signed in. `athlete_accounts` is written on
+the first screen every athlete loads, which is what turns an opaque user id into
+a person with a name, an email and a join date.
+
+`/admin` is the owner view. It is gated on `FIGHTIQ_OWNER_EMAILS`, a comma
+separated allowlist of the email addresses allowed to open it. **Unset means
+nobody**, so a deployment that forgets to configure it exposes nothing rather
+than everything. Anyone else, signed in or not, gets the same 404 from the API
+and a page that does not confirm a dashboard exists.
+
+The dashboard shows behaviour, never diary entries: who joined, who came back,
+who logged once and stopped, who is on a return to training hold, and who has
+not trained in three weeks. **It does not show the text of anybody's training
+notes**, and the exclusion is enforced in the query in `lib/accounts-db.ts`
+rather than in whatever renders it, so a future screen cannot leak an athlete's
+own words by accident.
 
 ### What stops one account spending everything
 
@@ -209,6 +233,17 @@ this ladder and it is the one that counts.
 - Log an ordinary hard session — "he caught me with a body kick, ribs are sore"
   — and confirm **nothing** is held. A false positive costs an athlete a week.
 - Deploy over a database that already has data in it, not only a fresh one.
+- Set `FIGHTIQ_OWNER_EMAILS` to the address you sign in with, then open `/admin`
+  and confirm you can see it and a second account cannot.
+
+### House style
+
+No em dashes. Not in the app's copy, not in the model's output, not anywhere a
+reader can see. They are the clearest single tell that a machine wrote
+something, and this product only works if an athlete believes a coach is
+talking to them. `tests/copy-voice.test.mjs` fails the build on one, and both AI
+prompts carry the same instruction because most of what an athlete reads is
+written at runtime rather than shipped in the repo.
 
 ## Useful Commands
 

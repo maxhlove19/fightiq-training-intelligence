@@ -51,7 +51,7 @@ const HEAD_LADDER: Stage[] = [
   {
     key: "light", step: 2, title: "Light movement",
     goal: "Easy aerobic work. You should be able to hold a conversation.",
-    allowed: ["Walking or a stationary bike, 10–15 minutes", "Easy, steady, nothing sharp"],
+    allowed: ["Walking or a stationary bike, 10 to 15 minutes", "Easy, steady, nothing sharp"],
     notAllowed: ["The gym floor", "Resistance training", "Anything with your head moving fast"],
     minHours: 24, requiresMedicalClearance: false, isContact: false, allowsSkillWork: false,
   },
@@ -239,7 +239,7 @@ export function describeHold(hold: Hold, now: string | Date): HoldView {
   if (!nextStage) blockers.push("You are at the last step. Close the hold when you are back to normal.");
 
   const escalation = hold.setbacks >= 2
-    ? "Symptoms have come back twice now. That is the point where this stops being something to manage on your own — go back to the person who assessed you."
+    ? "Symptoms have come back twice now. That is the point where this stops being something to manage on your own. Go back to the person who assessed you."
     : "";
 
   return {
@@ -266,7 +266,7 @@ export function describeHold(hold: Hold, now: string | Date): HoldView {
     dismissLabel: "FightIQ read this wrong",
     dismissTitle: head ? "Did any of this actually happen?" : "Did you actually hurt something?",
     dismissBody: head
-      ? "FightIQ opened this by reading your own words, and it would rather be wrong this way round than the other. If none of the below is true, clear it and carry on — it will not hold it against you."
+      ? "FightIQ opened this by reading your own words, and it would rather be wrong this way round than the other. If none of the below is true, clear it and carry on. It will not hold that against you."
       : "FightIQ opened this from your note. If nothing is actually hurt, clear it and carry on.",
     dismissChecklist: head
       ? [
@@ -279,7 +279,7 @@ export function describeHold(hold: Hold, now: string | Date): HoldView {
         "Something is painful to load, or you are working around it",
         "A pop, a give, swelling, or pain that is not ordinary soreness",
       ],
-    dismissConfirmLabel: head ? "NONE OF THAT HAPPENED — CLEAR IT" : "NOTHING IS HURT — CLEAR IT",
+    dismissConfirmLabel: head ? "NONE OF THAT HAPPENED, CLEAR IT" : "NOTHING IS HURT, CLEAR IT",
     footnote: head
       ? "This is the standard stepwise return used in sport, kept on your phone. It is not a medical assessment and FightIQ is not a doctor. If a commission has suspended you, that suspension is longer than this and it is the one that counts."
       : "FightIQ is not a doctor and has not seen the injury. This keeps the clock; the person who assessed you sets the pace.",
@@ -343,7 +343,7 @@ export function trainingPermission(hold: Hold | null, now: string | Date): { all
     allowsTraining: view.allowsTraining,
     allowsSkillWork: view.allowsSkillWork,
     allowsContact: view.allowsContact,
-    reason: view.allowsContact ? "" : `${view.title} — FightIQ is not recommending ${view.allowsTraining ? "contact" : "training"} while this is open.`,
+    reason: view.allowsContact ? "" : `${view.title}. FightIQ is not recommending ${view.allowsTraining ? "contact" : "training"} while this is open.`,
   };
 }
 

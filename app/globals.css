@@ -1241,6 +1241,98 @@ body { letter-spacing: .003em; }
   transform: translate(-50%, -50%);
 }
 
+
+
+/* The front door.
+   ------------------------------------------------------------------
+   The only thing somebody sees before they decide. What it is goes at the top,
+   the fighter carries the weight, and each block below is one idea with a
+   headline you can read from across a room. */
+.door { max-width: 1120px; margin: 0 auto; padding: 0 0 70px; }
+
+.door-hero { position: relative; min-height: 78vh; display: flex; align-items: center; overflow: hidden; }
+.door-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% center; }
+.door-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, var(--bg) 26%, rgba(6,10,17,.86) 48%, rgba(6,10,17,.18) 78%, rgba(6,10,17,.5) 100%); }
+.door-hero-copy { position: relative; z-index: 1; max-width: 560px; padding: 44px 24px; }
+.door-wordmark { margin-bottom: 26px; font-size: 21px; }
+.door-hero h1 { margin: 0 0 20px; font-size: clamp(37px, 7.2vw, 66px); line-height: .98; letter-spacing: -.035em; font-weight: 700; }
+.door-lede { margin: 0 0 30px; max-width: 440px; color: #c3cedd; font-size: clamp(15px, 2.1vw, 17px); line-height: 1.55; }
+.door-button { display: inline-flex; width: auto; padding: 17px 34px; font-size: 13px; }
+.door-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+
+.door-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 13px; padding: 0 24px; margin-top: 46px; }
+.door-banners article { border: 1px solid var(--line-soft); border-radius: 16px; background: var(--surface); padding: 22px 21px 24px; }
+.door-banners .eyebrow { color: var(--blue-bright); margin-bottom: 13px; }
+.door-banners h2 { margin: 0 0 11px; font-size: 20px; line-height: 1.15; letter-spacing: -.02em; }
+.door-banners p { margin: 0; color: #b3bfd0; font-size: 13.5px; line-height: 1.55; }
+.door-safety { border-color: rgba(255,138,110,.4); background: linear-gradient(180deg, rgba(196,72,44,.13), rgba(12,8,7,.4)); }
+.door-safety .eyebrow { color: #ff9d80; }
+
+.door-close { padding: 62px 24px 0; text-align: center; }
+.door-close h2 { margin: 0 0 12px; font-size: clamp(25px, 4.4vw, 35px); letter-spacing: -.028em; line-height: 1.08; }
+.door-close p { margin: 0 auto 26px; max-width: 470px; color: #b3bfd0; font-size: 14.5px; line-height: 1.55; }
+
+@media (max-width: 720px) {
+  .door-hero { min-height: 88vh; align-items: flex-end; }
+  .door-image { object-position: 66% top; }
+  .door-hero::after { background: linear-gradient(180deg, rgba(6,10,17,.5) 0%, rgba(6,10,17,.26) 30%, rgba(6,10,17,.93) 62%, var(--bg) 88%); }
+  .door-hero-copy { padding: 0 20px 40px; }
+  .door-banners, .door-close { padding-inline: 20px; }
+  .door-button { width: 100%; justify-content: center; }
+}
+
+/* Owner view.
+   ------------------------------------------------------------------
+   Read on a laptop, not a phone, by one person deciding whether this is
+   working. Wide, quiet, and ordered so the athletes who need attention are the
+   ones at the top. */
+.owner-page { max-width: 1080px; margin: 0 auto; padding: 28px 22px 60px; }
+.owner-header { display: flex; align-items: center; gap: 20px; margin-bottom: 26px; }
+.owner-header > div { flex: 1 1 auto; }
+.owner-header h1 { margin: 2px 0 0; font-size: 27px; letter-spacing: -.02em; }
+.owner-exit { color: var(--blue-bright); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-decoration: none; padding: 12px 0; }
+
+.owner-headlines { display: grid; gap: 7px; margin-bottom: 24px; padding: 16px 18px; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface); }
+.owner-headlines p { margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5; }
+
+.owner-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 11px; margin-bottom: 30px; }
+.owner-metric { border: 1px solid var(--line-soft); border-radius: 13px; background: var(--surface); padding: 15px 16px 13px; }
+.owner-metric span { display: block; color: var(--blue-bright); font-family: var(--font-geist-mono), monospace; font-size: 8px; letter-spacing: .14em; font-weight: 700; margin-bottom: 8px; }
+.owner-metric strong { display: block; font-size: 30px; line-height: 1; letter-spacing: -.03em; }
+.owner-metric small { display: block; margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+.owner-roster-head h2 { margin: 0 0 4px; font-size: 17px; letter-spacing: -.01em; }
+.owner-roster-head p { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+.owner-roster ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+
+.owner-athlete { display: grid; grid-template-columns: 1.4fr .8fr 1.4fr 1.6fr; gap: 14px; align-items: center; border: 1px solid var(--line-soft); border-left: 3px solid var(--line); border-radius: 12px; background: var(--surface); padding: 13px 15px; }
+.owner-athlete.held { border-left-color: #ff6e56; }
+.owner-athlete.lapsed { border-left-color: #e2b24a; }
+.owner-athlete.slowing { border-left-color: #8a93a6; }
+.owner-athlete.never_logged { border-left-color: #6b7488; }
+.owner-athlete.active { border-left-color: #4fd18b; }
+.owner-athlete.new { border-left-color: var(--blue-bright); }
+.owner-athlete-who strong { display: block; font-size: 14px; }
+.owner-athlete-who small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; word-break: break-all; }
+.owner-athlete-state span { display: inline-block; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.owner-athlete.held .owner-athlete-state span { border-color: rgba(255,110,86,.55); color: #ffb59e; }
+.owner-athlete.active .owner-athlete-state span { border-color: rgba(79,209,139,.45); color: #8ee0ab; }
+.owner-athlete-stats { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 11.5px; }
+.owner-athlete-stats b { color: var(--ink); font-size: 13px; }
+.owner-athlete-meta { display: grid; gap: 3px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+
+.owner-empty, .owner-loading { color: var(--muted); font-size: 13px; }
+.owner-privacy { margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 11.5px; line-height: 1.6; }
+
+.owner-closed { max-width: 520px; padding-top: 70px; text-align: center; }
+.owner-closed h1 { margin: 18px 0 10px; font-size: 24px; }
+.owner-closed p { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin-bottom: 22px; }
+
+@media (max-width: 760px) {
+  .owner-athlete { grid-template-columns: 1fr; gap: 8px; }
+  .owner-metric strong { font-size: 25px; }
+}
+
 /* Return-to-training hold. Same family as the safety notice it follows on from,
    but it persists across visits instead of being dismissible, so it is built to
    be lived with for a week rather than read once. */

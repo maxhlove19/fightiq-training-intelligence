@@ -170,14 +170,14 @@ type Copy = {
 // All of the card's words live here rather than in the component, so the copy
 // that matters most is reviewable in one place.
 const COPY: Copy = {
-  eyebrow: { head_impact: "STOP — READ THIS FIRST", acute_injury: "INJURY REPORTED", illness_or_load: "LOAD WARNING" },
+  eyebrow: { head_impact: "STOP. READ THIS FIRST", acute_injury: "INJURY REPORTED", illness_or_load: "LOAD WARNING" },
   redFlagsTitle: "GO TO EMERGENCY CARE NOW IF ANY OF THIS HAPPENS",
-  dismiss: "That is not what I meant — hide this",
+  dismiss: "That is not what I meant. Hide this.",
   source: (matched) => `FightIQ is not a medical service and cannot assess you. This is general safety guidance, triggered by your own words: ${matched}.`,
   list: (items) => (items.length <= 1 ? items[0] ?? "" : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`),
   head: {
     title: "Stop training and get your head checked",
-    body: (matched) => `You wrote about ${matched}. That is how a head injury shows up, and no app — this one included — can tell the difference between a rattle and something that needs treating. FightIQ is holding your next session plan until a qualified person has looked at you.`,
+    body: (matched) => `You wrote about ${matched}. That is how a head injury shows up, No app, this one included, can tell the difference between a rattle and something that needs treating. FightIQ is holding your next session plan until a qualified person has looked at you.`,
     advice: [
       "Do not train, spar, roll or lift again today. Not even light rounds.",
       "Get seen by a doctor or another qualified medical professional before your next session, and follow what they tell you rather than how you feel.",
@@ -206,7 +206,7 @@ const COPY: Copy = {
   },
   load: {
     title: "This is a day to train light or not at all",
-    body: (matched) => `You wrote about ${matched}. Sessions logged like this are where most injuries actually come from — the technique work below still stands, but the load should not.`,
+    body: (matched) => `You wrote about ${matched}. Sessions logged like this are where most injuries actually come from. The technique work below still stands, but the load should not.`,
     advice: [
       "Keep the next session technical: drilling and positional work, not hard rounds.",
       "If you are ill with a fever, or below the neck, sit it out completely.",

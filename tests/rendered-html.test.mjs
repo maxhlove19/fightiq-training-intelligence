@@ -17,8 +17,14 @@ test("renders the secure FightIQ sign-in surface without starter artifacts", asy
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /FightIQ/);
-  assert.match(html, /Your game/);
-  assert.match(html, /Sign in to FightIQ/);
+  // The front door states the problem before it names the product, and offers
+  // exactly one thing to do.
+  assert.match(html, /You train hard/);
+  assert.match(html, /You forget most of it/);
+  assert.match(html, /signin-with-chatgpt/);
+  assert.match(html, /Start free/);
+  // The fighter carries the page. A door with no picture on it is a form.
+  assert.match(html, /fighter-posters/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton|codex-preview/i);
   assert.doesNotMatch(html, /OPENAI_API_KEY|api\.openai\.com/);
 });

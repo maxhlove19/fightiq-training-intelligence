@@ -102,7 +102,7 @@ export function ReturnToTraining({ hold, onChange, compact = false }: { hold: Ho
       {hold.needsMedicalClearance && confirming !== "dismiss" && (confirming === "clearance"
         ? <div className="rtt-confirm">
             <strong>Was this in person?</strong>
-            <p>Only tap this if a doctor or physio has actually assessed you and said you can go back. FightIQ takes your word for it — nobody else checks.</p>
+            <p>Only tap this if a doctor or physio has actually assessed you and said you can go back. FightIQ takes your word for it, and nobody else checks.</p>
             <button className="primary-button" onClick={() => void send({ action: "record_medical_clearance" })} disabled={busy}>YES, I WAS CLEARED IN PERSON</button>
             <button className="quiet-button" onClick={() => setConfirming(null)}>Not yet</button>
           </div>
@@ -117,11 +117,11 @@ export function ReturnToTraining({ hold, onChange, compact = false }: { hold: Ho
       </div>}
 
       {hold.canAdvance && confirming === null && <button className="primary-button" onClick={() => void send({ action: "advance", symptomFree: true })} disabled={busy}>{busy ? "SAVING…" : hold.advanceLabel}</button>}
-      {!hold.nextStage && confirming === null && <button className="primary-button" onClick={() => void send({ action: "close" })} disabled={busy}>I’M BACK TO NORMAL — CLOSE THIS</button>}
+      {!hold.nextStage && confirming === null && <button className="primary-button" onClick={() => void send({ action: "close" })} disabled={busy}>I’M BACK TO NORMAL, CLOSE THIS</button>}
       {confirming === null && <button className="quiet-button rtt-setback" onClick={() => void send({ action: "setback" })} disabled={busy}><Undo2 size={15} /> {hold.setbackLabel}</button>}
       {/* The way out. A hold that cannot be released when the scanner is wrong
           teaches athletes to stop writing honest notes, which costs far more
-          safety than it buys — so it is here, behind a direct question. */}
+          safety than it buys, so it is here, behind a direct question. */}
       {confirming === null && <button className="rtt-misread" onClick={() => setConfirming("dismiss")} disabled={busy}><X size={14} /> {hold.dismissLabel}</button>}
     </div>}
 

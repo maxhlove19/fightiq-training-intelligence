@@ -147,7 +147,7 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
     if (loaded) {
       setRefreshState({ topic: topicQuery, cursor: nextCursor, notice: "Updated with a new set of studies." });
     } else {
-      setRefreshState({ topic: topicQuery, cursor: refreshCursor, notice: "Couldn’t refresh right now. Your current studies are still here—try again when you’re ready." });
+      setRefreshState({ topic: topicQuery, cursor: refreshCursor, notice: "Couldn’t refresh right now. Your current studies are still here. Try again when you’re ready." });
     }
     setRefreshing(false);
   }
@@ -282,7 +282,7 @@ function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["r
           <span>{theme.sessions === 1 ? "1 session" : `${theme.sessions} sessions`}</span>
           <em>{themeStatusLabel(theme.status)}</em>
         </div>)}
-        <p className="week-note">FightIQ can see what you stopped writing down. It cannot see what you fixed — that part is still your call.</p>
+        <p className="week-note">FightIQ can see what you stopped writing down. It cannot see what you fixed. That part is still your call.</p>
       </div>}
     </>}
   </section>;

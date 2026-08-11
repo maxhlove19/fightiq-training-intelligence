@@ -117,7 +117,7 @@ test("a setback at the first step cannot push the step below one", () => {
 test("two setbacks stops being something the app manages", () => {
   let hold = applyHoldAction(newHold(), { type: "setback" }, hoursAfter(START, 2)).hold;
   hold = applyHoldAction(hold, { type: "setback" }, hoursAfter(START, 4)).hold;
-  assert.match(describeHold(hold, hoursAfter(START, 4)).escalation, /go back to the person who assessed you/);
+  assert.match(describeHold(hold, hoursAfter(START, 4)).escalation, /[Gg]o back to the person who assessed you/);
 });
 
 test("a recorded clearance survives a setback, because the appointment still happened", () => {

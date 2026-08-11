@@ -184,7 +184,7 @@ function HomeScreen({ name, onLog, onLearn, onGame, onStartTraining, onFinishPro
   const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
   return (
     <main className="page home-page native-page">
-      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "—"}</span><small>FOCUS</small></button></div></header>
+      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><a className="avatar home-profile" href="/signout-with-chatgpt?return_to=%2F" aria-label="Sign out" title="Sign out">{name.slice(0, 1).toUpperCase()}</a><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button></div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
       <p className="subgreeting">Let’s keep building your game.</p>
@@ -298,7 +298,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
   function scheduleDebriefPoll(id: string) {
     if (debriefPollRef.current) window.clearTimeout(debriefPollRef.current);
     if (debriefPollAttemptsRef.current >= 40) {
-      setError("Your note is still safe. FightIQ is taking longer than expected—try again when you’re ready.");
+      setError("Your note is still safe. FightIQ is taking longer than expected. Try again when you’re ready.");
       setDebriefPhase("error");
       return;
     }
@@ -360,8 +360,8 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
       setOfflineHold(true);
       setError(offline
-        ? "No connection. Your note is safe on this phone — FightIQ will send it the moment you are back online."
-        : "FightIQ couldn’t reach the server. Your note is safe on this phone — try again, or come back to it later.");
+        ? "No connection. Your note is safe on this phone, and FightIQ will send it the moment you are back online."
+        : "FightIQ couldn’t reach the server. Your note is safe on this phone. Try again, or come back to it later.");
     } finally { setSaving(false); }
   }
 
@@ -465,7 +465,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       {errorCode === "AI_NOT_CONFIGURED"
         // Retrying this cannot work, and saying "try again" to someone whose
         // deployment is missing a key wastes their evening. Say what it is.
-        ? <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>The reading half isn’t switched on yet.</h2><p>Every session you log is being kept, in full. What is missing is the connection FightIQ uses to read them back to you — that is a setting on this deployment, not something you did. Once it is added, open any past session and the debrief will run on it.</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
+        ? <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>The reading half isn’t switched on yet.</h2><p>Every session you log is being kept, in full. What is missing is the connection FightIQ uses to read them back to you. That is a setting on this deployment, not something you did. Once it is added, open any past session and the debrief will run on it.</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
         : errorCode === "HOURLY_LIMIT_REACHED" || errorCode === "DAILY_LIMIT_REACHED"
         // A retry button that cannot succeed for ten minutes is worse than none.
         ? <div className="debrief-error" role="status"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>FightIQ will read this one shortly.</h2><p>{error}</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
@@ -497,7 +497,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       {debrief?.safety && entryId && <SafetyNotice signal={debrief.safety} storageKey={`fightiq-safety-${entryId}`} />}
       {debrief?.hold?.open && <ReturnToTraining hold={debrief.hold} onChange={(next) => setDebrief((current) => current ? { ...current, hold: next } : current)} />}
       <div className="success-card"><div className="success-icon"><Check size={20} /></div><p className="eyebrow">{debrief?.memoryUpdated ? "MEMORY UPDATED" : "SESSION SAVED"}</p><h2>{debrief?.memoryUpdated ? "Got it." : "Your note is safe."}</h2>{debrief?.summary && <div className="result-block"><span>SUMMARY</span><p>{debrief.summary}</p></div>}<div className="result-block"><span>{debrief?.memoryUpdated ? "KEY INSIGHT" : "SAVED NOTE"}</span><p>{debrief?.takeaway ?? "Your training note has been saved."}</p></div>{debrief?.nextSessionFocus && (debrief.hold?.open && !debrief.hold.allowsSkillWork
-        ? <div className="next-focus held"><span>NEXT SESSION</span><strong>On hold — step {debrief.hold.stage.step} of {debrief.hold.totalSteps}.</strong><small>FightIQ keeps what it learned about your technique. It will not tell you what to go and train until you are further up the ladder.</small></div>
+        ? <div className="next-focus held"><span>NEXT SESSION</span><strong>On hold. Step {debrief.hold.stage.step} of {debrief.hold.totalSteps}.</strong><small>FightIQ keeps what it learned about your technique. It will not tell you what to go and train until you are further up the ladder.</small></div>
         : <div className="next-focus"><span>NEXT SESSION</span><strong>{debrief.nextSessionFocus}</strong></div>)}<button className="primary-button" onClick={onBack}>BACK TO HOME</button></div>
     </main>
   );

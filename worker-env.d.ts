@@ -21,5 +21,7 @@ declare namespace Cloudflare {
     YOUTUBE_API_KEY?: string;
     /** Local development only. Never set in production. */
     FIGHTIQ_ALLOW_MOCK_AI?: string;
+    /** Comma separated emails allowed to open the owner dashboard. Unset means nobody. */
+    FIGHTIQ_OWNER_EMAILS?: string;
   }
 }

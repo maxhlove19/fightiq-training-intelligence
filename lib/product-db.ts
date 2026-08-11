@@ -65,8 +65,8 @@ export async function getProductOwnerId() {
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
-  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string };
+  return { db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true", ownerEmails: runtime.FIGHTIQ_OWNER_EMAILS };
 }
 
 export async function ensureProductSchema(db: D1) {

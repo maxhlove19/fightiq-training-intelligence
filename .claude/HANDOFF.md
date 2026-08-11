@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T19:27:47.264Z (run by hand).
+Written automatically at 2026-08-11T19:28:05.318Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -9,25 +9,12 @@ cannot be wrong about what it does say.
 ## Where the work is
 
 - Branch: `claude/magical-darwin-llaibj`
-- HEAD: `5e43c73` "Regenerate HANDOFF.md for this branch"
+- HEAD: `ea5d5dd` "The slop pass: British spelling, restating headings, hollow encouragement"
 - No upstream. Nothing has been pushed from this branch.
 
-## Uncommitted work, 12 file(s)
+## Uncommitted work
 
-This is the part that disappears if the container is reclaimed.
-
-- `M app/api/workouts/route.ts`
-- ` M app/components/FightIQApp.tsx`
-- ` M app/components/ProductScreens.tsx`
-- ` M lib/debrief-ai.ts`
-- ` M lib/first-session.ts`
-- ` M lib/house-style.ts`
-- ` M lib/product-ai.ts`
-- ` M lib/product-db.ts`
-- ` M lib/video-recommendations.ts`
-- ` M tests/copy-voice.test.mjs`
-- ` M tests/first-session.test.mjs`
-- ` M tests/house-style.test.mjs`
+None. The working tree is clean.
 
 ## What this branch is probably against
 
@@ -57,7 +44,7 @@ None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## The next action
 
-Commit or discard the uncommitted work above before starting anything new.
+Read goals.md, take the top unblocked item, and start one branch for it.
 
 ---
 

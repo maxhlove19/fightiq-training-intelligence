@@ -9,7 +9,8 @@
 // this app's whole promise is that the thing reading your notes is better than
 // you at spotting the pattern, and there is no point charging for a cheap guess.
 import Anthropic from "@anthropic-ai/sdk";
-import { applyHouseStyle } from "./house-style";
+import { walkStrings, toHouseStyle } from "./house-style";
+import { toAthleteVoice } from "./athlete-voice";
 
 /**
  * Opus 5. Fixed id, no date suffix.
@@ -179,9 +180,15 @@ export async function requestJson(call: JsonCall): Promise<unknown> {
     throw new ClaudeError("AI_UNPARSEABLE", 502, { length: text.length });
   }
   // Every readable string the product will ever show comes back through here, so
-  // the house style is applied once, to all of it, rather than at each of the four
+  // both rules are applied once, to all of it, rather than at each of the four
   // call sites where somebody would eventually forget.
-  return applyHouseStyle(parsed);
+  //
+  // The voice pass is here as well as at display time on purpose. Stored model
+  // text is fed back to the model as its own context on the next call, so a
+  // debrief saved as "Athlete reported the technique worked" was quietly teaching
+  // the next answer to talk about the athlete instead of to them. Fixing it only
+  // on the way to the screen would have left that loop running.
+  return walkStrings(parsed, (text) => toAthleteVoice(toHouseStyle(text)));
 }
 
 function rethrow(error: unknown): never {

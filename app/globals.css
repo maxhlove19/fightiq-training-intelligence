@@ -1083,6 +1083,10 @@ body { letter-spacing: .003em; }
 .log-watch-for span { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
 
 .home-focus-meter.first-week { background-image: none; }
+/* No target means no progress to draw. An empty arc around a number reads as a
+   score of nothing rather than as an absence of scoring. */
+.home-focus-meter.unscored { background-image: none; }
+.home-focus-meter.unscored span { color: #4fb0ff; }
 .home-focus-meter.first-week span { color: #4fb0ff; }
 
 .home-brief-rail { width: 100%; display: grid; grid-template-columns: 1fr auto 15px; gap: 2px 9px; align-items: center; min-height: 47px; margin: 0 0 9px; padding: 8px 11px; border: 1px solid #11335b; border-left: 2px solid #1384ff; border-radius: 5px; background: #061426; color: #cfe0f4; text-align: left; cursor: pointer; }

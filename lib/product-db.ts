@@ -3,6 +3,7 @@ import { currentOwnerId } from "./current-athlete";
 import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
 import { openingBrief, openingFromMemory } from "./first-session";
+import { clip, clipLabel, sentence } from "./clip";
 
 /**
  * What a day-one brief records itself as built from.
@@ -52,8 +53,16 @@ export const emptyAthleteSetup: AthleteSetup = {
 };
 
 export type MemorySnapshot = {
-  /** What the athlete said they train. On day one it is the only signal there is. */
+  /** What the athlete trains, logged sessions first and anything they named at setup after. */
   disciplines: string[];
+  /**
+   * Every discipline with a logged session, most trained first.
+   *
+   * Evidence rather than intent, and kept separate from `disciplines` because
+   * "he has actually trained BJJ seven times" is a different claim from "he once
+   * ticked BJJ on a form", and Coach should be able to tell them apart.
+   */
+  trains: Array<{ name: string; sessions: number }>;
   /** Their own words for where they are. A beginner and a competitor need different answers to the same question. */
   experienceLevel: string;
   /** Whether a fight is coming. It changes what is worth working on. */
@@ -161,6 +170,75 @@ function topValues(values: string[], limit: number) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([value]) => titleCase(value));
 }
 
+/**
+ * What the athlete actually trains, counted from what they logged.
+ *
+ * Onboarding used to be the only source, so an athlete who skipped that step
+ * carried `disciplines: []` in the Fighter Brain with eleven sessions on the
+ * board, and Coach reasoned about him without knowing he was mainly a grappler.
+ * A form records an intention once. A log records what happened every time, so
+ * the log leads and onboarding fills the gaps.
+ *
+ * Ordered by how often each one appears, because "mainly a grappler" is the part
+ * that should change an answer.
+ */
+export function disciplinesFromSessions(rows: Array<{ discipline?: string | null }>) {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const row of rows) {
+    const label = (row.discipline ?? "").replace(/\s+/g, " ").trim();
+    if (!label) continue;
+    const key = label.toLowerCase();
+    const entry = counts.get(key) ?? { label: titleCase(label), count: 0 };
+    entry.count += 1;
+    counts.set(key, entry);
+  }
+  return [...counts.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .map((item) => ({ name: item.label, sessions: item.count }));
+}
+
+/** Logged disciplines lead. Anything named at setup but never trained still counts. */
+export function mergeDisciplines(stated: string[], logged: Array<{ name: string }>) {
+  const seen = new Set(logged.map((item) => item.name.toLowerCase()));
+  return [...logged.map((item) => item.name), ...stated.filter((item) => item.trim() && !seen.has(item.trim().toLowerCase()))].slice(0, 8);
+}
+
+/**
+ * An observation has to say something happened or changed.
+ *
+ * Without a bar, "Arm Drag" and "Did Ankle Locks" were being stored as
+ * observations. The first is a technique name and the second is the athlete's
+ * own note read back to him, and neither is something a retrospective can be
+ * built on. Three months of that and the history is rubbish, which is the
+ * expensive kind of wrong because it cannot be reconstructed later.
+ *
+ * Deliberately permissive about what counts and strict about what obviously does
+ * not. Throwing away real signal to keep the list tidy would be the worse error.
+ */
+const RESTATED_NOTE = /^(did|drilled|trained|practi[cs]ed|worked on|learn[et]d?|tried|studied|reviewed)\b/i;
+const HAPPENED_OR_CHANGED = /\b(was|were|is|are|felt|feels|kept|keeps|stopped|stops|started|starts|worked|works|failed|fails|broke|breaks|lost|loses|held|holds|got|gets|came|comes|went|goes|improved|improves|struggled|struggles|noticed|notices|landed|lands|missed|misses|able|unable|after|before|when|under|because|until|instead|still|again)\b/i;
+
+export function isObservation(value: string) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (clean.split(" ").length < 4) return false;
+  if (RESTATED_NOTE.test(clean)) return false;
+  return HAPPENED_OR_CHANGED.test(clean);
+}
+
+/**
+ * A label written for a chip, put back into a sentence.
+ *
+ * Technique names are stored title cased because that is how they read on a
+ * button. Dropped into prose they have to come back down, or the sentence looks
+ * like it was assembled rather than written. Names that are actually somebody's
+ * name keep their capital.
+ */
+const PROPER_TECHNIQUE = /^(kimura|ezekiel|americana|peruvian|marcelotine|darce|d'arce|estima|gogoplata|omoplata|berimbolo|granby|turkish|russian|greco|thai|brazilian|japanese|imanari)\b/i;
+
+function inSentence(label: string) {
+  return PROPER_TECHNIQUE.test(label.trim()) ? label.trim() : label.trim().toLowerCase();
+}
+
 function normalizeInsight(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -186,9 +264,15 @@ function takeDistinct(values: string[], used: string[], limit: number) {
   return picked;
 }
 
-function shortTopic(value: string, fallback: string) {
-  const clean = value.replace(/[.!?]+$/g, "").trim();
-  return (clean || fallback).slice(0, 72);
+/**
+ * A short label for a chip or a suggestion. Terminal punctuation goes, because
+ * "Arm drags." reads wrong on a button.
+ *
+ * The ceiling used to be a hard 72-character slice with no ellipsis and no word
+ * boundary, which is what cut a mission mid-word inside "consistent".
+ */
+function shortTopic(value: string, fallback: string, limit = 96) {
+  return clipLabel(value.trim() || fallback, limit);
 }
 
 function compactTopic(value: string, fallback: string) {
@@ -458,11 +542,21 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const evolutionCandidates = topValues([...relatedTopics, ...concepts, ...techniques], 12)
     .filter((topic) => topic.trim().length > 3 && !notASkill.test(topic.trim()));
   const evolutionTopic = takeDistinct(evolutionCandidates, used, 1)[0];
+  // "Build Ankle Locks as the layer..." reads as a machine pasting a chip label
+  // into a sentence, because that is what it was. Inside a sentence a technique
+  // name is lowercase, unless it is a proper name like Kimura or Ezekiel.
   const nextEvolution = evolutionTopic
-    ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
+    ? `Build ${inSentence(evolutionTopic)} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
+  // Sessions are better evidence of what somebody trains than a form they filled
+  // in once, so they lead. Experience and competition intent are deliberately
+  // NOT inferred: eleven logged sessions tell you nothing about whether the
+  // person writing them is a white belt or a black belt, and guessing "beginner"
+  // at a competitor is worse than admitting the gap.
+  const trains = disciplinesFromSessions(rows);
   return {
-    disciplines: setup.disciplines,
+    disciplines: mergeDisciplines(setup.disciplines, trains),
+    trains,
     experienceLevel: setup.experienceLevel,
     competitionIntent: setup.competitionIntent,
     sessionsLogged: rows.length,
@@ -478,9 +572,13 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
       ? takeDistinct(instructorEvidence.map((item) => item.label), [], 3)
       : takeDistinct(topValues(instructorDetails, 8), [], 3),
     emergingStrengths,
+    // The fallback path is where the noise came from: `techniques` is a list of
+    // bare technique names, so with no observation evidence yet the brain filled
+    // up with "Arm Drag". Both paths go through the same bar now, and an empty
+    // list is a better answer than a full list of nothing.
     oneTimeObservations: observationEvidence.length
-      ? takeDistinct(observationEvidence.filter((item) => item.count === 1).map((item) => item.label), [], 4)
-      : takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
+      ? takeDistinct(observationEvidence.filter((item) => item.count === 1).map((item) => item.label).filter(isObservation), [], 4)
+      : takeDistinct(topValues([...reportedFacts, ...problems, ...successes].filter(isObservation), 12), [], 4),
     // Recent notes are useful as near-term Learn/Coach context, but unfinished
     // debriefs deliberately carry no inferred takeaway or focus.
     // Sixteen, not six: the weekly review decides whether a theme is new by
@@ -526,7 +624,11 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
   // pressing "start brief" reads this back and the two must not disagree.
   const mission = opening?.mission || latest?.focus || fighterMemory.currentFocus;
   const reason = opening?.body || latest?.takeaway || fighterMemory.focusReason;
-  const brief: PreTrainingBrief = { mission: shortTopic(mission, "Test your current focus"), reason: shortTopic(reason, "Carry one clear detail from your last session into live work."), cue: briefCue(mission), sourceFocus: focus, createdAt: now.toISOString() };
+  // Generous ceilings, deliberately. A focus is stored at 240 characters, so a
+  // mission built from one now arrives whole instead of losing its last word.
+  // The reason is a sentence and keeps its full stop; the mission is an
+  // instruction and does not need one.
+  const brief: PreTrainingBrief = { mission: clipLabel(mission || "Test your current focus", 240), reason: sentence(clip(reason || "Carry one clear detail from your last session into live work.", 240)), cue: briefCue(mission), sourceFocus: focus, createdAt: now.toISOString() };
   await db.prepare(`INSERT INTO pre_training_briefs (id, owner_id, mission, reason, cue, source_focus, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .bind(crypto.randomUUID(), ownerId, brief.mission, brief.reason, brief.cue, brief.sourceFocus, brief.createdAt).run();
@@ -547,8 +649,10 @@ export async function startPreTrainingExperiment(db: D1, ownerId: string, sessio
   const compatible = !planDomain || planDomain === "mma" || !briefDomain || briefDomain === "mma" || planDomain === briefDomain || (planDomain === "grappling" && briefDomain === "wrestling") || (planDomain === "wrestling" && briefDomain === "grappling");
   const mission = compatible ? brief.mission : `Choose one detail to test in ${plan}`;
   const cue = compatible ? brief.cue : "Notice the first moment it changes.";
+  // "For BJJ class: Ankle-lock execution felt successful in this session" is a
+  // label glued to a sentence. Two sentences read like a person wrote them.
   const reason = compatible
-    ? (plan ? `For ${plan}: ${brief.reason}` : brief.reason)
+    ? (plan ? `${sentence(brief.reason)} You are carrying it into ${plan}.` : sentence(brief.reason))
     : `Your ${briefDomain === "grappling" ? "grappling" : "current"} focus is better saved for a matching session. Today, carry one useful detail from ${plan}.`;
   const id = crypto.randomUUID();
   await db.prepare(`INSERT INTO training_experiments (id, owner_id, mission, cue, reason, status, started_at, created_at)

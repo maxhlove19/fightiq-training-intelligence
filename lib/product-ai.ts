@@ -1,6 +1,7 @@
 import { getAthleteSetup, type FighterProfile, type MemorySnapshot } from "./product-db";
 import { depthBriefing, readNoteDepth } from "./note-depth";
 import { ClaudeError, hashOwner, imagePart, requestJson, type Effort, type UserPart } from "./claude";
+import { clip, clipLabel } from "./clip";
 
 export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
@@ -71,22 +72,22 @@ function coachReplyFrom(value: unknown): CoachReply {
   }
   const replySentences = cleanCoachText(reply.reply).replace(/\?+/g, ".").split(/(?<=[.!])\s+/).filter(Boolean).slice(0, 2).join(" ");
   const rawFollowUp = cleanCoachText(reply.follow_up).replace(/[.\s]+$/g, "");
-  const followUp = rawFollowUp ? `${rawFollowUp.replace(/\?+/g, "").slice(0, 148)}?` : "";
+  const followUp = rawFollowUp ? `${clipLabel(rawFollowUp.replace(/\?+/g, ""), 148)}?` : "";
   const rawChoices = reply.follow_up_choices as string[];
   const followUpChoices = rawChoices
-    .map((choice) => cleanCoachText(choice).replace(/[.?!\s]+$/g, "").slice(0, 96))
+    .map((choice) => clipLabel(cleanCoachText(choice), 96))
     .filter((choice, index, values) => choice.length > 1 && values.findIndex((item) => item.toLowerCase() === choice.toLowerCase()) === index)
     .slice(0, 3);
   const videoMode = offer.mode as CoachVideoOffer["mode"];
   const cleaned = {
-    reply: replySentences.slice(0, 420),
+    reply: clip(replySentences, 420),
     followUp,
     followUpChoices,
     // A no-video answer should not carry stale or speculative video text into
     // the saved conversation. That keeps a later turn's context truthful.
     video: videoMode === "none"
       ? { mode: videoMode, topic: "", prompt: "" }
-      : { mode: videoMode, topic: cleanCoachText(offer.topic).slice(0, 140), prompt: cleanCoachText(offer.prompt).slice(0, 180) },
+      : { mode: videoMode, topic: clipLabel(cleanCoachText(offer.topic), 140), prompt: clip(cleanCoachText(offer.prompt), 180) },
   };
   if (!cleaned.reply || (cleaned.followUp && cleaned.followUp.replace(/\?$/, "").trim().split(/\s+/).length < 3) || (cleaned.followUp && cleaned.followUpChoices.length !== 3) || (!cleaned.followUp && cleaned.followUpChoices.length > 0) || (cleaned.video.mode !== "none" && (!cleaned.video.topic || !cleaned.video.prompt))) {
     throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
@@ -177,6 +178,7 @@ WHEN THEY GIVE YOU ALMOST NOTHING
 
 HOW YOU SOUND
 - A good coach in a real conversation. Calm, curious, specific, short. Never a report, a therapist, a motivational speaker, or a content creator.
+- Write to the athlete, never about them. Say "you", never "the athlete", "this athlete" or "the user". That includes every stored field, not just the sentences they read back immediately: a note written as "Athlete reported the technique worked" comes back later as your own context and teaches you to keep writing like a case file.
 - Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence. Em dashes are the clearest sign a machine wrote something, and this has to read like a person.
 - No stock filler. Avoid "the key is", "keep it simple", "one clean rep", "see what breaks", "next step", "trust the process", "under resistance", unless the athlete used those words first.
 - Keep their own language for the moment they described, so they recognise it.
@@ -234,6 +236,15 @@ function compactCoachMemory(memory: MemorySnapshot) {
     // First, because it decides how the rest of this should be read. An empty
     // history is a different job, not a smaller one.
     sessions_logged: memory.sessionsLogged,
+    // What he actually trains, counted. Without this Coach was answering a
+    // mainly-grappling athlete as though it had no idea what sport he does,
+    // because the only discipline signal reaching it was whatever happened to be
+    // in the last three sessions.
+    trains: memory.trains.map((item) => `${item.name} x${item.sessions}`),
+    // Stated at setup, and empty when they skipped it. Named separately so the
+    // model can tell "unknown" from "none", and ask rather than assume.
+    experience_level: memory.experienceLevel || "not stated",
+    competition_intent: memory.competitionIntent || "not stated",
     current_focus: memory.currentFocus,
     focus_reason: memory.focusReason,
     recurring_problems: memory.recurringProblems.slice(0, 3),
@@ -295,7 +306,7 @@ export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: s
     }) as { priority_keys?: unknown; load_note?: unknown };
     if (!Array.isArray(value.priority_keys) || typeof value.load_note !== "string") return null;
     const priorityKeys = value.priority_keys.filter((key): key is string => typeof key === "string" && args.availableKeys.includes(key)).filter((key, index, values) => values.indexOf(key) === index).slice(0, 5);
-    const loadNote = cleanCoachText(value.load_note).replace(/[\r\n]+/g, " ").slice(0, 155);
+    const loadNote = clip(cleanCoachText(value.load_note).replace(/[\r\n]+/g, " "), 155);
     return loadNote ? { priorityKeys, loadNote } : null;
   } catch { return null; }
 }

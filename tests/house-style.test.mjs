@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { toHouseStyle, applyHouseStyle } from "../lib/house-style.ts";
+import { toHouseStyle, applyHouseStyle, walkStrings } from "../lib/house-style.ts";
 
 test("a dash standing in for a pause becomes punctuation", () => {
   assert.equal(
@@ -73,12 +73,19 @@ test("it reaches every readable string in a model response, at any depth", () =>
   assert.equal(response.complete, true);
 });
 
-test("every model response passes through the sanitiser", () => {
+test("every model response passes through both sanitisers", () => {
   // The guarantee is structural: one choke point, so a fifth model call added
-  // later inherits the rule instead of having to remember it.
+  // later inherits the rules instead of having to remember them. The voice pass
+  // runs here as well as at display time, because stored model text is fed back
+  // to the model as its own context on the next call, and a debrief saved as
+  // "Athlete reported..." was teaching the next answer to write the same way.
   const claude = readFileSync(new URL("../lib/claude.ts", import.meta.url), "utf8");
-  assert.match(claude, /applyHouseStyle/);
-  assert.match(claude, /return applyHouseStyle\(parsed\);/);
+  assert.match(claude, /return walkStrings\(parsed, \(text\) => toAthleteVoice\(toHouseStyle\(text\)\)\);/);
+});
+
+test("the walk applies whatever rule it is given, at any depth", () => {
+  const shouted = walkStrings({ a: "one", b: ["two", { c: "three" }], n: 4 }, (text) => text.toUpperCase());
+  assert.deepEqual(shouted, { a: "ONE", b: ["TWO", { c: "THREE" }], n: 4 });
 });
 
 test("stored text already written with an em dash is cleaned on the way to the screen", () => {

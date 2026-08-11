@@ -3,6 +3,7 @@ import { currentOwnerId } from "./current-athlete";
 import type { DebriefResult } from "./debrief-ai";
 import type { D1 } from "./debrief-db";
 import { fighterBrainEvidenceStatements } from "./product-db";
+import { clip } from "./clip";
 
 export async function getOwnerId() {
   return (await currentOwnerId()) ?? (process.env.NODE_ENV !== "production" ? "preview-user" : null);
@@ -52,7 +53,7 @@ export async function persistDebriefResult(db: D1, entryId: string, ownerId: str
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(owner_id) DO UPDATE SET focus = excluded.focus, reason = excluded.reason,
         confidence = excluded.confidence, entry_id = excluded.entry_id, updated_at = excluded.updated_at`)
-      .bind(ownerId, result.next_session_focus.trim().slice(0, 240), (result.fightiq_explanation || result.takeaway).trim().slice(0, 500), result.confidence, entryId, now)] : []),
+      .bind(ownerId, clip(result.next_session_focus, 240), clip(result.fightiq_explanation || result.takeaway, 500), result.confidence, entryId, now)] : []),
     // A fresh completed conversation should create the next brief from the new
     // evidence, rather than revive a brief calculated before this session.
     ...(result.status === "complete" ? [db.prepare("UPDATE pre_training_briefs SET consumed_at = ? WHERE owner_id = ? AND consumed_at IS NULL")

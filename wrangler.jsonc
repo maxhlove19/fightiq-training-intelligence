@@ -1,0 +1,83 @@
+{
+  // Cloudflare Workers configuration for FightIQ.
+  //
+  // Derived from what the code actually reads, not from a template. Every
+  // binding below is cross-referenced to the file and line that consumes it, so
+  // a reviewer can check rather than trust.
+  //
+  // IMPORTANT: .openai/hosting.json declares only two bindings, "d1": "DB" and
+  // "r2": "UPLOADS". The Worker requires FOUR. ASSETS and IMAGES were supplied
+  // implicitly by that platform and appear nowhere in its config, so a config
+  // built by copying hosting.json would deploy and then fail on static assets
+  // and on image optimisation. That is why this was enumerated from the source.
+  //
+  // Every value written as REPLACE_ME is a placeholder. Nothing here is a
+  // secret, an account id or a database id, and none of those belong in this
+  // repository. CLOUDFLARE-SETUP.md says where each real value is found.
+
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Becomes the workers.dev subdomain, so it is public. Lowercase, no spaces.
+  "name": "fightiq",
+
+  // The Worker entry point produced by `npm run build`. Verified by running the
+  // build: it exists at this path and is about 211KB.
+  "main": "dist/server/index.js",
+
+  // Both required by vinext. The date pins runtime behaviour; nodejs_compat is
+  // what lets the framework's server code run in workerd.
+  "compatibility_date": "2026-02-12",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": { "enabled": true },
+
+  // ASSETS. Read at worker/index.ts:38, which serves every static file and is
+  // also the source the image optimiser transforms from. Without it the app
+  // returns nothing but API responses.
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS"
+  },
+
+  // DB. The only binding the app cannot degrade without. Read in 44 API routes
+  // via getProductRuntime in lib/product-db.ts:104, and directly at
+  // app/api/training-entries/route.ts. Without it every route returns
+  // STORAGE_UNAVAILABLE and lib/health.ts reports status "down".
+  //
+  // database_id is printed by `wrangler d1 create fightiq` and is also visible
+  // in the dashboard under Storage & Databases, D1. It is not a secret, but it
+  // identifies one specific database, so it stays out of the repository.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "fightiq",
+      "database_id": "REPLACE_ME_D1_DATABASE_ID"
+    }
+  ],
+
+  // UPLOADS. Read via getProductRuntime in lib/product-db.ts:106 and reported by
+  // /api/health as photoUploads. Optional in the real sense: without it meal
+  // photos cannot be stored and everything else works unchanged.
+  //
+  // Adding R2 to an account requires completing a checkout flow even to use the
+  // free allowance. If that is not wanted for a pilot, delete this whole
+  // r2_buckets block and the app runs with photoUploads reporting false.
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "fightiq-uploads"
+    }
+  ],
+
+  // IMAGES. Read only at worker/index.ts:40, and only on the /_vinext/image
+  // route. It calls input().transform().output(), which is the transformations
+  // API. Nothing in this codebase uploads to or stores in Cloudflare Images, so
+  // this needs transformations only, which the Free plan includes.
+  "images": {
+    "binding": "IMAGES"
+  }
+
+  // Secrets are deliberately absent. They are set with `wrangler secret put` and
+  // never appear in this file. Which ones are actually required, and which are
+  // optional, is answered in CLOUDFLARE-SETUP.md with the file and line for each.
+}

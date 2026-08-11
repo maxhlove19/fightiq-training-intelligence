@@ -179,6 +179,100 @@ platform. The port is only painful if the destination is **not** Cloudflare.
 
 ---
 
+## Three questions answered from the code
+
+### Does the Images binding need paid Images storage?
+
+**No. Transformations only, which the Free plan covers.**
+
+`IMAGES` is read in exactly one place, `worker/index.ts:40`, and the call is
+`env.IMAGES.input(body).transform(...).output(...)`. That is the transformation
+API: a stream in, a transformed stream out. Nothing is stored.
+
+`grep -rn "IMAGES" lib app` returns nothing, so no application code touches it
+at all. It serves `/_vinext/image`, which optimises images already being served
+from the Worker's own assets.
+
+Cloudflare Free allows 5,000 unique transformations a month. Storing images
+inside Images is the paid feature and this codebase does not use it.
+
+**Photo uploads are unrelated to this.** `/api/health` reports `photoUploads`
+from `Boolean(runtime.uploads)` at `app/api/health/route.ts:29`, which is the
+**R2** binding, not Images. So the Images plan cannot break photo uploads, and a
+pilot without R2 loses only meal photos.
+
+### Which secrets does the running Worker actually require?
+
+One. Everything else degrades a feature.
+
+| Secret | Required | Read at | Without it |
+| --- | --- | --- | --- |
+| `ANTHROPIC_API_KEY` | For the product to think | `lib/product-db.ts:106`, `lib/debrief-server.ts:14`; failures raised at `lib/debrief-ai.ts:131`, `lib/product-ai.ts:154` and `:357` | Sessions still save and history still shows. The debrief and Coach return `AI_NOT_CONFIGURED`. |
+| `SUPABASE_URL` | Only for email sign-in | `lib/current-athlete.ts:15`, `lib/auth-routes.ts:8` | Email sign-in unavailable. Header identity still works. |
+| `SUPABASE_ANON_KEY` | Only for email sign-in | `lib/auth-routes.ts:8` | As above. Set all three or none. |
+| `SUPABASE_JWT_SECRET` | Only for email sign-in | `lib/current-athlete.ts:16` | As above. |
+| `YOUTUBE_API_KEY` | No | `lib/product-db.ts:105` | Curated studies only. This is its current live state. |
+| `FIGHTIQ_OWNER_EMAILS` | No | `lib/product-db.ts:107` | `/admin` returns 404 to everyone. This is its current live state. |
+| `FIGHTIQ_ALLOW_MOCK_AI` | No | `lib/product-db.ts:107`, `lib/debrief-server.ts:14` | Development only. |
+
+**`OPENAI_API_KEY` is read nowhere.** `grep -rn "OPENAI_API_KEY"` across every
+`.ts`, `.tsx`, `.mjs` and `.json` in the repository returns no matches outside
+vendored dependencies. It does not need to be carried across, and it should not
+be set on the new account.
+
+### Does the build produce a Worker bundle wrangler can deploy?
+
+**Yes. Run, not inferred.**
+
+`npm run build` was executed on a clean `dist/`. It exited 0 and printed
+`Build complete.` The Worker entry is at **`dist/server/index.js`**, 211,307
+bytes. Static assets are at `dist/client/`.
+
+Those two paths are what `wrangler.jsonc` points `main` and `assets.directory`
+at.
+
+One caveat worth stating: the build also emits `dist/.openai/hosting.json`, a
+copy of the old platform's config. It is inert on Cloudflare and can be ignored.
+
+The framework ships its own deploy command, `npx @vinext/cloudflare deploy`,
+which knows this layout. `CLOUDFLARE-SETUP.md` uses it rather than raw
+`wrangler deploy`.
+
+### The binding cross-check, which found a real gap
+
+`.openai/hosting.json` declares two bindings: `"d1": "DB"` and `"r2": "UPLOADS"`.
+
+The Worker requires **four**. `ASSETS` is read at `worker/index.ts:38` and
+`IMAGES` at `worker/index.ts:40`, and neither appears in that file. The old
+platform supplied them implicitly.
+
+**A wrangler config written by copying `hosting.json` would deploy successfully
+and then serve no static assets.** This is exactly why the bindings were
+enumerated from the source and cross-checked rather than either being trusted.
+
+## The cost of the move
+
+**Every row currently stored is lost. Stated plainly because it is a real
+decision rather than a footnote.**
+
+The D1 database lives inside the old platform's account. It does not travel, and
+nothing in `CLOUDFLARE-SETUP.md` moves it. A new deployment gets an empty
+database, the schema rebuilds itself on the first request, and every training
+entry, debrief, focus period, weigh-in and Coach conversation stays behind. Any
+meal photos in the old R2 bucket stay behind too.
+
+**The decision is that this is acceptable, and the reason is the traffic.** Site
+analytics for the thirty days to 11 August show 5 unique visitors and 826 page
+views, all inside three days, with three of those five being the people building
+it. The data being abandoned is one person's eleven logged sessions and the
+records derived from them.
+
+**If that reasoning is wrong, it is wrong in a visible way**, which is why it is
+written here as a decision: if anyone other than those five has logged real
+training, the cost is no longer close to free and the database has to be
+exported before the move rather than after. The check is one query against the
+old database for distinct `owner_id` values in `training_entries`.
+
 ## Is moving the wrong call?
 
 **Moving to a non-Cloudflare host would be the wrong call**, and expensively so:

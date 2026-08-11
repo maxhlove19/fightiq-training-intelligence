@@ -245,7 +245,7 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
         ? <button className="home-focus-meter first-week" onClick={onGame} aria-label={weeklyTarget ? `Your target is ${weeklyTarget} sessions a week. Open My Game.` : "Open My Game."}><span>{weeklyTarget || "-"}</span><small>{weeklyTarget ? "TARGET" : "FOCUS"}</small></button>
         : <button className={`home-focus-meter ${focusMeter.scored ? "" : "unscored"}`} style={focusMeterStyle} onClick={onGame} aria-label={focusMeter.aria}><span>{focusMeter.value}</span><small>{focusMeter.label}</small></button>}</div></header>
       <p className="date-line home-date">{localTime.date}</p>
-      <h1 className="greeting">{localTime.greeting}, {name}</h1>
+      <h1 className="greeting">{name ? `${localTime.greeting}, ${name}` : localTime.greeting}</h1>
       <p className="subgreeting">{openingGreeting(product ? product.sessionsLogged : 3)}</p>
       {hold?.open && <ReturnToTraining hold={hold} onChange={setHold} />}
       {unsent && <button className="unsent-note" onClick={() => onLog()}>
@@ -680,7 +680,7 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
     if (!outcome.safety && !conflict) setToast("Brief set. Tell FightIQ how it went after training.");
     return outcome;
   }
-  if (onboardingStatus === "loading") return <main className="setup-loading"><p className="wordmark">FIGHT<span>IQ</span></p><p>Welcome back, {displayName}.<br />Checking your athlete profile…</p></main>;
+  if (onboardingStatus === "loading") return <main className="setup-loading"><p className="wordmark">FIGHT<span>IQ</span></p><p>{displayName ? `Welcome back, ${displayName}.` : "Welcome back."}<br />Checking your athlete profile…</p></main>;
   if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
     {screen === "home" && <HomeScreen name={displayName} provider={provider} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}

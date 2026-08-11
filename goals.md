@@ -178,9 +178,9 @@ somebody who knows the sport.
 talks:**
 
 - Em dashes and en dashes. Already tested.
-- **American spelling.** The user is British. defence, offence, recognise,
-  practise (verb). Currently the app says "defense" seven times in Coach and
-  "reliable offense" in My Game.
+- **American spelling.** The app is written in British English: defence,
+  offence, recognise, practise (verb). Currently the app says "defense" seven
+  times in Coach and "reliable offense" in My Game.
 - Symmetrical three-item lists. "Tailor training, fuel, and recovery."
 - Headings that restate what is underneath them. "YOUR FIGHTER BRAIN" above
   My Game. "YOUR COACH" above Ask FightIQ.

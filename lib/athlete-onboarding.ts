@@ -32,15 +32,26 @@ export function validateOnboarding(value: unknown): { input?: OnboardingInput; e
   const sessionsPerWeek = whole(body.sessionsPerWeek, 1, 14);
   const sessionTypes = list(body.sessionTypes, 6, 40);
   const competitionIntent = text(body.competitionIntent, 50);
-  const primaryGoal = text(body.primaryGoal, 30) as OnboardingInput["primaryGoal"];
+  // Defaults to performance, because setup no longer asks. It is editable later.
+  const requestedGoal = text(body.primaryGoal, 30) as OnboardingInput["primaryGoal"];
+  const primaryGoal = goals.has(requestedGoal) ? requestedGoal : "performance" as OnboardingInput["primaryGoal"];
   const age = whole(body.age, 18, 100);
   const calculatorSex = body.calculatorSex === "female" || body.calculatorSex === "male" || body.calculatorSex === "manual" ? body.calculatorSex : null;
   const heightCm = whole(body.heightCm, 130, 230);
   const weightKg = typeof body.weightKg === "number" && Number.isFinite(body.weightKg) && body.weightKg >= 35 && body.weightKg <= 250 ? Math.round(body.weightKg * 10) / 10 : null;
   const mealsPerDay = whole(body.mealsPerDay, 1, 8);
-  if (!disciplines.length || !experienceLevels.has(experienceLevel) || !sessionsPerWeek || !sessionTypes.length || !competitionIntents.has(competitionIntent) || !goals.has(primaryGoal)) return { error: "Complete the training setup so FightIQ can tailor your starting point." };
-  if (calculatorSex !== "manual" && (!age || !heightCm || !weightKg || !calculatorSex)) return { error: "Add your adult body details to calculate a starting nutrition target, or choose manual targets." };
-  if (calculatorSex === "manual" && !mealsPerDay) return { error: "Choose how many meals you usually prefer so FightIQ can personalize food guidance." };
+  // Nutrition is no longer part of setup. Asking somebody for their body metrics
+  // before they have logged a single session is the most expensive question this
+  // product could ask first, and the one hard purchase condition in the research
+  // was "if it takes too long then no". These fields still parse, because an
+  // athlete can supply them later from the food screen, but nothing here is
+  // required and nothing here can block finishing setup.
+  //
+  // The two messages that used to live here were the worst copy in the app. One
+  // told a person to "add your adult body details", which is a validation rule
+  // written for a developer, shown to a human, in red, on the screen that had
+  // just told them they were finished.
+  if (!disciplines.length || !experienceLevels.has(experienceLevel) || !sessionsPerWeek || !sessionTypes.length || !competitionIntents.has(competitionIntent)) return { error: "Add what you train and how you train so FightIQ has somewhere to start." };
   return {
     input: {
       disciplines, experienceLevel, sessionsPerWeek, sessionTypes, competitionIntent,

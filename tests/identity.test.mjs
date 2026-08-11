@@ -17,7 +17,7 @@ async function token(payload) {
   const head = b64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const body = b64url(JSON.stringify({
     sub: "abc-123", email: "max@example.test", aud: "authenticated", iss: ISSUER,
-    exp: Math.floor(Date.now() / 1000) + 3600, user_metadata: { full_name: "Max Love" }, ...payload,
+    exp: Math.floor(Date.now() / 1000) + 3600, user_metadata: { full_name: "Sam Rivera" }, ...payload,
   }));
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${head}.${body}`)));
@@ -31,7 +31,7 @@ test("an email account becomes an athlete with a namespaced id", async () => {
   assert.equal(athlete.provider, "email");
   assert.equal(athlete.id, "sb:abc-123");
   assert.equal(athlete.email, "max@example.test");
-  assert.equal(athlete.displayName, "Max Love");
+  assert.equal(athlete.displayName, "Sam Rivera");
   assert.ok(isEmailOwnerId(athlete.id));
 });
 

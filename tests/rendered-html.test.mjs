@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 
 async function render(headers = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -38,15 +39,31 @@ test("renders the secure FightIQ sign-in surface without starter artifacts", asy
 test("renders the authenticated application shell from trusted identity headers", async () => {
   const response = await render({
     "oai-authenticated-user-id": "test-user",
-    "oai-authenticated-user-email": "max@example.com",
-    "oai-authenticated-user-full-name": "Max%20Love",
+    "oai-authenticated-user-email": "sam@example.com",
+    "oai-authenticated-user-full-name": "Sam%20Rivera",
     "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
   });
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /FIGHT/);
-  assert.match(html, /Welcome back/);
-  assert.match(html, />Max</);
+  // The visible sentence rather than the node boundary, so that composing the
+  // greeting differently is not a test failure while the wrong name would be.
+  assert.match(html, /Welcome back, Sam\./);
   assert.match(html, /Checking your athlete profile/);
   assert.doesNotMatch(html, /Sign in to FightIQ/);
+});
+
+test("no real person's name is hardcoded as a fallback anywhere in the shell", () => {
+  // The fallback that used to sit here was unreachable, because lib/identity.ts
+  // resolves displayName as `name || email` and an authenticated athlete always
+  // has one. So this is dead code carrying a real first name rather than a live
+  // bug, and it is worth stating that precisely rather than overselling it.
+  //
+  // The greeting still composes correctly with an empty name, so the day that
+  // fallback stops being unreachable it degrades to "Good evening" rather than
+  // to "Good evening, ".
+  const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /displayName\?\.split\(" "\)\[0\] \?\? ""/);
+  const shell = readFileSync(new URL("../app/components/FightIQApp.tsx", import.meta.url), "utf8");
+  assert.match(shell, /name \? `\$\{localTime\.greeting\}, \$\{name\}` : localTime\.greeting/);
 });

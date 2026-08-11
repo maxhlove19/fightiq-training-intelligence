@@ -8,6 +8,8 @@ import {
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, type ProductData, WorkoutScreen } from "./ProductScreens";
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
+import { openingGreeting } from "../../lib/first-session";
+import { disciplineFromSetup, notePlaceholder, sessionTypeFromSetup } from "../../lib/log-defaults";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
 
@@ -201,31 +203,51 @@ function HomeScreen({ name, provider, onLog, onLearn, onGame, onStartTraining, o
   const focusProgress = weeklyTarget ? Math.min(100, Math.round((weeklySessions / weeklyTarget) * 100)) : 0;
   const focusMeterStyle = { "--focus-progress": `${focusProgress}%` } as CSSProperties;
   const briefLabel = activeExperiment ? "TRAINING NOW" : "TRAIN NEXT";
-  const briefDetail = activeExperiment ? activeExperiment.cue : brief?.cue;
+  // Before the first session there is no brief built from training, so the rail
+  // carries the opening cue rather than sitting empty on the busiest screen.
+  const opening = product?.opening ?? null;
+  const briefDetail = activeExperiment ? activeExperiment.cue : opening?.cue ?? brief?.cue;
   return (
     <main className="page home-page native-page">
-      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><SignOutButton name={name} provider={provider} /><button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button></div></header>
+      <header className="app-header home-header"><div><p className="wordmark">FIGHT<span>IQ</span></p></div><div className="home-header-tools"><SignOutButton name={name} provider={provider} />{opening
+        // A 0/3 score before anybody has trained reads as a failing grade for
+        // turning up. On day one the meter shows the target instead.
+        ? <button className="home-focus-meter first-week" onClick={onGame} aria-label={weeklyTarget ? `Your target is ${weeklyTarget} sessions a week. Open My Game.` : "Open My Game."}><span>{weeklyTarget || "-"}</span><small>{weeklyTarget ? "TARGET" : "FOCUS"}</small></button>
+        : <button className="home-focus-meter" style={focusMeterStyle} onClick={onGame} aria-label={weeklyTarget ? `${completedSessions} of ${weeklyTarget} planned training sessions completed this week. Open My Game.` : "Open My Game."}><span>{weeklyTarget ? `${completedSessions}/${weeklyTarget}` : "0"}</span><small>FOCUS</small></button>}</div></header>
       <p className="date-line home-date">{localTime.date}</p>
       <h1 className="greeting">{localTime.greeting}, {name}</h1>
-      <p className="subgreeting">Let’s keep building your game.</p>
+      <p className="subgreeting">{openingGreeting(product ? product.sessionsLogged : 3)}</p>
       {hold?.open && <ReturnToTraining hold={hold} onChange={setHold} />}
       {product?.onboarding.status === "legacy" && <button className="finish-profile-banner" onClick={onFinishProfile}><span>ATHLETE PROFILE</span><strong>Finish your setup so FightIQ can tailor training, fuel, and recovery.</strong><ChevronRight size={18} /></button>}
 
-      <section className="home-reference-insight" aria-label="FightIQ insight">
-        <div className="home-insight-copy">
-          <p className="eyebrow">FIGHTIQ INSIGHT</p>
-          <h2>{insight.title}</h2>
-          <p className="home-insight-body">{insight.body}</p>
-          <button className="home-insight-link" onClick={onGame}>OPEN MY GAME <ChevronRight size={14} /></button>
-        </div>
-        <div className="home-insight-media" aria-hidden="true">
-          <img src={homePosterImages[posterIndex]} alt="" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />
-        </div>
-      </section>
+      {opening ? (
+        // Day one. Six setup screens have to buy something, and what they buy is
+        // this: the fault that is usually there at their level, what to watch
+        // for tonight, and a straight admission that it is not a read on them.
+        <section className="home-opening" aria-label="Your first session">
+          <p className="eyebrow">START HERE</p>
+          <h2>{opening.title}</h2>
+          <p className="home-opening-body">{opening.body}</p>
+          <p className="home-opening-watch"><span>TONIGHT</span>{opening.watchFor}</p>
+          <p className="home-opening-promise">{opening.promise}</p>
+        </section>
+      ) : (
+        <section className="home-reference-insight" aria-label="FightIQ insight">
+          <div className="home-insight-copy">
+            <p className="eyebrow">FIGHTIQ INSIGHT</p>
+            <h2>{insight.title}</h2>
+            <p className="home-insight-body">{insight.body}</p>
+            <button className="home-insight-link" onClick={onGame}>OPEN MY GAME <ChevronRight size={14} /></button>
+          </div>
+          <div className="home-insight-media" aria-hidden="true">
+            <img src={homePosterImages[posterIndex]} alt="" decoding="async" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+          </div>
+        </section>
+      )}
 
-      {brief && <button className={`home-brief-rail ${activeExperiment ? "active" : ""}`} onClick={() => activeExperiment ? onLog(activeExperiment.reason, activeExperiment.id) : setBriefOpen(true)}><span>{briefLabel}</span><strong>{briefDetail}</strong><em>{activeExperiment ? "LOG THE RESULT" : "START BRIEF"}</em><ChevronRight size={15} /></button>}
+      {(brief || opening) && <button className={`home-brief-rail ${activeExperiment ? "active" : ""}`} onClick={() => activeExperiment ? onLog(activeExperiment.reason, activeExperiment.id) : setBriefOpen(true)}><span>{briefLabel}</span><strong>{briefDetail}</strong><em>{activeExperiment ? "LOG THE RESULT" : "START BRIEF"}</em><ChevronRight size={15} /></button>}
 
-      <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
+      <button className="primary-button home-log-button" onClick={() => onLog(activeExperiment?.reason, activeExperiment?.id)}><Mic size={18} strokeWidth={2.2} /><span>{activeExperiment ? "LOG HOW IT WENT" : opening ? "LOG YOUR FIRST SESSION" : "LOG TODAY’S TRAINING"}</span><ChevronRight size={17} /></button>
 
       {firstVideo ? <section className="home-plan-section" aria-label="Your next video"><div className="home-plan-heading"><span>WATCH NEXT</span><button onClick={onLearn}>MORE</button></div><button className="home-study home-personal-plan" onClick={onLearn}>{firstVideo.thumbnail && <img src={firstVideo.thumbnail} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />}<div><strong>{firstVideo.title}</strong><small>{firstVideo.watchFor}</small></div><ChevronRight size={17} /></button></section> : <button className="memory-prompt" onClick={() => onLog()}><Sparkles size={18} /><span><strong>Log training to get your first video.</strong></span><ChevronRight size={17} /></button>}
       {briefOpen && brief && <PreTrainingCheckIn brief={brief} safety={planSafety} hold={planHold} conflict={planConflict} onClose={() => { setPlanSafety(null); setPlanHold(null); setPlanConflict(""); setBriefOpen(false); }} onStart={async (sessionPlan) => {
@@ -253,7 +275,7 @@ function sessionPlanLabel(plan?: string | null) {
   return match?.[1] ?? plan?.trim() ?? "";
 }
 
-function disciplineForPlan(plan?: string | null) {
+function disciplineForPlan(plan: string | null | undefined, fallback: string) {
   const value = sessionPlanLabel(plan).toLowerCase();
   if (value.includes("muay thai")) return "Muay Thai";
   if (value.includes("kickbox")) return "Kickboxing";
@@ -261,25 +283,28 @@ function disciplineForPlan(plan?: string | null) {
   if (value.includes("wrestl")) return "Wrestling";
   if (/bjj|jiu.?jitsu/.test(value)) return "BJJ";
   if (value.includes("judo")) return "Judo";
-  return "MMA";
+  // No plan, or a plan that named no sport. Their setup decides, not this file.
+  return fallback;
 }
 
-function sessionTypeForPlan(plan?: string | null) {
+function sessionTypeForPlan(plan: string | null | undefined, fallback: string) {
   const value = sessionPlanLabel(plan).toLowerCase();
   if (value.includes("sparring")) return "Sparring";
   if (value.includes("open mat")) return "Open mat";
   if (value.includes("drill")) return "Drilling";
   if (value.includes("private")) return "Private";
-  return "Class";
+  return fallback;
 }
 
-function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null; activeExperimentId?: string | null }) {
+type LogDefaults = { discipline: string; sessionType: string; firstSession: boolean; watchFor: string };
+
+function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, defaults }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null; activeExperimentId?: string | null; defaults: LogDefaults }) {
   // The unsaved note is read back before the first render, so an athlete who
   // lost signal, backgrounded the app or ran the battery flat opens the log
   // screen and finds their own words already there.
   const restored = useState(() => (typeof window === "undefined" || initialEntryId ? null : readDraft(window.localStorage)))[0];
-  const [discipline, setDiscipline] = useState(() => restored?.discipline ?? disciplineForPlan(activePlan));
-  const [sessionType, setSessionType] = useState(() => restored?.sessionType ?? sessionTypeForPlan(activePlan));
+  const [discipline, setDiscipline] = useState(() => restored?.discipline ?? disciplineForPlan(activePlan, defaults.discipline));
+  const [sessionType, setSessionType] = useState(() => restored?.sessionType ?? sessionTypeForPlan(activePlan, defaults.sessionType));
   const [transcript, setTranscript] = useState(() => restored?.text ?? "");
   const [draftNotice, setDraftNotice] = useState(() => (restored ? `Restored the note you didn’t get to save · ${draftAge(restored.savedAt)}` : ""));
   // One id for this note for as long as it exists unsaved. A retry after a lost
@@ -526,6 +551,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
     <main className="page log-page native-page">
       <header className="page-header"><button className="icon-button" onClick={onBack} aria-label="Back home"><ArrowLeft size={19} /></button><h1 className="page-title">Tell FightIQ about training</h1></header>
       <div className="record-intro"><p className="eyebrow">VOICE-FIRST TRAINING LOG</p><p>{activePlan ? `You planned: ${sessionPlanLabel(activePlan)}` : "Just talk naturally. I’ll organize it for you."}</p></div>
+      {defaults.firstSession && defaults.watchFor && !activePlan && <p className="log-watch-for"><span>FIGHTIQ ASKED</span>{defaults.watchFor}</p>}
       <div className="mic-stage"><button className={`mic-button ${listening ? "listening" : ""}`} onClick={toggleListening} aria-label={listening ? "Stop listening" : "Start voice entry"}>{listening ? <X size={34} /> : <Mic size={38} />}</button><span className="record-status">{listening ? "Listening… tap to stop" : speechAvailable ? "Tap to start talking" : "Voice isn’t available in this browser"}</span></div>
       <button className="type-toggle" onClick={() => document.getElementById("transcript")?.focus()}>Type instead</button>
 
@@ -533,7 +559,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
       <span className="field-label">SESSION TYPE</span><div className="chip-row">{sessionTypes.map((item) => <button key={item} className={`chip ${sessionType === item ? "selected" : ""}`} onClick={() => setSessionType(item)}>{item}</button>)}</div></details>
       {draftNotice && <div className="draft-notice" role="status"><span>{draftNotice}</span><button onClick={() => { setTranscript(""); clearDraft(window.localStorage); setDraftNotice(""); }}>Start fresh</button></div>}
       <label className="field-label" htmlFor="transcript">WHAT HAPPENED?</label>
-      <textarea id="transcript" className="transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="We worked double-leg defense and wall wrestling. Coach told me to keep my head position…" />
+      <textarea id="transcript" className="transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={notePlaceholder(discipline)} />
       {error && <p className="error-message" role="alert">{error}</p>}
       <div className="save-row"><button className="primary-button" disabled={!transcript.trim() || saving} onClick={saveEntry}>{saving ? "SAVING…" : <><Send size={18} /> SAVE TRAINING</>}</button></div>
     </main>
@@ -561,7 +587,19 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState<"loading" | "required" | "legacy" | "complete">("loading");
-  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => setOnboardingStatus(data?.onboarding.status ?? "complete")).catch(() => setOnboardingStatus("complete")); }, []);
+  // What the log screen should assume before it is touched. The discipline here
+  // is stored on the session and read back by every model call, so a wrong
+  // default is wrong evidence rather than a cosmetic slip.
+  const [logDefaults, setLogDefaults] = useState<LogDefaults>({ discipline: "MMA", sessionType: "Class", firstSession: false, watchFor: "" });
+  useEffect(() => { void fetch("/api/product").then(async (response) => response.ok ? response.json() as Promise<ProductData> : null).then((data) => {
+    setOnboardingStatus(data?.onboarding.status ?? "complete");
+    if (data) setLogDefaults({
+      discipline: disciplineFromSetup(data.profile.athleteSetup.disciplines),
+      sessionType: sessionTypeFromSetup(data.profile.athleteSetup.sessionTypes),
+      firstSession: data.sessionsLogged === 0,
+      watchFor: data.opening?.watchFor ?? "",
+    });
+  }).catch(() => setOnboardingStatus("complete")); }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
   function goHome() { window.history.replaceState({}, "", "/"); setActiveEntryId(null); setScreen("home"); }
   function act(name: string) {
@@ -587,7 +625,7 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
   if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
     {screen === "home" && <HomeScreen name={displayName} provider={provider} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}
-    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} />}
+    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} defaults={logDefaults} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}
     {screen === "game" && <GameScreen />}

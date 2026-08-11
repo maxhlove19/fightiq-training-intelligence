@@ -2,6 +2,17 @@ import { env } from "cloudflare:workers";
 import { currentOwnerId } from "./current-athlete";
 import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
+import { openingFromMemory } from "./first-session";
+
+/**
+ * What a day-one brief records itself as built from.
+ *
+ * Keyed to "no training yet" rather than to the starting focus it happened to
+ * sit alongside. The moment a first session lands this stops matching and the
+ * brief is rebuilt from real training, instead of an athlete being told about
+ * their first night for another eighteen hours.
+ */
+const FIRST_SESSION_SOURCE = "first-session";
 
 export type FighterProfile = {
   owner_id: string;
@@ -56,6 +67,8 @@ export type MemorySnapshot = {
    */
   sessionsLogged: number;
   currentFocus: string;
+  /** What the athlete typed themselves, if anything. Distinct from the focus FightIQ derived. */
+  statedFocus: string | null;
   focusReason: string;
   strongestAreas: string[];
   recurringProblems: string[];
@@ -448,6 +461,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     competitionIntent: setup.competitionIntent,
     sessionsLogged: rows.length,
     currentFocus,
+    statedFocus: profile.current_focus?.trim() || null,
     focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
     recurringProblems: recurringProblems.length ? recurringProblems : ["No recurring problem confirmed yet"],
@@ -479,7 +493,10 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
   const now = new Date();
   const since = new Date(now.getTime() - 18 * 60 * 60 * 1000).toISOString();
   const fighterMemory = memory ?? await getMemorySnapshot(db, ownerId);
-  const focus = fighterMemory.currentFocus;
+  const opening = openingFromMemory(fighterMemory);
+  // What this brief was built from, and therefore what makes it stale. Before
+  // any training that is the fact of there being none, not the starting focus.
+  const focus = opening ? FIRST_SESSION_SOURCE : fighterMemory.currentFocus;
   const existing = await db.prepare(`SELECT mission, reason, cue, source_focus, created_at FROM pre_training_briefs
     WHERE owner_id = ? AND consumed_at IS NULL AND created_at >= ? ORDER BY created_at DESC LIMIT 1`).bind(ownerId, since).first<{ mission: string; reason: string; cue: string; source_focus: string; created_at: string }>();
   // A brief is only worth reusing while the focus it was built from is still the
@@ -498,8 +515,11 @@ export async function getOrCreatePreTrainingBrief(db: D1, ownerId: string, memor
       .bind(now.toISOString(), ownerId).run();
   }
   const latest = fighterMemory.recentTraining[0];
-  const mission = latest?.focus || focus;
-  const reason = latest?.takeaway || fighterMemory.focusReason;
+  // Before the first session there is nothing to carry forward, so the brief is
+  // the opening one. Built here rather than only in the response, because
+  // pressing "start brief" reads this back and the two must not disagree.
+  const mission = opening?.mission || latest?.focus || fighterMemory.currentFocus;
+  const reason = opening?.body || latest?.takeaway || fighterMemory.focusReason;
   const brief: PreTrainingBrief = { mission: shortTopic(mission, "Test your current focus"), reason: shortTopic(reason, "Carry one clear detail from your last session into live work."), cue: briefCue(mission), sourceFocus: focus, createdAt: now.toISOString() };
   await db.prepare(`INSERT INTO pre_training_briefs (id, owner_id, mission, reason, cue, source_focus, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)`)

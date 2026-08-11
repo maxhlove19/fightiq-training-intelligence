@@ -37,7 +37,10 @@ export async function POST(request: Request) {
       // starting focus is derived on read and steps aside as soon as there is
       // evidence to replace it.
       input.currentFocus || null,
-      input.currentFocus ? "Set during your athlete setup." : "Your starting focus will sharpen as FightIQ learns from your training.",
+      // This is read back to the athlete under their focus, so it has to be
+      // written for them. "Set during your athlete setup" was a note to
+      // ourselves that happened to be rendered on their home screen.
+      input.currentFocus ? "This is what you said you were working on. FightIQ will sharpen it from your training." : "Your starting focus will sharpen as FightIQ learns from your training.",
       input.primaryGoal, JSON.stringify(input.styleInfluences), targets?.calories ?? 2400, targets?.protein ?? 180,
       targets?.carbs ?? 260, targets?.fat ?? 70, now, now,
     ).run();

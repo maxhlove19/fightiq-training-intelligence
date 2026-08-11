@@ -20,6 +20,9 @@ export type ProductData = {
   onboarding: { status: "required" | "legacy" | "complete" };
   memory: { currentFocus: string; focusReason: string; strongestAreas: string[]; recurringProblems: string[]; recentImprovement: string; styleInfluences: string[]; nextEvolution: string; instructorDetails: string[]; emergingStrengths: string[]; oneTimeObservations: string[]; recentTraining: Array<{ discipline: string; sessionType: string; note: string; takeaway: string | null; focus: string | null; createdAt: string }> };
   insight: { title: string; body: string; currentFocus: string };
+  /** Present only until the first session is logged. See lib/first-session.ts. */
+  opening: { title: string; body: string; watchFor: string; cue: string; promise: string } | null;
+  sessionsLogged: number;
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
   preTrainingBrief: { mission: string; reason: string; cue: string };

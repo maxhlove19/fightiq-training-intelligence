@@ -1053,6 +1053,24 @@ body { letter-spacing: .003em; }
 .home-insight-media::before { position: absolute; z-index: 1; inset: 0; background: linear-gradient(90deg, #071321 0%, rgba(7,19,33,.84) 12%, rgba(5,14,24,.25) 61%, rgba(3,8,15,.13) 100%), linear-gradient(0deg, rgba(3,9,17,.58), transparent 48%); content: ""; }
 .home-insight-media::after { position: absolute; z-index: 2; inset: 0; border-left: 1px solid rgba(48,132,221,.13); background: linear-gradient(145deg, rgba(26,119,215,.18), transparent 36%); content: ""; mix-blend-mode: screen; }
 
+/* Day one. This card is what six setup screens buy, so it is given the room a
+   real coaching note needs rather than being squeezed into the insight slot. */
+.home-opening { position: relative; margin: 0 0 11px; padding: 17px 16px 15px; border: 1px solid #16406e; border-left: 2px solid #1384ff; border-radius: 8px; background: linear-gradient(160deg, #08192c 0%, #050d18 62%); }
+.home-opening .eyebrow { margin: 0 0 9px; color: #38a0ff; font-size: 8px; }
+.home-opening h2 { margin: 0 0 9px; color: #eaf3ff; font-size: 18px; font-weight: 660; line-height: 1.16; letter-spacing: -.005em; }
+.home-opening-body { margin: 0 0 13px; color: #a3b6cd; font-size: 12px; line-height: 1.52; }
+.home-opening-watch { display: grid; gap: 5px; margin: 0 0 12px; padding: 11px 12px; border: 1px solid #1a4d80; border-radius: 6px; background: rgba(9,53,102,.32); color: #dceaf9; font-size: 12.5px; line-height: 1.42; }
+.home-opening-watch span { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.home-opening-promise { margin: 0; color: #6c819c; font-size: 10.5px; line-height: 1.48; }
+
+/* The question they were asked on the way in, on the screen where they answer
+   it. Without it the first note is four words about a class. */
+.log-watch-for { display: grid; gap: 5px; margin: 0 0 14px; padding: 11px 12px; border: 1px solid #1a4d80; border-left: 2px solid #1384ff; border-radius: 6px; background: rgba(9,53,102,.28); color: #dceaf9; font-size: 12.5px; line-height: 1.42; }
+.log-watch-for span { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+
+.home-focus-meter.first-week { background-image: none; }
+.home-focus-meter.first-week span { color: #4fb0ff; }
+
 .home-brief-rail { width: 100%; display: grid; grid-template-columns: 1fr auto 15px; gap: 2px 9px; align-items: center; min-height: 47px; margin: 0 0 9px; padding: 8px 11px; border: 1px solid #11335b; border-left: 2px solid #1384ff; border-radius: 5px; background: #061426; color: #cfe0f4; text-align: left; cursor: pointer; }
 .home-brief-rail.active { border-left-color: #37d594; border-color: #1b604e; background: #061a20; }
 .home-brief-rail span { grid-column: 1; color: #438fde; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .07em; }

@@ -251,6 +251,24 @@ email sign up stays switched off and says so rather than half working. **The
 database does not move.** Supabase Auth is used as an identity provider; every
 row still lives in D1.
 
+Two settings on the Supabase side are not optional:
+
+- **Redirect URLs must include `https://<your-host>/reset-password`.** That is
+  where a recovery link lands, and Supabase refuses to redirect anywhere that is
+  not on the list. Without it the reset email arrives and the link dead ends.
+- **The project must sign tokens with the shared JWT secret, HS256.**
+  `lib/jwt.ts` accepts exactly one algorithm on purpose, because accepting a
+  list is how algorithm confusion attacks work. A project migrated to asymmetric
+  signing keys will fail every sign in, silently, with a correct looking
+  configuration. Use the legacy anon key and the legacy JWT secret together.
+
+Finishing a reset is `app/reset-password/` plus `/api/auth/password`. Supabase
+puts the recovery session in the URL fragment, which never reaches a server, so
+the page reads it in the browser, strips it from the address bar, and hands it
+to this app's own route. That route sets the password with the athlete's token
+rather than the anon key, so a leaked link cannot touch another account, then
+verifies the token itself before setting a session cookie.
+
 **ChatGPT sign in** keeps working, because everybody who already has training
 logged is keyed to a ChatGPT user id and removing it would look to them like
 their history was deleted. Dispatch owns `/signin-with-chatgpt`,

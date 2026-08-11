@@ -41,6 +41,11 @@ function readableError(status: number, body: Record<string, unknown>): { code: s
   if (raw.includes("password") && (raw.includes("short") || raw.includes("least"))) {
     return { code: "WEAK_PASSWORD", message: "Use at least 8 characters." };
   }
+  // Supabase rejects reusing the current password. Worth its own wording,
+  // because "check the details and try again" sends people looking at typos.
+  if (raw.includes("should be different") || raw.includes("same as the old")) {
+    return { code: "PASSWORD_UNCHANGED", message: "That is already your password. Choose a different one." };
+  }
   if (status === 429) {
     return { code: "TOO_MANY", message: "Too many attempts. Wait a minute and try again." };
   }
@@ -82,15 +87,22 @@ async function call(config: SupabaseConfig, path: string, body: unknown): Promis
   };
 }
 
-export function validateCredentials(email: unknown, password: unknown): { ok: true } | { ok: false; code: string; message: string } {
-  const address = typeof email === "string" ? email.trim() : "";
-  if (address.length < 5 || address.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
-    return { ok: false, code: "INVALID_EMAIL", message: "Enter a valid email address." };
-  }
+export type Validation = { ok: true } | { ok: false; code: string; message: string };
+
+/** One rule for what a password has to be, used by sign up and by the reset screen. */
+export function validatePassword(password: unknown): Validation {
   const secret = typeof password === "string" ? password : "";
   if (secret.length < 8) return { ok: false, code: "WEAK_PASSWORD", message: "Use at least 8 characters." };
   if (secret.length > 200) return { ok: false, code: "WEAK_PASSWORD", message: "That password is too long." };
   return { ok: true };
+}
+
+export function validateCredentials(email: unknown, password: unknown): Validation {
+  const address = typeof email === "string" ? email.trim() : "";
+  if (address.length < 5 || address.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
+    return { ok: false, code: "INVALID_EMAIL", message: "Enter a valid email address." };
+  }
+  return validatePassword(password);
 }
 
 export function signUp(config: SupabaseConfig, email: string, password: string, fullName?: string) {
@@ -106,6 +118,46 @@ export function signIn(config: SupabaseConfig, email: string, password: string) 
 
 export function refreshSession(config: SupabaseConfig, refreshToken: string) {
   return call(config, "/token?grant_type=refresh_token", { refresh_token: refreshToken });
+}
+
+/**
+ * Sets a new password using the short lived session a recovery link hands back.
+ *
+ * This is a PUT rather than a POST and it carries the athlete's own token, not
+ * the anon key, which is what makes it safe: Supabase only accepts it for the
+ * account that token belongs to. A stolen or expired link cannot change
+ * somebody else's password, and it cannot change one twice.
+ */
+export async function updatePassword(config: SupabaseConfig, accessToken: string, password: string): Promise<AuthOutcome> {
+  const send = config.fetchImpl ?? fetch;
+  let response: Response;
+  try {
+    response = await send(`${config.url.replace(/\/+$/, "")}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        apikey: config.anonKey,
+        authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ password }),
+    });
+  } catch {
+    return { ok: false, code: "AUTH_UNREACHABLE", message: "Could not reach the sign in service. Try again in a moment.", status: 503 };
+  }
+  let parsed: Record<string, unknown> = {};
+  try { parsed = await response.json() as Record<string, unknown>; } catch { parsed = {}; }
+  if (!response.ok) {
+    // An expired or already used link is the common case here, and the generic
+    // "check the details" wording would send somebody looking at their typing.
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, code: "LINK_EXPIRED", message: "That reset link has expired or has already been used. Ask for a new one.", status: 401 };
+    }
+    const { code, message } = readableError(response.status, parsed);
+    return { ok: false, code, message, status: response.status === 429 ? 429 : 400 };
+  }
+  // The response describes the user rather than a session. The caller already
+  // holds the recovery session and signs the athlete in with it.
+  return { ok: true, session: null, message: "" };
 }
 
 /** Sends the reset email. Always reports success, so this cannot enumerate accounts. */

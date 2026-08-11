@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { openingBrief, openingGreeting } from "../lib/first-session.ts";
+import { FIRST_WEEK_CARDS, firstWeekPlan, openingBrief, openingGreeting } from "../lib/first-session.ts";
 
 const brief = (over = {}) => openingBrief({ disciplines: ["Muay Thai"], experienceLevel: "Building fundamentals", ...over });
 
@@ -87,6 +87,41 @@ test("the greeting stops claiming a history that does not exist", () => {
   assert.doesNotMatch(openingGreeting(1), /keep building/i);
   assert.notEqual(openingGreeting(0), openingGreeting(1));
   assert.match(openingGreeting(9), /keep building/i);
+});
+
+test("every brief carries a mission somebody could go and do", () => {
+  // The card, the rail into the gym and the brief behind it are built from this
+  // one string. It has to work as an instruction, not just as a headline.
+  for (const discipline of ["Muay Thai", "Boxing", "BJJ", "Wrestling", "Judo", "MMA", "Other"]) {
+    const result = brief({ disciplines: [discipline] });
+    assert.ok(result.mission.length > 10, `${discipline} has no mission`);
+    assert.doesNotMatch(result.mission, /[.?]$/, `${discipline} wrote a sentence where a mission goes`);
+    assert.ok(result.cue.length > 3, `${discipline} reaches the gym with no cue`);
+  }
+});
+
+test("the empty cards say what the rule is, not that nothing is there", () => {
+  // Five cards reporting an absence is what makes an app feel thin. The
+  // evidence rules behind them are real, so they are stated.
+  for (const text of Object.values(FIRST_WEEK_CARDS)) {
+    assert.doesNotMatch(text, /^no |nothing yet|not enough|log (a few|more)/i);
+    // They sit in a card that clips. Accurate and cut off reads worse than short.
+    assert.ok(text.length <= 66, `too long for the card it sits in: ${text}`);
+  }
+});
+
+test("the plan puts a date on what the next sessions unlock", () => {
+  const plan = firstWeekPlan(3);
+  assert.equal(plan.length, 3);
+  assert.match(plan[1].after, /this week/);
+  assert.match(plan[2].after, /two weeks/);
+  // Somebody training once a week is not told they will have a review this week.
+  assert.match(firstWeekPlan(1)[1].after, /two weeks|a month/);
+  assert.match(firstWeekPlan(6)[2].after, /this week/);
+  // A missing or absurd setup value must not produce "in about NaN weeks".
+  for (const perWeek of [0, -2, 99, Number.NaN]) {
+    for (const step of firstWeekPlan(perWeek)) assert.doesNotMatch(step.after, /NaN|Infinity/);
+  }
 });
 
 test("the house style survives here too", () => {

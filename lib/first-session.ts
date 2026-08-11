@@ -162,6 +162,43 @@ function openingFor(disciplines: string[], tier: Tier): Opening {
 }
 
 /**
+ * What the empty cards on My Game are waiting for.
+ *
+ * Five cards saying "nothing yet" is the screen that most makes an app feel
+ * thin. The evidence rules behind them are real and deliberate, and saying what
+ * they are turns an absence into a standard: FightIQ is not being coy, it is
+ * refusing to call one session a weakness.
+ */
+export const FIRST_WEEK_CARDS = {
+  // These sit in a narrow card that clips. Short enough to read whole beats
+  // accurate and cut off at "One bad nig…".
+  strengths: "Nothing is a strength until it holds up three sessions running.",
+  problems: "Nothing is recurring until it has happened twice.",
+  improvement: "Improvement needs a before and an after. Tonight is the before.",
+} as const;
+
+/**
+ * What the next few sessions actually unlock, with a date attached.
+ *
+ * A new athlete deserves to know what they are waiting for and roughly when,
+ * rather than being told to keep logging and trust it.
+ */
+export function firstWeekPlan(sessionsPerWeek: number): Array<{ after: string; gets: string }> {
+  const perWeek = sessionsPerWeek >= 1 && sessionsPerWeek <= 14 ? sessionsPerWeek : 3;
+  const when = (sessions: number) => {
+    const weeks = sessions / perWeek;
+    if (weeks <= 1) return "this week";
+    if (weeks <= 2) return "in about two weeks";
+    return "in about a month";
+  };
+  return [
+    { after: "Session 1", gets: "A read on what you wrote, and one thing to test next time." },
+    { after: `Session 3, ${when(3)}`, gets: "Repeats start getting named, and what you are shown follows them." },
+    { after: `Session 6, ${when(6)}`, gets: "A weekly review of what actually changed, not what you did." },
+  ];
+}
+
+/**
  * The one line under the greeting on day one. "Let's keep building your game"
  * is a lie to somebody who has built nothing here yet, and a reader hears it.
  */

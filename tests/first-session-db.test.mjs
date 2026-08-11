@@ -80,6 +80,22 @@ test("a focus the athlete typed themselves drives the brief", async () => {
   assert.match(brief.mission, /boxing entries/i);
 });
 
+test("every screen names the same focus on day one", async () => {
+  // My Game said "Build a guard and a distance you trust" while the home card
+  // said "Turn the support foot". Two screens, two answers, one athlete.
+  const db = await athlete();
+  const memory = await getMemorySnapshot(db, "owner");
+  const opening = openingFromMemory(memory);
+  assert.equal(memory.currentFocus, opening.mission);
+  const brief = await getOrCreatePreTrainingBrief(db, "owner", memory);
+  assert.equal(brief.mission, opening.mission);
+});
+
+test("the focus reason is written for the athlete, not for us", async () => {
+  const memory = await getMemorySnapshot(await athlete(), "owner");
+  assert.doesNotMatch(memory.focusReason, /athlete setup|set during/i);
+});
+
 test("the memory snapshot counts sessions, so day one can be told apart", async () => {
   const db = await athlete();
   assert.equal((await getMemorySnapshot(db, "owner")).sessionsLogged, 0);

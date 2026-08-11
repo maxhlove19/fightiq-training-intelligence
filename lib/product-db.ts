@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { currentOwnerId } from "./current-athlete";
 import { applySchema, type D1 } from "./debrief-db";
 import { sessionCue as briefCue, startingFocus } from "./session-cue";
-import { openingFromMemory } from "./first-session";
+import { openingBrief, openingFromMemory } from "./first-session";
 
 /**
  * What a day-one brief records itself as built from.
@@ -414,7 +414,14 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const latestFocus = completedRows.find((row) => row.next_session_focus)?.next_session_focus;
   // A manually saved focus is the athlete's intent. FightIQ's recommendation is
   // deliberately separate and can evolve from evidence without overwriting it.
-  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || startingFocus(getAthleteSetup(profile).disciplines);
+  const setup = getAthleteSetup(profile);
+  // Before there is any training, the focus is the opening one, so My Game, the
+  // home card and the rail into the gym all name the same thing. They used to
+  // disagree, which is the cheapest possible way to lose somebody's trust.
+  const opening = rows.length === 0
+    ? openingBrief({ disciplines: setup.disciplines, experienceLevel: setup.experienceLevel, competitionIntent: setup.competitionIntent, currentFocus: profile.current_focus })
+    : null;
+  const currentFocus = profile.current_focus || recommendedFocus?.focus || latestFocus || opening?.mission || startingFocus(setup.disciplines);
   const used = [currentFocus];
   const improvementCandidate = successes[0] ? titleCase(successes[0]) : completedRows[0]?.takeaway || "Log a few completed sessions and FightIQ will identify improvement.";
   // A skill needs repeated evidence before it becomes a "strength" or "recurring problem".
@@ -454,7 +461,6 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
   const nextEvolution = evolutionTopic
     ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
-  const setup = getAthleteSetup(profile);
   return {
     disciplines: setup.disciplines,
     experienceLevel: setup.experienceLevel,
@@ -462,7 +468,7 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     sessionsLogged: rows.length,
     currentFocus,
     statedFocus: profile.current_focus?.trim() || null,
-    focusReason: profile.focus_reason || recommendedFocus?.reason || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
+    focusReason: profile.focus_reason || recommendedFocus?.reason || opening?.promise || (latestFocus ? "This is the clearest thing to carry forward from your recent training." : "This gives your next sessions one clear direction."),
     strongestAreas: strongestAreas.length ? strongestAreas : ["Still learning your strongest areas"],
     recurringProblems: recurringProblems.length ? recurringProblems : ["No recurring problem confirmed yet"],
     recentImprovement: improvement,

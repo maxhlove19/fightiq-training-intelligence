@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { SafetyNotice, type SafetySignal } from "./SafetyNotice";
 import { buildWeeklyReview, themeStatusLabel } from "../../lib/weekly-review";
+import { FIRST_WEEK_CARDS, firstWeekPlan } from "../../lib/first-session";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -308,12 +309,19 @@ export function GameScreen() {
   return <main className="page product-page native-page game-page"><ScreenHeader title="My Game" kicker="YOUR FIGHTER BRAIN" />
     {!data && !error && <LoadingState />}{error && <div className="compact-error"><p>{error}</p><button onClick={() => void reload()}>Retry</button></div>}
     {data && <>
-      <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />
+      {/* Day one, this screen was five cards each saying nothing is here yet.
+          The rules behind them are real, so it says what they are and what the
+          next few sessions unlock instead of asking for patience. */}
+      {data.opening
+        ? <section className="game-plan"><p className="eyebrow">WHAT HAPPENS NEXT</p>
+          <ol>{firstWeekPlan(data.profile.athleteSetup.sessionsPerWeek).map((step) => <li key={step.after}><strong>{step.after}</strong><span>{step.gets}</span></li>)}</ol>
+        </section>
+        : <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />}
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
       <div className="game-grid">
-        <section className="game-card"><span>STRENGTHS</span>{data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
-        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.memory.recentImprovement}</p></section>
+        <section className="game-card"><span>STRENGTHS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.strengths}</p> : data.memory.strongestAreas.map((item) => <strong key={item}>{item}</strong>)}</section>
+        <section className="game-card problem"><span>RECURRING PROBLEMS</span>{data.opening ? <p>{FIRST_WEEK_CARDS.problems}</p> : data.memory.recurringProblems.map((item) => <strong key={item}>{item}</strong>)}</section>
+        <section className="game-card wide"><span>RECENT IMPROVEMENT</span><p>{data.opening ? FIRST_WEEK_CARDS.improvement : data.memory.recentImprovement}</p></section>
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>

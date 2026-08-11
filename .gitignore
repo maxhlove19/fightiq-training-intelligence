@@ -42,3 +42,7 @@ tsconfig.tsbuildinfo
 
 # Local-only secrets and flags. Never committed.
 .dev.vars
+.claude/.gate-state.json
+.claude/observer.log
+.claude/hook-errors.log
+.claude/last-gate-report.md

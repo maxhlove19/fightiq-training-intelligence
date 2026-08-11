@@ -1,0 +1,6 @@
+{
+  "name": "fightiq-observer",
+  "version": "1.0.0",
+  "description": "Catches a broken file within seconds of it being written, and keeps a record of what an unattended run actually did.",
+  "author": { "name": "FightIQ" }
+}

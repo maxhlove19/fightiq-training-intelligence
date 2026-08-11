@@ -272,7 +272,7 @@ function WeeklyReview({ sessions, target }: { sessions: ProductData["memory"]["r
       <div className="week-stats">
         <div><strong>{review.sessions}</strong><small>{review.sessions === 1 ? "session" : "sessions"}</small></div>
         <div><strong>{review.days}</strong><small>{review.days === 1 ? "day trained" : "days trained"}</small></div>
-        <div><strong>{review.hardestGapDays}</strong><small>{review.hardestGapDays === 1 ? "day off in a row" : "days off in a row"}</small></div>
+        <div><strong>{review.hardestGapDays}</strong><small>{review.hardestGapDays === 0 ? "days without a gap" : review.hardestGapDays === 1 ? "day off in a row" : "days off in a row"}</small></div>
       </div>
       {review.disciplines.length > 1 && <p className="week-split">{review.disciplines.map((item) => `${item.name} ×${item.sessions}`).join(" · ")}</p>}
       {review.themes.length > 0 && <div className="week-themes">

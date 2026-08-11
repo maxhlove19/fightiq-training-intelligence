@@ -20,7 +20,7 @@ export type ReviewSession = {
   createdAt: string;
 };
 
-export type ThemeStatus = "still_open" | "quiet_lately" | "new_this_week";
+export type ThemeStatus = "still_open" | "quiet_lately" | "new_this_week" | "came_back";
 
 export type ReviewTheme = {
   label: string;
@@ -124,6 +124,16 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
     if (gap > hardestGapDays) hardestGapDays = gap;
   }
 
+  // "New this week" has to mean new. Judged only inside the window, a problem
+  // the athlete has been writing about for a fortnight gets labelled new the
+  // moment it skips the first half of one week — which is not what the athlete
+  // reads it as, and not something worth paying for.
+  const earlier = new Set<string>();
+  for (const session of sessions ?? []) {
+    const at = new Date(session.createdAt).getTime();
+    if (Number.isFinite(at) && at < since) for (const label of themeLabels(session)) earlier.add(label);
+  }
+
   // A theme counts once per session, so one long note cannot outvote three
   // sessions that all hit the same problem.
   const seen = new Map<string, { sessions: number; firstHalf: boolean; secondHalf: boolean; lastSeen: number }>();
@@ -142,7 +152,7 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
   // What is unresolved leads, then what recurred most, then what is most
   // recent. Alphabetical order would put whatever starts with "c" on top of the
   // thing the athlete is actually still losing rounds to.
-  const RANK: Record<ThemeStatus, number> = { still_open: 0, new_this_week: 1, quiet_lately: 2 };
+  const RANK: Record<ThemeStatus, number> = { still_open: 0, came_back: 1, new_this_week: 2, quiet_lately: 3 };
   const themes: ReviewTheme[] = [...seen.entries()]
     .map(([label, entry]) => ({
       label,
@@ -151,7 +161,9 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
       // Deliberately describes the notes, not the athlete. FightIQ knows what
       // stopped being written down; it does not know what got fixed.
       status: (entry.firstHalf && entry.secondHalf ? "still_open"
-        : entry.firstHalf ? "quiet_lately" : "new_this_week") as ThemeStatus,
+        : entry.firstHalf ? "quiet_lately"
+          // Late in the week and seen before the window is a return, not a debut.
+          : earlier.has(label) ? "came_back" : "new_this_week") as ThemeStatus,
     }))
     .sort((a, b) => RANK[a.status] - RANK[b.status] || b.sessions - a.sessions || b.lastSeen - a.lastSeen || a.label.localeCompare(b.label))
     .map(({ label, sessions, status }) => ({ label, sessions, status }))
@@ -164,14 +176,18 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
   const open = themes.filter((theme) => theme.status === "still_open");
   const headline = target > 0
     ? week.length >= target
-      ? `${plural(week.length, "session", "sessions")} logged. That is your week hit.`
+      ? `${plural(week.length, "session", "sessions")} logged. That’s your week.`
       : `${plural(week.length, "session", "sessions")} logged, out of ${target}.`
     : `${plural(week.length, "session", "sessions")} logged across ${plural(days.size, "day", "days")}.`;
 
   const subline = open.length
     ? `${open[0].label} came up in ${plural(open[0].sessions, "session", "sessions")} and was still there at the end of the week.`
     : themes.length
-      ? `${themes[0].label} was the thread running through the week.`
+      // One mention is not a thread. Saying it is teaches an athlete to discount
+      // the summary, and then the weeks where it is true get discounted too.
+      ? themes[0].sessions > 1
+        ? `${themes[0].label} was the thread running through the week.`
+        : `${themes[0].label} came up once. Worth seeing whether it repeats.`
       : "Your notes did not repeat a theme this week — worth writing down what specifically broke down next time.";
 
   return { hasData: true, sessions: week.length, target, days: days.size, disciplines, hardestGapDays, themes, headline, subline };
@@ -181,5 +197,6 @@ export function buildWeeklyReview(sessions: ReviewSession[], target: number, now
 export function themeStatusLabel(status: ThemeStatus) {
   if (status === "still_open") return "still open";
   if (status === "quiet_lately") return "went quiet";
+  if (status === "came_back") return "came back";
   return "new this week";
 }

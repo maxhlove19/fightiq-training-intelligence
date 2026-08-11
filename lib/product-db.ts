@@ -113,8 +113,14 @@ export function getAthleteSetup(profile: FighterProfile): AthleteSetup {
   } catch { return { ...emptyAthleteSetup }; }
 }
 
+// Short labels read better in title case: "Support Foot", "Arm Drag". A whole
+// sentence does not — "Your Session Is Saved With The Detail You Logged" looks
+// like a machine wrote it, because a machine did.
 function titleCase(value: string) {
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const clean = value.replace(/[_-]+/g, " ").trim();
+  const isSentence = clean.split(/\s+/).length > 4 || /[.!?]$/.test(clean);
+  if (isSentence) return clean.charAt(0).toUpperCase() + clean.slice(1);
+  return clean.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function topValues(values: string[], limit: number) {
@@ -409,7 +415,13 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
     : completedRows.map((row) => row.takeaway).find((value): value is string => Boolean(value) && isDistinct(value as string, used)) || "FightIQ needs another completed debrief to confirm a distinct improvement.";
   used.push(improvement);
   const styleInfluences = takeDistinct(safeStringArray(profile.style_influences_json), used, 8);
-  const evolutionTopic = takeDistinct(topValues([...relatedTopics, ...concepts, ...techniques], 12), used, 1)[0];
+  // A session type, a discipline name or a bare word is not a layer to build.
+  // "Build Class as the layer that connects your current focus" is what happens
+  // without this, and it reads exactly as carelessly as it sounds.
+  const notASkill = /^(class|drilling|sparring|open mat|private|training|session|mma|bjj|boxing|judo|wrestling|muay thai|kickboxing|round|rounds|gym|coach)$/i;
+  const evolutionCandidates = topValues([...relatedTopics, ...concepts, ...techniques], 12)
+    .filter((topic) => topic.trim().length > 3 && !notASkill.test(topic.trim()));
+  const evolutionTopic = takeDistinct(evolutionCandidates, used, 1)[0];
   const nextEvolution = evolutionTopic
     ? `Build ${evolutionTopic} as the layer that connects your current focus to reliable offense.`
     : "After your current focus becomes reliable, connect it to one repeatable offensive response.";
@@ -431,7 +443,13 @@ export async function getMemorySnapshot(db: D1, ownerId: string): Promise<Memory
       : takeDistinct(topValues([...reportedFacts, ...techniques, ...problems, ...successes], 12), [], 4),
     // Recent notes are useful as near-term Learn/Coach context, but unfinished
     // debriefs deliberately carry no inferred takeaway or focus.
-    recentTraining: rows.slice(0, 6).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry, takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
+    // Sixteen, not six: the weekly review decides whether a theme is new by
+    // looking at what came before this week, and with six sessions an athlete
+    // training three times a week has barely two weeks of history to judge from.
+    // Notes are capped rather than sent whole. Sixteen unbounded notes is up to
+    // 190KB of JSON on every home screen load, over a phone connection, to show
+    // a weekly summary — and no real note comes close to this limit anyway.
+    recentTraining: rows.slice(0, 16).map((row) => ({ discipline: row.discipline, sessionType: row.session_type, note: row.raw_entry.slice(0, 900), takeaway: row.debrief_status === "complete" ? row.takeaway : null, focus: row.debrief_status === "complete" ? row.next_session_focus : null, createdAt: row.created_at })),
   };
 }
 

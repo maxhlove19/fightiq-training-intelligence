@@ -94,7 +94,7 @@ test("a theme that only appears late is new, not resolved", () => {
 
 test("the headline reads against the athlete's own target", () => {
   const hit = buildWeeklyReview([session({}), session({ createdAt: daysAgo(3) })], 2, NOW);
-  assert.match(hit.headline, /That is your week hit/);
+  assert.match(hit.headline, /That’s your week/);
   const missed = buildWeeklyReview([session({})], 4, NOW);
   assert.match(missed.headline, /out of 4/);
   const noTarget = buildWeeklyReview([session({})], 0, NOW);
@@ -147,4 +147,73 @@ test("what is unresolved and most recent leads, not what starts with an early le
   // the older one.
   assert.deepEqual(review.themes.slice(1).map((theme) => theme.label), ["guard retention", "counters"]);
   assert.ok(review.themes.slice(1).every((theme) => theme.status === "quiet_lately"));
+});
+
+// Judged only inside the seven-day window, a problem an athlete has been
+// writing about for a fortnight gets labelled "new this week" the moment it
+// skips the first half of one week. That is not what they read it as.
+test("a theme from before this week is never called new", () => {
+  const now = new Date("2026-08-10T18:00:00.000Z");
+  const at = (daysAgo) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
+  const sessions = [
+    { discipline: "Muay Thai", sessionType: "Class", note: "support foot not turning on the kick", createdAt: at(13) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "support foot still lazy on the right", createdAt: at(9) },
+    { discipline: "Muay Thai", sessionType: "Sparring", note: "kicks landing, support foot turning now", createdAt: at(1) },
+  ];
+  const review = buildWeeklyReview(sessions, 3, now);
+  const theme = review.themes.find((item) => /support foot/i.test(item.label));
+  assert.ok(theme, `expected a support foot theme, got ${JSON.stringify(review.themes)}`);
+  assert.notEqual(theme.status, "new_this_week", "it has been in the notes for a fortnight");
+  assert.equal(theme.status, "came_back");
+  assert.equal(themeStatusLabel(theme.status), "came back");
+});
+
+test("something genuinely written for the first time is still called new", () => {
+  const now = new Date("2026-08-10T18:00:00.000Z");
+  const at = (daysAgo) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
+  const sessions = [
+    { discipline: "Muay Thai", sessionType: "Class", note: "worked the teep all session", createdAt: at(13) },
+    { discipline: "Muay Thai", sessionType: "Sparring", note: "kept getting caught in the clinch", createdAt: at(1) },
+  ];
+  const theme = buildWeeklyReview(sessions, 3, now).themes.find((item) => /clinch/i.test(item.label));
+  assert.ok(theme);
+  assert.equal(theme.status, "new_this_week");
+});
+
+test("what is unresolved still outranks what came back", () => {
+  const now = new Date("2026-08-10T18:00:00.000Z");
+  const at = (daysAgo) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
+  const sessions = [
+    { discipline: "Muay Thai", sessionType: "Class", note: "support foot flat", createdAt: at(12) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch", createdAt: at(6) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch again", createdAt: at(1) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "support foot flat again", createdAt: at(1) },
+  ];
+  const review = buildWeeklyReview(sessions, 3, now);
+  assert.equal(review.themes[0].status, "still_open");
+});
+
+test("every status a theme can have reads as plain English", () => {
+  for (const status of ["still_open", "quiet_lately", "came_back", "new_this_week"]) {
+    const label = themeStatusLabel(status);
+    assert.ok(label && label === label.toLowerCase(), status);
+    assert.doesNotMatch(label, /_/, `${status} leaked its identifier into the UI`);
+  }
+});
+
+test("one mention is not called a thread running through the week", () => {
+  const now = new Date("2026-08-10T18:00:00.000Z");
+  const at = (daysAgo) => new Date(now.getTime() - daysAgo * 86400000).toISOString();
+  const once = buildWeeklyReview([
+    { discipline: "Muay Thai", sessionType: "Class", note: "pad work, felt sharp", createdAt: at(4) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch", createdAt: at(1) },
+  ], 3, now);
+  assert.doesNotMatch(once.subline, /thread running through the week/);
+  assert.match(once.subline, /came up once/);
+
+  const twice = buildWeeklyReview([
+    { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch", createdAt: at(4) },
+    { discipline: "Muay Thai", sessionType: "Class", note: "losing the clinch again", createdAt: at(3) },
+  ], 3, now);
+  assert.match(twice.subline, /clinch/);
 });

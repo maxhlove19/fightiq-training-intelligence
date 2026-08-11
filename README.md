@@ -100,7 +100,7 @@ Status: DEGRADED (HTTP 200)
 
   ok   Session storage (D1 binding: DB)
   ok   Schema applied and readable
- off   Session analysis (OPENAI_API_KEY)
+ off   Session analysis (ANTHROPIC_API_KEY)
   ok   Meal photos (R2 binding: UPLOADS)
  off   Live video search (YOUTUBE_API_KEY)
 ```
@@ -129,7 +129,7 @@ curl -s https://<your-host>/api/health
 | Setting | Required | Without it |
 | --- | --- | --- |
 | D1 binding `DB` | Yes | The app is down. Every screen fails. |
-| `OPENAI_API_KEY` | For analysis | Notes still save and are never lost; the debrief says the reading half is not switched on. Set this and past sessions become readable. |
+| `ANTHROPIC_API_KEY` | For analysis | Notes still save and are never lost; the debrief says the reading half is not switched on. Set this and past sessions become readable. Get one at console.anthropic.com. |
 | R2 binding `UPLOADS` | For meal photos | Everything else works; photos cannot be stored. |
 | `YOUTUBE_API_KEY` | No | Learn serves the curated studies from `lib/video-recommendations.ts`. This is a supported way to run. |
 | `FIGHTIQ_ALLOW_MOCK_AI` | Local only | Leave unset in production. It lets the app answer without a model key. |
@@ -137,6 +137,41 @@ curl -s https://<your-host>/api/health
 | `SUPABASE_URL` + `SUPABASE_ANON_KEY` + `SUPABASE_JWT_SECRET` | For email sign up | Email sign up is off and says so. ChatGPT sign in still works. All three are needed, or none apply. |
 
 The bindings themselves are declared in `.openai/hosting.json`.
+
+### The model that reads the notes
+
+Every word this app writes back to an athlete comes from Claude Opus 5, through
+one file: `lib/claude.ts`. The model, the timeouts, the retry, the caching and
+the refusal handling are decided there once, so four call sites cannot drift
+apart.
+
+Three things about that file are deliberate and worth knowing before changing
+them.
+
+**Effort is the dial, not the model.** The debrief and Coach run at `high`,
+because those are the two surfaces anybody is paying for. The meal estimate and
+the strength ranking run at `low`, because recognising a plate and sorting a
+fixed list are not reasoning problems, and a fast answer is what makes someone
+log food twice. If a route feels slow, lower its effort. Never disable thinking
+to speed it up: that is the more expensive lever and it brings failure modes
+that lower effort does not.
+
+**Thinking counts against `max_tokens`.** The ceiling covers the reasoning and
+the answer together, which is why the numbers look large for a two sentence
+reply. Cut them and the JSON comes back truncated rather than short.
+
+**The shape is enforced, not requested.** Each call declares a JSON schema and
+the API constrains the answer to it. A model that decides to write a paragraph
+instead cannot reach an athlete.
+
+The coaching method is sent as a cached block, so the part that never changes is
+not paid for on every session. The part that does change, the reading of how
+much the athlete actually wrote, is sent after it and deliberately not cached.
+
+A refused, truncated or unreadable answer never becomes an error screen. The
+debrief falls back to the offline reading in `resilientDebrief`, because the
+note is already saved and losing it to a model failure would be the worst thing
+this app could do.
 
 ### The schema takes care of itself
 
@@ -249,7 +284,7 @@ this ladder and it is the one that counts.
 - `npm test` — type check, build, then the unit and boot suites. It fails on a
   single type error; the codebase is at zero.
 - `npm run preflight -- https://<your-host>` and confirm it exits 0.
-- Set `OPENAI_API_KEY` before launch. Without it the app is honest and loses
+- Set `ANTHROPIC_API_KEY` before launch. Without it the app is honest and loses
   nothing, but it does not do the thing it is for.
 - Open the app as a user who has never logged anything. You should land on
   onboarding, not an error.

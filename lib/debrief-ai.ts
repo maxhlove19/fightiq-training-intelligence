@@ -3,6 +3,7 @@
 // A later session can supply more evidence; it does not need to be extracted
 // from one sitting.
 import { depthBriefing, readNoteDepth } from "./note-depth";
+import { ClaudeError, hashOwner, requestJson } from "./claude";
 const MAX_CLARIFYING_QUESTIONS = 1;
 const evidenceGaps = ["mechanics", "timing", "balance_or_mobility", "side_or_stance", "resistance_or_context", "coach_cue", "attempted_correction", "experiment_outcome", "other"] as const;
 
@@ -102,7 +103,8 @@ SAFETY
 
 OUTPUT
 - If status is complete, return an empty question prompt, choices, target_field, and why_asked.
-- Keep the takeaway and the next-session focus concise and immediately usable.`;
+- Length is a hard rule, not a preference. takeaway is at most two sentences. coach_detail, fightiq_explanation and next_session_focus are one sentence each. summary is one line. Say the true thing in the fewest words, and stop.
+- Stay inside the session you were given. Do not review their whole training, do not rewrite an earlier debrief, and do not add a topic they did not raise.`;
 
 export async function generateDebrief(args: {
   apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null; fighterBrain?: Record<string, unknown> | null;
@@ -116,71 +118,53 @@ export async function generateDebrief(args: {
       if (!allowQuestion && result.status === "question") throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ exceeded the question limit.", 502);
       return result;
     }
-    throw new DebriefAIError("AI_NOT_CONFIGURED", "FightIQ AI is not configured yet.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
+    throw new DebriefAIError("AI_NOT_CONFIGURED", "FightIQ AI is not configured yet.", 503, { cause: "ANTHROPIC_API_KEY is missing from the server runtime." });
   }
-  const safetyIdentifier = await hashIdentifier(args.ownerId);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  let response: Response;
+  let parsed: unknown;
   try {
-    response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "authorization": `Bearer ${args.apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-5.6-luna",
-        store: false,
-        safety_identifier: safetyIdentifier,
-        reasoning: { effort: "low" },
-        max_output_tokens: 900,
-        text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_debrief", strict: true, schema: resultSchema } },
-        input: [
-          { role: "system", content: systemPrompt },
-          // How much is actually in the note is decided here rather than left for
-          // the model to notice. Four words and an essay need different
-          // behaviour, and four words is the common case.
-          { role: "system", content: depthBriefing(readNoteDepth(args.entry.raw_entry)) },
-          { role: "user", content: JSON.stringify({
-            task: args.history.length === 0 ? "Create the initial takeaway. Ask one optional clarification only if the raw note leaves a material uncertainty." : "Use the athlete's answer to update training intelligence, then complete the debrief. Do not ask another question.",
-            must_ask_question: mustClarifyInitial,
-            allow_another_question: allowQuestion,
-            next_question_sequence: nextSequence,
-            discipline: args.entry.discipline,
-            session_type: args.entry.session_type,
-            raw_training_note: args.entry.raw_entry,
-            previous_questions_and_answers: args.history,
-            current_debrief: args.current ?? null,
-            pre_training_brief_for_this_session: args.preTrainingBrief ?? null,
-            active_experiment_for_this_session: args.activeExperiment ?? null,
-            compact_fighter_brain: args.fighterBrain ?? null,
-          }) },
-        ],
-      }),
+    parsed = await requestJson({
+      apiKey: args.apiKey,
+      userHash: await hashOwner(args.ownerId),
+      // This is the reading half of the product. It runs once per session and it
+      // is the thing an athlete is paying for, so it gets the full effort.
+      effort: "high",
+      // Thinking counts against this too, so it is sized for the reasoning plus
+      // the answer rather than the answer alone.
+      maxTokens: 8000,
+      timeoutMs: 45000,
+      schema: resultSchema,
+      system: [
+        systemPrompt,
+        // How much is actually in the note is decided here rather than left for
+        // the model to notice. Four words and an essay need different
+        // behaviour, and four words is the common case.
+        depthBriefing(readNoteDepth(args.entry.raw_entry)),
+      ],
+      user: [{ type: "text", text: JSON.stringify({
+        task: args.history.length === 0 ? "Create the initial takeaway. Ask one optional clarification only if the raw note leaves a material uncertainty." : "Use the athlete's answer to update training intelligence, then complete the debrief. Do not ask another question.",
+        must_ask_question: mustClarifyInitial,
+        allow_another_question: allowQuestion,
+        next_question_sequence: nextSequence,
+        discipline: args.entry.discipline,
+        session_type: args.entry.session_type,
+        raw_training_note: args.entry.raw_entry,
+        previous_questions_and_answers: args.history,
+        current_debrief: args.current ?? null,
+        pre_training_brief_for_this_session: args.preTrainingBrief ?? null,
+        active_experiment_for_this_session: args.activeExperiment ?? null,
+        compact_fighter_brain: args.fighterBrain ?? null,
+      }) }],
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new DebriefAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504, { timeoutMs: 15000 });
-    throw new DebriefAIError("AI_NETWORK_ERROR", "FightIQ could not prepare the debrief.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown network error" });
-  } finally { clearTimeout(timeout); }
-  if (!response.ok) {
-    const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
-    let providerCode = "unknown";
-    let providerMessage = "OpenAI returned a non-success response.";
-    try {
-      const failure = await response.json() as { error?: { code?: unknown; message?: unknown } };
-      if (typeof failure.error?.code === "string") providerCode = failure.error.code.slice(0, 120);
-      if (typeof failure.error?.message === "string") providerMessage = failure.error.message.slice(0, 500);
-    } catch { /* preserve the HTTP-level diagnostic */ }
-    throw new DebriefAIError("AI_UPSTREAM_ERROR", "FightIQ could not prepare the debrief.", response.status === 429 ? 429 : 503, {
-      upstreamStatus: response.status, providerCode, providerMessage, ...(requestId ? { requestId } : {}),
-    });
+    if (!(error instanceof ClaudeError)) throw error;
+    // A refused, truncated or unreadable answer is a model problem, not an
+    // athlete problem. Their note is already saved, so fall back to the offline
+    // debrief rather than showing them an error over something they cannot fix.
+    if (["AI_REFUSED", "AI_TRUNCATED", "AI_UNPARSEABLE", "AI_EMPTY"].includes(error.code)) {
+      return resilientDebrief(args.entry, args.history, args.activeExperiment);
+    }
+    throw new DebriefAIError(error.code, error.code === "AI_TIMEOUT" ? "FightIQ took too long to respond." : "FightIQ could not prepare the debrief.", error.status, error.development);
   }
-  let payload: Record<string, unknown>;
-  try { payload = await response.json() as Record<string, unknown>; }
-  catch { throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ returned an unreadable debrief response.", 502); }
-  const text = extractOutputText(payload);
-  if (!text) throw new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete debrief.", 502);
-  let parsed: unknown;
-  try { parsed = JSON.parse(text); } catch { return resilientDebrief(args.entry, args.history, args.activeExperiment); }
   // A model response can be useful while still missing a nonessential structured field.
   // Never make a saved training note unrecoverable because a strict schema is imperfect.
   let result: DebriefResult;
@@ -232,16 +216,6 @@ function requiredInitialQuestion(entry: Entry, result: DebriefResult, activeExpe
   };
 }
 
-function extractOutputText(payload: Record<string, unknown>): string | null {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  if (!Array.isArray(payload.output)) return null;
-  for (const item of payload.output) {
-    if (!isRecord(item) || item.type !== "message" || !Array.isArray(item.content)) continue;
-    for (const content of item.content) if (isRecord(content) && content.type === "output_text" && typeof content.text === "string") return content.text;
-  }
-  return null;
-}
-
 export function validateDebriefResult(value: unknown): DebriefResult {
   if (!isRecord(value) || (value.status !== "question" && value.status !== "complete")) throw invalid();
   const strings = ["summary", "takeaway", "coach_detail", "fightiq_explanation", "next_session_focus"] as const;
@@ -272,12 +246,6 @@ export function validateDebriefResult(value: unknown): DebriefResult {
 function isRecord(value: unknown): value is Record<string, unknown> { return Boolean(value) && typeof value === "object" && !Array.isArray(value); }
 function stringArray(value: unknown): value is string[] { return Array.isArray(value) && value.every((item) => typeof item === "string"); }
 function invalid() { return new DebriefAIError("AI_INVALID_OUTPUT", "FightIQ returned an invalid debrief.", 502); }
-
-async function hashIdentifier(value: string) {
-  const bytes = new TextEncoder().encode(`fightiq:${value}`);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 48);
-}
 
 function mockDebrief(entry: Entry, history: History, activeExperiment?: Record<string, unknown> | null): DebriefResult {
   const memory: DebriefMemory = { techniques: [], positions: [], successes: [], problems: [], concepts: [], sparring_observations: [], related_topics: [], instructor_details: [], reported_facts: [], fightiq_hypotheses: [], what_worked: [], what_failed: [], experiments: [] };

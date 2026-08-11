@@ -16,7 +16,7 @@ declare namespace Cloudflare {
     /** R2, for meal photos. Optional: everything else works without it. */
     UPLOADS?: R2Bucket;
     /** Without this, notes still save; nothing reads them back. */
-    OPENAI_API_KEY?: string;
+    ANTHROPIC_API_KEY?: string;
     /** Optional. Learn falls back to the curated studies. */
     YOUTUBE_API_KEY?: string;
     /** Local development only. Never set in production. */

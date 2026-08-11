@@ -63,6 +63,18 @@ test("both prompts carry the house style", () => {
   }
 });
 
+test("both prompts hold a length, because this model writes long by default", () => {
+  for (const [name, source] of both) {
+    assert.match(source, /Length is a hard rule, not a preference/, `${name} lets the model decide how long to be`);
+    assert.match(source, /fewest words, and stop/, `${name} has no stopping rule`);
+  }
+});
+
+test("both prompts stay inside the thing they were asked about", () => {
+  assert.match(debrief, /Stay inside the session you were given/, "the debrief may wander into their whole training history");
+  assert.match(coach, /Answer what they asked and nothing else/, "Coach may answer a question nobody asked");
+});
+
 test("the depth reading is actually sent, not just described", () => {
   for (const [name, source] of both) {
     assert.match(source, /depthBriefing\(readNoteDepth\(/, `${name} never tells the model how thin the input was`);

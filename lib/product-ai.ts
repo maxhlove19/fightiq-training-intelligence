@@ -1,5 +1,6 @@
 import { getAthleteSetup, type FighterProfile, type MemorySnapshot } from "./product-db";
 import { depthBriefing, readNoteDepth } from "./note-depth";
+import { ClaudeError, hashOwner, imagePart, requestJson, type Effort, type UserPart } from "./claude";
 
 export class ProductAIError extends Error {
   constructor(public code: string, message: string, public status: number, public development?: Record<string, unknown>) { super(message); }
@@ -19,28 +20,6 @@ export type CoachReply = {
 };
 
 export type WorkoutPersonalization = { priorityKeys: string[]; loadNote: string };
-
-async function safetyIdentifier(ownerId: string) {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`fightiq:${ownerId}`));
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("").slice(0, 48);
-}
-
-function extractOutputText(payload: Record<string, unknown>) {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  if (!Array.isArray(payload.output)) return null;
-  for (const item of payload.output) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const message = item as Record<string, unknown>;
-    if (!Array.isArray(message.content)) continue;
-    for (const content of message.content) {
-      if (content && typeof content === "object" && !Array.isArray(content)) {
-        const block = content as Record<string, unknown>;
-        if (block.type === "output_text" && typeof block.text === "string") return block.text;
-      }
-    }
-  }
-  return null;
-}
 
 // Models sometimes reach for Markdown even when the product language is conversational.
 // Keep the stored and rendered coach voice clean rather than relying on each surface to strip it.
@@ -115,44 +94,36 @@ function coachReplyFrom(value: unknown): CoachReply {
   return cleaned;
 }
 
-async function responseRequest(apiKey: string, ownerId: string, body: Record<string, unknown>) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+/**
+ * Every Claude call this file makes, with the failure translated into the
+ * wording an athlete sees. lib/claude.ts owns the model, the retry and the
+ * refusal handling; this owns what to say when one of them happens.
+ */
+async function askClaude(args: {
+  apiKey: string; ownerId: string; system: string[]; user: UserPart[];
+  schema: Record<string, unknown>; effort: Effort; maxTokens: number; timeoutMs: number; failureMessage: string;
+}) {
   try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      signal: controller.signal,
-      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-5.6-luna",
-        reasoning: { effort: "low" },
-        store: false,
-        safety_identifier: await safetyIdentifier(ownerId),
-        ...body,
-      }),
+    return await requestJson({
+      apiKey: args.apiKey,
+      userHash: await hashOwner(args.ownerId),
+      system: args.system,
+      user: args.user,
+      schema: args.schema,
+      effort: args.effort,
+      maxTokens: args.maxTokens,
+      timeoutMs: args.timeoutMs,
     });
-    if (!response.ok) {
-      const requestId = response.headers.get("x-request-id") ?? response.headers.get("request-id");
-      let providerCode = "unknown";
-      let providerMessage = "OpenAI returned a non-success response.";
-      try {
-        const failure = await response.json() as { error?: { code?: unknown; message?: unknown } };
-        if (typeof failure.error?.code === "string") providerCode = failure.error.code.slice(0, 120);
-        if (typeof failure.error?.message === "string") providerMessage = failure.error.message.slice(0, 500);
-      } catch { /* preserve the HTTP-level diagnostic */ }
-      throw new ProductAIError("AI_UPSTREAM_ERROR", "FightIQ couldn’t answer right now.", response.status === 429 ? 429 : 503, {
-        upstreamStatus: response.status,
-        providerCode,
-        providerMessage,
-        ...(requestId ? { requestId } : {}),
-      });
-    }
-    return await response.json() as Record<string, unknown>;
   } catch (error) {
-    if (error instanceof ProductAIError) throw error;
-    if (error instanceof Error && error.name === "AbortError") throw new ProductAIError("AI_TIMEOUT", "FightIQ took too long to respond.", 504, { timeoutMs: 20000 });
-    throw new ProductAIError("AI_NETWORK_ERROR", "FightIQ couldn’t answer right now.", 503, { cause: error instanceof Error ? error.message.slice(0, 500) : "Unknown network error" });
-  } finally { clearTimeout(timeout); }
+    if (!(error instanceof ClaudeError)) throw error;
+    if (error.code === "AI_REFUSED") {
+      throw new ProductAIError("AI_REFUSED", "FightIQ will not answer that one. Ask a coach or a doctor about it instead.", 502, error.development);
+    }
+    if (["AI_TRUNCATED", "AI_UNPARSEABLE", "AI_EMPTY"].includes(error.code)) {
+      throw new ProductAIError("AI_INVALID_OUTPUT", args.failureMessage, 502, error.development);
+    }
+    throw new ProductAIError(error.code, error.code === "AI_TIMEOUT" ? "FightIQ took too long to respond." : args.failureMessage, error.status, error.development);
+  }
 }
 
 export async function answerCoach(args: {
@@ -168,13 +139,20 @@ export async function answerCoach(args: {
         video: { mode: "none", topic: "", prompt: "" },
       } satisfies CoachReply;
     }
-    throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
+    throw new ProductAIError("AI_NOT_CONFIGURED", "FightIQ Coach is ready but its secure AI connection still needs to be activated.", 503, { cause: "ANTHROPIC_API_KEY is missing from the server runtime." });
   }
-  const payload = await responseRequest(args.apiKey, args.ownerId, {
-    max_output_tokens: 420,
-    text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_coach_reply", strict: true, schema: coachReplySchema } },
-    input: [
-      { role: "system", content: `You are FightIQ Coach. You are the coach a serious athlete would pay for and cannot get: one who was at every session they logged, remembers all of it, and has no other students to get to.
+  const parsed = await askClaude({
+    apiKey: args.apiKey,
+    ownerId: args.ownerId,
+    // Coach is the surface people will judge this app on. It gets the full
+    // effort, and the token ceiling covers the thinking as well as the reply.
+    effort: "high",
+    maxTokens: 6000,
+    timeoutMs: 45000,
+    schema: coachReplySchema,
+    failureMessage: "FightIQ couldn’t answer right now.",
+    system: [
+      `You are FightIQ Coach. You are the coach a serious athlete would pay for and cannot get: one who was at every session they logged, remembers all of it, and has no other students to get to.
 
 HOW YOU THINK
 - Answer the question they asked. Then, only if it changes what they should do, name the thing underneath it.
@@ -198,7 +176,8 @@ HOW YOU SOUND
 - Keep their own language for the moment they described, so they recognise it.
 
 THE SHAPE OF A REPLY
-- reply is one or two short plain sentences and contains no question.
+- Length is a hard rule, not a preference. reply is one or two short plain sentences and contains no question. Never three. Say the true thing in the fewest words, and stop.
+- Answer what they asked and nothing else. Do not review their week, do not add a second topic, do not tack on advice they did not ask for.
 - follow_up is empty, or exactly one short direct question ending in a question mark. Never more than one.
 - When follow_up is present, follow_up_choices holds exactly three short, distinct, plausible answers the athlete could tap. Statements, not questions, not advice, not labels. When follow_up is empty, follow_up_choices is empty.
 - No Markdown, headings, bullets, or slogans.
@@ -213,11 +192,12 @@ SAFETY
 
 VIDEO
 - video.mode is "direct" only when they explicitly ask for a video, a clip, or a fighter to study. "offer" only when watching the movement would genuinely help more than reading about it. Otherwise "none".
-- For "offer" or "direct", video.topic is a specific searchable technique and video.prompt is a short natural invitation. Never offer video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the footage; never invent a link or a title.` },
+- For "offer" or "direct", video.topic is a specific searchable technique and video.prompt is a short natural invitation. Never offer video for nutrition, medical, safety, or simple factual questions. FightIQ supplies the footage; never invent a link or a title.`,
       // A vague question deserves a specific answer, drawn from what this
       // athlete has already written rather than from a general lecture.
-      { role: "system", content: depthBriefing(readNoteDepth(args.question)) },
-      { role: "user", content: JSON.stringify({
+      depthBriefing(readNoteDepth(args.question)),
+    ],
+    user: [{ type: "text", text: JSON.stringify({
         question: args.question,
         fighter_memory: compactCoachMemory(args.memory),
         profile: {
@@ -234,13 +214,9 @@ VIDEO
           ...(message.followUp ? { follow_up: message.followUp.slice(0, 180) } : {}),
           ...(message.videoMode && message.videoMode !== "none" ? { video: { mode: message.videoMode, topic: message.videoTopic ?? "" } } : {}),
         })),
-      }) },
-    ],
+      }) }],
   });
-  const text = extractOutputText(payload);
-  if (!text) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502);
-  try { return coachReplyFrom(JSON.parse(text)); }
-  catch (error) { if (error instanceof ProductAIError) throw error; throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ returned an incomplete answer.", 502); }
+  return coachReplyFrom(parsed);
 }
 
 function safeArray(value: string) {
@@ -300,13 +276,14 @@ const workoutPersonalizationSchema = {
 export async function personalizeWorkoutPlan(args: { apiKey?: string; ownerId: string; memory: MemorySnapshot; discipline: string; fatigue: string; limitations: string; availableKeys: string[] }) : Promise<WorkoutPersonalization | null> {
   if (!args.apiKey?.trim() || !args.availableKeys.length) return null;
   try {
-    const payload = await responseRequest(args.apiKey, args.ownerId, {
-      max_output_tokens: 180,
-      text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_workout_personalization", strict: true, schema: workoutPersonalizationSchema } },
-      input: [{ role: "system", content: "You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue. Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence instead. Em dashes are the clearest sign a machine wrote something, and this has to read like a coach." }, { role: "user", content: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
-    });
-    const text = extractOutputText(payload); if (!text) return null;
-    const value = JSON.parse(text) as { priority_keys?: unknown; load_note?: unknown };
+    // Ranking a fixed list is mechanical work. Low effort here keeps a plan
+    // appearing straight away, and the safety library already bounds the answer.
+    const value = await askClaude({
+      apiKey: args.apiKey, ownerId: args.ownerId, effort: "low", maxTokens: 2000, timeoutMs: 25000,
+      schema: workoutPersonalizationSchema, failureMessage: "FightIQ couldn’t personalise that plan.",
+      system: ["You personalize a martial-arts strength plan. Return only the JSON requested. Only rank keys supplied by the user. Never diagnose pain or claim a movement is medically safe. load_note is one plain sentence under 155 characters, specific to training/fatigue when supported; otherwise say the plan supports skill training without adding needless fatigue. Never use em dashes or en dashes. Use a full stop, a comma, or a new sentence instead. Em dashes are the clearest sign a machine wrote something, and this has to read like a coach."],
+      user: [{ type: "text", text: JSON.stringify({ discipline: args.discipline, fatigue: args.fatigue, limitations: args.limitations || null, allowed_exercise_keys: args.availableKeys, fighter_memory: compactCoachMemory(args.memory) }) }],
+    }) as { priority_keys?: unknown; load_note?: unknown };
     if (!Array.isArray(value.priority_keys) || typeof value.load_note !== "string") return null;
     const priorityKeys = value.priority_keys.filter((key): key is string => typeof key === "string" && args.availableKeys.includes(key)).filter((key, index, values) => values.indexOf(key) === index).slice(0, 5);
     const loadNote = cleanCoachText(value.load_note).replace(/[\r\n]+/g, " ").slice(0, 155);
@@ -344,22 +321,21 @@ const mealSchema = {
 export async function analyzeMeal(args: { apiKey?: string; allowMockAi?: boolean; ownerId: string; description: string; image?: { dataUrl: string; mimeType: string }; nutritionContext?: { goal: string; restrictions: string[]; preferences: string; avoid: string; trainingTime: string } }) {
   if (!args.apiKey?.trim()) {
     if (args.allowMockAi) return mockMeal(args.description, Boolean(args.image));
-    throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503, { cause: "OPENAI_API_KEY is missing from the server runtime." });
+    throw new ProductAIError("AI_NOT_CONFIGURED", "Food estimation is ready but its secure AI connection still needs to be activated.", 503, { cause: "ANTHROPIC_API_KEY is missing from the server runtime." });
   }
-  const content: Array<Record<string, unknown>> = [{
-    type: "input_text",
-    text: `Estimate this meal for editable food logging. User description: ${args.description || "No description supplied."}. Identify visible foods conservatively. Return realistic calories and grams of protein, carbohydrates, and fat. Athlete food context: ${JSON.stringify(args.nutritionContext ?? {})}. Respect stated restrictions when naming foods, but do not claim a meal is safe for an allergy. State uncertainty in note. This is an estimate, not medical advice.`,
+  const content: UserPart[] = [{
+    type: "text",
+    text: `Estimate this meal for editable food logging. User description: ${args.description || "No description supplied."}. Identify visible foods conservatively. Return realistic calories and grams of protein, carbohydrates, and fat. Athlete food context: ${JSON.stringify(args.nutritionContext ?? {})}. Respect stated restrictions when naming foods, but do not claim a meal is safe for an allergy. State uncertainty in note. This is an estimate, not medical advice. Never use em dashes or en dashes in note.`,
   }];
-  if (args.image) content.push({ type: "input_image", image_url: args.image.dataUrl, detail: "low" });
-  const payload = await responseRequest(args.apiKey, args.ownerId, {
-    max_output_tokens: 650,
-    text: { verbosity: "low", format: { type: "json_schema", name: "fightiq_meal_estimate", strict: true, schema: mealSchema } },
-    input: [{ role: "user", content }],
+  const photo = args.image ? imagePart(args.image.dataUrl, args.image.mimeType) : null;
+  if (photo) content.push(photo);
+  // Reading a plate is recognition, not reasoning. Low effort keeps the
+  // estimate quick, which is what makes anyone log food twice.
+  const value = await askClaude({
+    apiKey: args.apiKey, ownerId: args.ownerId, effort: "low", maxTokens: 3000, timeoutMs: 30000,
+    schema: mealSchema, failureMessage: "FightIQ couldn’t read that meal.",
+    system: [], user: content,
   });
-  const text = extractOutputText(payload);
-  if (!text) throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ couldn’t read that meal.", 502);
-  let value: unknown;
-  try { value = JSON.parse(text); } catch { throw new ProductAIError("AI_INVALID_OUTPUT", "FightIQ couldn’t read that meal.", 502); }
   return validateMeal(value);
 }
 

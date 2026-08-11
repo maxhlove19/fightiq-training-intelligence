@@ -31,7 +31,8 @@ test("renders the secure FightIQ sign-in surface without starter artifacts", asy
   // The fighter carries the page. A door with no picture on it is a form.
   assert.match(html, /fighter-posters/);
   assert.doesNotMatch(html, /Your site is taking shape|react-loading-skeleton|codex-preview/i);
-  assert.doesNotMatch(html, /OPENAI_API_KEY|api\.openai\.com/);
+  // A model key is a server secret. It must never reach a rendered page.
+  assert.doesNotMatch(html, /ANTHROPIC_API_KEY|sk-ant-|api\.anthropic\.com/);
 });
 
 test("renders the authenticated application shell from trusted identity headers", async () => {

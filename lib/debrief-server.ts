@@ -9,8 +9,8 @@ export async function getOwnerId() {
 }
 
 export function getRuntime() {
-  const runtime = env as unknown as { DB?: D1; OPENAI_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
-  return { db: runtime.DB, apiKey: runtime.OPENAI_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
+  const runtime = env as unknown as { DB?: D1; ANTHROPIC_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string };
+  return { db: runtime.DB, apiKey: runtime.ANTHROPIC_API_KEY, allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true" };
 }
 
 export async function persistDebriefResult(db: D1, entryId: string, ownerId: string, result: DebriefResult, sequence: number, safetyHold = false) {

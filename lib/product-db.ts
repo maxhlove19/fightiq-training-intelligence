@@ -65,9 +65,9 @@ export async function getProductOwnerId() {
 }
 
 export function getProductRuntime() {
-  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; OPENAI_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string; SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string; SUPABASE_JWT_SECRET?: string };
+  const runtime = env as unknown as { DB?: D1; UPLOADS?: R2Bucket; ANTHROPIC_API_KEY?: string; YOUTUBE_API_KEY?: string; FIGHTIQ_ALLOW_MOCK_AI?: string; FIGHTIQ_OWNER_EMAILS?: string; SUPABASE_URL?: string; SUPABASE_ANON_KEY?: string; SUPABASE_JWT_SECRET?: string };
   return {
-    db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.OPENAI_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY,
+    db: runtime.DB, uploads: runtime.UPLOADS, apiKey: runtime.ANTHROPIC_API_KEY, youtubeApiKey: runtime.YOUTUBE_API_KEY,
     allowMockAi: runtime.FIGHTIQ_ALLOW_MOCK_AI === "true", ownerEmails: runtime.FIGHTIQ_OWNER_EMAILS,
     supabaseUrl: runtime.SUPABASE_URL, supabaseAnonKey: runtime.SUPABASE_ANON_KEY, supabaseJwtSecret: runtime.SUPABASE_JWT_SECRET,
   };

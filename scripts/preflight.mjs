@@ -10,7 +10,7 @@ const target = (process.argv[2] ?? process.env.FIGHTIQ_URL ?? "http://localhost:
 const LABELS = {
   database: "Session storage (D1 binding: DB)",
   schema: "Schema applied and readable",
-  sessionAnalysis: "Session analysis (OPENAI_API_KEY)",
+  sessionAnalysis: "Session analysis (ANTHROPIC_API_KEY)",
   photoUploads: "Meal photos (R2 binding: UPLOADS)",
   liveVideoSearch: "Live video search (YOUTUBE_API_KEY)",
 };

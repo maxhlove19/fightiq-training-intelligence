@@ -84,7 +84,7 @@ export async function POST(_request: Request, context: Context) {
       instructor_details: memory.instructorDetails.slice(0, 3),
       recent_training: memory.recentTraining.slice(0, 3).map((item) => ({ discipline: item.discipline, note: item.note.slice(0, 500), takeaway: item.takeaway, focus: item.focus })),
     };
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, db, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
     const sequence = history.length + 1;
     await persistDebriefResult(db, id, ownerId, result, sequence, held);
     if (result.status === "complete") await updateExperimentForEntry(db, ownerId, id, result.intelligence.experiment_result, result.summary);

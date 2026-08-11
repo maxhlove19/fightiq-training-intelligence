@@ -68,7 +68,7 @@ async function buildPlan(db: NonNullable<Awaited<ReturnType<typeof getProductRun
   const safe = highFatigue ? matching.filter((exercise) => !["strength", "moderate"].includes(exercise.intensity)) : matching;
   const initial = (safe.length >= 2 ? safe : matching).slice(0, duration <= 25 ? 3 : 4);
   const memory = await getMemorySnapshot(db, ownerId);
-  const personal = await personalizeWorkoutPlan({ apiKey, ownerId, memory, discipline, fatigue, limitations: setup.limitations, availableKeys: initial.map((exercise) => exercise.key) });
+  const personal = await personalizeWorkoutPlan({ apiKey, ownerId, db, memory, discipline, fatigue, limitations: setup.limitations, availableKeys: initial.map((exercise) => exercise.key) });
   const selected = personal?.priorityKeys.length ? [...initial].sort((a, b) => {
     const aRank = personal.priorityKeys.indexOf(a.key); const bRank = personal.priorityKeys.indexOf(b.key);
     return (aRank < 0 ? 99 : aRank) - (bRank < 0 ? 99 : bRank);

@@ -3,7 +3,9 @@
 // A later session can supply more evidence; it does not need to be extracted
 // from one sitting.
 import { depthBriefing, readNoteDepth } from "./note-depth";
-import { ClaudeError, hashOwner, requestJson } from "./claude";
+import { CLAUDE_MODEL, ClaudeError, hashOwner, requestJson } from "./claude";
+import { recordModelUsage } from "./model-cost";
+import type { D1 } from "./debrief-db";
 import { clip } from "./clip";
 const MAX_CLARIFYING_QUESTIONS = 1;
 const evidenceGaps = ["mechanics", "timing", "balance_or_mobility", "side_or_stance", "resistance_or_context", "coach_cue", "attempted_correction", "experiment_outcome", "other"] as const;
@@ -115,7 +117,7 @@ OUTPUT
 - Stay inside the session you were given. Do not review their whole training, do not rewrite an earlier debrief, and do not add a topic they did not raise.`;
 
 export async function generateDebrief(args: {
-  apiKey?: string; allowMockAi?: boolean; ownerId: string; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null; fighterBrain?: Record<string, unknown> | null;
+  apiKey?: string; allowMockAi?: boolean; ownerId: string; db?: D1; entry: Entry; history: History; current?: Record<string, unknown> | null; preTrainingBrief?: Record<string, unknown> | null; activeExperiment?: Record<string, unknown> | null; fighterBrain?: Record<string, unknown> | null;
 }): Promise<DebriefResult> {
   const nextSequence = args.history.length + 1;
   const allowQuestion = nextSequence <= MAX_CLARIFYING_QUESTIONS;
@@ -133,6 +135,11 @@ export async function generateDebrief(args: {
     parsed = await requestJson({
       apiKey: args.apiKey,
       userHash: await hashOwner(args.ownerId),
+      // The reading half of the product, and the most expensive call it makes.
+      // Recorded whether it succeeds or not: a refusal costs the same.
+      onUsage: args.db
+        ? (usage, ok) => { void recordModelUsage(args.db as D1, args.ownerId, { ...usage, surface: "debrief", model: CLAUDE_MODEL, effort: "high", ok }); }
+        : undefined,
       // This is the reading half of the product. It runs once per session and it
       // is the thing an athlete is paying for, so it gets the full effort.
       effort: "high",

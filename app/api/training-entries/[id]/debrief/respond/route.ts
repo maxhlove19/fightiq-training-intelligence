@@ -93,7 +93,7 @@ export async function POST(request: Request, context: Context) {
       instructor_details: memory.instructorDetails.slice(0, 3),
       recent_training: memory.recentTraining.slice(0, 3).map((item) => ({ discipline: item.discipline, note: item.note.slice(0, 500), takeaway: item.takeaway, focus: item.focus })),
     };
-    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
+    const result = await generateDebrief({ apiKey, allowMockAi, ownerId, db, entry, history, current, preTrainingBrief: experimentContext, activeExperiment: experimentContext, fighterBrain });
     // The hold has to be passed here too. Without it, answering a follow-up
     // re-wrote the debrief with a next-session drill the hold had just removed.
     await persistDebriefResult(db, id, ownerId, result, history.length + 1, held);

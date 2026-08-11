@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       const setup = getAthleteSetup(profile);
       nutritionContext = { goal: profile.primary_goal, restrictions: setup.dietaryRestrictions, preferences: setup.foodPreferences, avoid: setup.foodsToAvoid, trainingTime: setup.trainingTime };
     }
-    return Response.json(await analyzeMeal({ apiKey, allowMockAi, ownerId, description, image, nutritionContext }));
+    return Response.json(await analyzeMeal({ apiKey, allowMockAi, ownerId, db, description, image, nutritionContext }));
   }
   catch (error) {
     if (error instanceof ProductAIError) return productError(error.code, error.message, error.status, error.development);

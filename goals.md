@@ -151,7 +151,11 @@ position library cannot.
 7. **Never claim more than the evidence supports.** Nothing is a strength until
    it holds up three sessions running. Nothing is recurring until it has
    happened twice.
-8. **Never infer something that cannot honestly be inferred.** Experience level
+8. **Cost accounting records counts and identifiers, never content.** What an
+   athlete tells a coach about their own body and their own failures is the most
+   private thing in this product and it does not belong in a cost table. If a
+   cost question seems to need content, the question is wrong.
+9. **Never infer something that cannot honestly be inferred.** Experience level
    cannot be derived from session count. "Not stated" beats a guess.
 
 ---
@@ -242,18 +246,42 @@ getting an answer.
 
 ## Backlog, in order. Take the top unblocked item.
 
-1. **The slop pass.** Fix the copy defects above and add a test for each rule,
+1. **Model cost, and then the tiering question it answers.** Promoted above
+   everything else, including the design work, because a design pass on a
+   product with unknown unit economics is decorating a room in a house nobody
+   has priced.
+
+   The app runs Opus 5 at high effort with thinking on for the debrief and for
+   Coach, the two surfaces an athlete touches most, and until now nothing
+   recorded what a call cost. That is not a missing metric, it is not knowing
+   whether the product is profitable at any price, and it means the most
+   expensive configuration available is spent on every interaction rather than
+   on the ones that deserve it.
+
+   Part one, done: `model_usage` records tokens in and out, cache reads and
+   writes, per owner and per surface, on success and on failure. Counts and
+   identifiers only, never content.
+
+   Part two, **only once a week of real training has produced real numbers**: ask
+   whether every surface needs Opus at high effort. A weekly pattern read across
+   a month of sessions is genuinely hard reasoning. Turning thirty seconds of
+   spoken notes into a structured log is not, and neither is answering what did
+   I work on last Tuesday. Do not tier anything on instinct. Run the same prompt
+   at both configurations, compare the outputs, and say honestly whether the
+   cheaper one is worse. If it is not worse, that difference is the business.
+
+2. **The slop pass.** Fix the copy defects above and add a test for each rule,
    including the British spelling rule and a check on Coach answer shape.
-2. **The four faults**: one day-count unit used consistently, one glyph,
+3. **The four faults**: one day-count unit used consistently, one glyph,
    `learn.studyTopic` split into query and label, stale briefs regenerated.
-3. **The recommendations record.** `fighter_focus_recommendations` is keyed on
+4. **The recommendations record.** `fighter_focus_recommendations` is keyed on
    `owner_id` and upserted, so what FightIQ suggested and when is overwritten.
    Same class as the focus and the bodyweight.
-4. **The design reconciliation.** Collapse four `:root` blocks into one, decide
+5. **The design reconciliation.** Collapse four `:root` blocks into one, decide
    the accent colour, make `--nav-height` one number, then set a per-screen
    ceiling in `scripts/layout-sweep.mjs` at the honest number and let it fail on
    drift.
-5. Product build order, **not agreed yet, do not start**: voice capture, the
+6. Product build order, **not agreed yet, do not start**: voice capture, the
    before-class surface, the personal position map with a share export, training
    partners as a first-class entity, live video search.
 
@@ -264,7 +292,7 @@ getting an answer.
   debrief. Do not merge it, do not build on it, do not resolve its conflicts
   except when explicitly asked to rebase it.
 - **Nutrition targets.** Agreed to behave as a current value.
-- **Anything in section 5 of the backlog** until the shape is agreed.
+- **Anything in section 6 of the backlog** until the shape is agreed.
 - **`OPENAI_API_KEY`.** Verified dead, left in place on purpose.
 
 ---

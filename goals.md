@@ -369,7 +369,18 @@ above it is unmet.
 4. **Twenty or more real sessions logged**, plus at least one weekly review
    generated against a month of history. A waiting milestone, not a build task.
    Nothing below it can be decided honestly before it is met.
-5. **Stripe and the paywall.** Last, deliberately. Building billing for zero
+5. **A privacy policy and a way for a person to delete their own data.** A
+   gate, not a task. **This blocks public signups. It does not block a handful
+   of training partners trying it**, which is the only usage this has had.
+
+   The moment somebody who is not a friend uses this, the database holds another
+   person's training notes, their injuries and their bodyweight history. Deletion
+   is a design question here rather than a delete statement, because the whole
+   memory layer is deliberately append-only: `focus_periods`, `athlete_weigh_ins`
+   and `model_usage` exist precisely so nothing is ever overwritten. Work out
+   what deletion means against that design before inviting strangers, not after.
+
+6. **Stripe and the paywall.** Last, deliberately. Building billing for zero
    users is waste, and the paywall is the least urgent thing here rather than the
    most.
 

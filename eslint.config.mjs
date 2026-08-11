@@ -9,6 +9,9 @@ import tseslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
   globalIgnores([
+    // Vendored third-party detector code. It is committed so a cloud session has
+    // it, and it is not ours to lint.
+    ".claude/skills/**",
     ".next/**",
     "dist/**",
     "out/**",

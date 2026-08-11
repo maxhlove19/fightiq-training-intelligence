@@ -46,3 +46,11 @@ tsconfig.tsbuildinfo
 .claude/observer.log
 .claude/hook-errors.log
 .claude/last-gate-report.md
+
+# Impeccable runtime artefacts. Its config and DESIGN.md are committed on
+# purpose; its caches, screenshots and per-run critiques are not.
+.impeccable/critique*
+.impeccable/hook*
+.impeccable/live*
+.impeccable/sketches*
+.impeccable/surfaces*

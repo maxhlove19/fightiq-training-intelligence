@@ -17,6 +17,16 @@ export const GATES = [
   // is the rule most likely to be broken by something a model wrote and the one
   // most likely to be shrugged off in a list of two hundred passing tests.
   { name: "house-style", argv: ["node", "--test", "--import", "./tests/ts-imports.mjs", "tests/copy-voice.test.mjs", "tests/house-style.test.mjs"], fast: true },
+  // Impeccable's deterministic anti-pattern detectors. No model call, no API key,
+  // no network: css-tree and htmlparser2 reading our own files. It owns the
+  // question "does this look like a machine wrote it", which is exactly the
+  // question we cannot answer about ourselves.
+  //
+  // Run through the gate rather than through its own Stop hook, so one place
+  // decides whether a session may end. Its fast PostToolUse tier is left wired
+  // in settings.json, because catching a fault seconds after it is written is
+  // worth more than catching it at the end of a turn.
+  { name: "design", argv: ["node", "scripts/design-check.mjs"], fast: false },
   // A custom property defined twice at :root is the defect that produced pure
   // blue and cyan on the same screen. Trivially detectable, so it is a gate.
   { name: "tokens", argv: ["node", "scripts/token-check.mjs"], fast: true },

@@ -1683,3 +1683,29 @@ body { letter-spacing: .003em; }
 .weight-entry { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); margin-top: var(--space-1); }
 .weight-entry input { min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: var(--text-base); }
 .weight-entry button { min-height: 40px; padding: 0 var(--space-4); border: 0; border-radius: 8px; background: #1384ff; color: white; font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 800; letter-spacing: .1em; cursor: pointer; }
+/* The moment Coach commits. It has to look different from a chat bubble,
+   because it is the only thing in a conversation that can be kept. */
+.coach-finding { display: grid; gap: 8px; margin: 10px 0 4px; padding: 14px 15px 13px; border: 1px solid #1a4d80; border-left: 2px solid #1384ff; border-radius: 8px; background: linear-gradient(160deg, #08192c 0%, #050d18 68%); }
+.coach-finding.rejected { border-color: #2a3446; border-left-color: #46536b; opacity: .72; }
+.coach-finding-tag { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .12em; }
+.coach-finding.rejected .coach-finding-tag { color: #7c8ca3; }
+.coach-finding > strong { color: #eaf3ff; font-size: 14.5px; font-weight: 640; line-height: 1.25; }
+.coach-finding > p { margin: 0; color: #a3b6cd; font-size: 12.5px; line-height: 1.5; }
+.coach-finding-fix { display: grid; gap: 4px; padding: 9px 11px; border: 1px solid #1a4d80; border-radius: 6px; background: rgba(9,53,102,.3); color: #dceaf9 !important; }
+.coach-finding-fix span { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.coach-finding-basis { display: grid; gap: 3px; margin: 0; padding-left: 15px; color: #7c8ca3; font-size: 11px; line-height: 1.45; }
+.coach-finding-ask { color: #8ea3bd; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.coach-finding-note { margin: 0; color: #66788f; font-size: 10px; }
+.coach-finding-verdict { margin: 0; color: #5ed2a0; font-size: 11px; font-weight: 600; }
+.coach-finding.rejected .coach-finding-verdict { color: #8ea3bd; }
+
+/* The same finding once it lives in My Game, where it has to stand alone. */
+.game-findings { display: grid; gap: 9px; margin: 0 0 12px; }
+.game-findings .eyebrow { margin: 0; color: #4fb0ff; font-size: 8px; }
+.game-findings article { display: grid; gap: 6px; padding: 13px 14px; border: 1px solid #1a4d80; border-left: 2px solid #1384ff; border-radius: 8px; background: #08192c; }
+.game-findings strong { color: #eaf3ff; font-size: 13.5px; font-weight: 640; line-height: 1.25; }
+.game-findings p { margin: 0; color: #a3b6cd; font-size: 12px; line-height: 1.48; }
+.game-finding-fix { display: grid; gap: 3px; color: #dceaf9 !important; }
+.game-finding-fix span { color: #4fb0ff; font-family: var(--font-geist-mono), monospace; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.game-findings button { justify-self: start; margin-top: 2px; padding: 0; border: 0; background: none; color: #66788f; font-size: 10.5px; text-decoration: underline; cursor: pointer; }
+.game-findings button:hover { color: #a3b6cd; }

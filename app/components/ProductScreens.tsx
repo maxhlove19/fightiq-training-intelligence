@@ -15,6 +15,7 @@ import { shortDate } from "../../lib/when";
 import { createProductStore } from "../../lib/product-store";
 import { type AuthProvider } from "../../lib/identity";
 import { clearOfflineCache } from "./OfflineReady";
+import { FINDING_CHOICES } from "../../lib/coach-finding";
 
 type SpeechRecognitionLike = {
   continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void;
@@ -29,6 +30,8 @@ export type ProductData = {
   insight: { title: string; body: string; currentFocus: string };
   /** Present only until the first session is logged. See lib/first-session.ts. */
   opening: { title: string; body: string; watchFor: string; cue: string; promise: string } | null;
+  /** Findings the athlete agreed to in Coach. The only thing a conversation leaves behind. */
+  confirmedFindings: Array<{ id: string; problem: string; because: string; fix: string; basis: string[]; confidence: "hunch" | "likely"; confirmedAt: string }>;
   sessionsLogged: number;
   videos: Array<{ id: string; title: string; creator: string; discipline: string; duration: string; description: string; thumbnail: string; url: string; why: string; watchFor: string; source: "curated" | "youtube" }>;
   learn: { studyTopic: string; exploreUrl: string; liveDiscoveryAvailable: boolean; refreshed: boolean };
@@ -184,12 +187,44 @@ export function LearnScreen({ studyTopic, onReturnToFeed, onReturnToCoach }: { s
   </main>;
 }
 
-type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string; follow_up?: string | null; follow_up_choices?: string[]; video_mode?: "none" | "offer" | "direct" | null; video_topic?: string | null; video_prompt?: string | null };
+type ProposedFinding = { messageId: string; problem: string; because: string; fix: string; basis: string[]; confidence: "hunch" | "likely"; status: "proposed" | "confirmed" | "rejected"; choices: string[] };
+type CoachMessage = { id: string; role: "user" | "assistant"; content: string; created_at?: string; follow_up?: string | null; follow_up_choices?: string[]; video_mode?: "none" | "offer" | "direct" | null; video_topic?: string | null; video_prompt?: string | null; finding?: ProposedFinding | null };
 type CoachFailure = { messageId: string; question: string; code: string; message: string };
 type CoachChat = { id: string; title: string; created_at: string; updated_at: string };
 
 function messageParagraphs(value: string) {
   return cleanAiDisplay(value).split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+}
+
+
+/**
+ * The moment Coach stops asking and says what it thinks.
+ *
+ * Three taps, because the athlete confirming is what makes a finding safe to
+ * record. "That is it" writes it into their game. "Not quite" writes nothing
+ * and hands the conversation back so the coach can adjust. Nothing here decides
+ * anything on its own.
+ */
+function FindingCard({ finding, onVerdict, onCorrect }: { finding: ProposedFinding; onVerdict: (verdict: "confirmed" | "rejected") => void; onCorrect: () => void }) {
+  const settled = finding.status !== "proposed";
+  return <section className={`coach-finding ${finding.status}`} aria-label="What FightIQ thinks">
+    <span className="coach-finding-tag">{finding.confidence === "likely" ? "FIGHTIQ'S CALL" : "A HUNCH, NOT A CALL"}</span>
+    <strong>{cleanAiDisplay(finding.problem)}</strong>
+    <p>{cleanAiDisplay(finding.because)}</p>
+    <p className="coach-finding-fix"><span>TRY THIS</span>{cleanAiDisplay(finding.fix)}</p>
+    {finding.basis.length > 0 && <ul className="coach-finding-basis">{finding.basis.map((item) => <li key={item}>{cleanAiDisplay(item)}</li>)}</ul>}
+    {settled
+      ? <p className="coach-finding-verdict" role="status">{finding.status === "confirmed" ? "Added to My Game." : "Left out of My Game."}</p>
+      : <>
+        <span className="coach-finding-ask">IS THAT RIGHT?</span>
+        <div className="coach-quick-replies">
+          <button onClick={() => onVerdict("confirmed")}>{FINDING_CHOICES[0]}<ChevronRight size={15} /></button>
+          <button onClick={() => { onVerdict("rejected"); onCorrect(); }}>{FINDING_CHOICES[1]}<ChevronRight size={15} /></button>
+          <button className="not-sure" onClick={() => onVerdict("rejected")}>{FINDING_CHOICES[2]}<ChevronRight size={15} /></button>
+        </div>
+        <p className="coach-finding-note">Nothing is recorded until you say so.</p>
+      </>}
+  </section>;
 }
 
 export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) => void }) {
@@ -198,6 +233,27 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
   const [activeChatId, setActiveChatId] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [question, setQuestion] = useState("");
+
+  async function decideFinding(messageId: string, verdict: "confirmed" | "rejected") {
+    const target = messages.find((message) => message.id === messageId)?.finding;
+    if (!target || target.status !== "proposed") return;
+    setMessages((current) => current.map((message) => message.id === messageId && message.finding
+      ? { ...message, finding: { ...message.finding, status: verdict } }
+      : message));
+    try {
+      const response = await fetch("/api/coach/finding", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageId, verdict }),
+      });
+      if (!response.ok) throw new Error("rejected");
+    } catch {
+      // Put it back rather than showing it as recorded when it is not.
+      setMessages((current) => current.map((message) => message.id === messageId && message.finding
+        ? { ...message, finding: { ...message.finding, status: "proposed" } }
+        : message));
+      setError("FightIQ couldn’t save that. Try again.");
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -279,7 +335,7 @@ export function CoachScreen({ onStudyVideo }: { onStudyVideo: (topic: string) =>
       {messages.map((message) => {
         const isActiveFollowUp = activeFollowUp?.id === message.id;
         const quickReplies = isActiveFollowUp ? (message.follow_up_choices ?? []).slice(0, 3) : [];
-        return <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && (isActiveFollowUp ? <section className="coach-follow-up" aria-label={`FightIQ asks: ${cleanAiDisplay(message.follow_up)}`}><p>{cleanAiDisplay(message.follow_up)}</p>{quickReplies.length === 3 && <><span>CHOOSE THE CLOSEST ANSWER</span><div className="coach-quick-replies">{quickReplies.map((choice) => <button key={choice} onClick={() => void send(choice)} disabled={sending}>{cleanAiDisplay(choice)}<ChevronRight size={15} /></button>)}<button className="not-sure" onClick={() => void send("Not sure")} disabled={sending}>Not sure<ChevronRight size={15} /></button></div></>}<button className="coach-type-answer" onClick={focusCompose}>Type or talk instead</button></section> : <div className="coach-follow-up resolved"><p>{cleanAiDisplay(message.follow_up)}</p></div>)}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICKS" : "SEE THE DETAIL"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>{message.video_mode === "direct" ? "Open video picks" : "Show me a video"}<ChevronRight size={14} /></button></div>}</div>;
+        return <div className={`chat-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? "FIGHTIQ" : "YOU"}</span><div className="chat-bubble">{(message.role === "assistant" ? messageParagraphs(message.content) : [message.content]).map((paragraph, index) => <p key={`${message.id}-${index}`}>{paragraph}</p>)}</div>{message.role === "assistant" && message.follow_up && (isActiveFollowUp ? <section className="coach-follow-up" aria-label={`FightIQ asks: ${cleanAiDisplay(message.follow_up)}`}><p>{cleanAiDisplay(message.follow_up)}</p>{quickReplies.length === 3 && <><span>CHOOSE THE CLOSEST ANSWER</span><div className="coach-quick-replies">{quickReplies.map((choice) => <button key={choice} onClick={() => void send(choice)} disabled={sending}>{cleanAiDisplay(choice)}<ChevronRight size={15} /></button>)}<button className="not-sure" onClick={() => void send("Not sure")} disabled={sending}>Not sure<ChevronRight size={15} /></button></div></>}<button className="coach-type-answer" onClick={focusCompose}>Type or talk instead</button></section> : <div className="coach-follow-up resolved"><p>{cleanAiDisplay(message.follow_up)}</p></div>)}{message.role === "assistant" && message.finding && <FindingCard finding={message.finding} onVerdict={(verdict) => void decideFinding(message.id, verdict)} onCorrect={() => focusCompose()} />}{message.role === "assistant" && message.video_mode && message.video_mode !== "none" && message.video_topic && <div className="coach-video-offer"><span>{message.video_mode === "direct" ? "VIDEO PICKS" : "SEE THE DETAIL"}</span><p>{message.video_prompt || `Want a video on ${message.video_topic}?`}</p><button onClick={() => onStudyVideo(message.video_topic ?? "")}>{message.video_mode === "direct" ? "Open video picks" : "Show me a video"}<ChevronRight size={14} /></button></div>}</div>;
       })}
       {sending && <div className="chat-message assistant thinking"><span>FIGHTIQ</span><div className="chat-bubble"><p><LoaderCircle size={15} className="spin" /> Thinking with your training context…</p></div></div>}
       <div ref={endRef} />
@@ -485,6 +541,17 @@ export function GameScreen({ provider }: { provider: AuthProvider }) {
   const [influences, setInfluences] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  async function retractFinding(id: string) {
+    // Retracting is the same decision the athlete already made once, reversed.
+    // It removes the finding from their game without deleting the fact that it
+    // was proposed and agreed, which is worth keeping.
+    const response = await fetch("/api/coach/finding", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ findingId: id, verdict: "rejected" }),
+    });
+    if (response.ok) await reload();
+  }
+
   async function save() {
     if (!data) return;
     setSaving(true); setSaved(false);
@@ -510,6 +577,17 @@ export function GameScreen({ provider }: { provider: AuthProvider }) {
         </section>
         : <WeeklyReview sessions={data.memory.recentTraining} target={data.profile.athleteSetup.sessionsPerWeek} />}
       <section className="game-hero"><div><p className="eyebrow">CURRENT FOCUS</p>{editing ? <input value={focus} onChange={(event) => setFocus(event.target.value)} aria-label="Current focus" /> : <h2>{data.memory.currentFocus}</h2>}<p>{data.memory.focusReason}</p></div><button className="round-action" onClick={() => { if (!editing) { setFocus(data.memory.currentFocus); setInfluences(data.memory.styleInfluences.join(", ")); } setEditing((value) => !value); }} aria-label="Edit My Game"><Pencil size={16} /></button></section>
+      {data.confirmedFindings.length > 0 && <section className="game-findings" aria-label="Confirmed with your coach">
+        <p className="eyebrow">YOU AND FIGHTIQ AGREED</p>
+        {data.confirmedFindings.map((finding) => <article key={finding.id}>
+          <strong>{cleanAiDisplay(finding.problem)}</strong>
+          <p>{cleanAiDisplay(finding.because)}</p>
+          <p className="game-finding-fix"><span>TRY THIS</span>{cleanAiDisplay(finding.fix)}</p>
+          {/* Being wrong later is a normal part of training. A record that
+              cannot be corrected stops being trusted for everything else. */}
+          <button onClick={() => void retractFinding(finding.id)}>That is not right any more</button>
+        </article>)}
+      </section>}
       <div className="game-grid">
         <section className="game-card"><span>STRENGTHS</span>{strengths.length ? strengths.map((item) => <strong key={item}>{cleanAiDisplay(item)}</strong>) : <p>{unlocks.strengths}</p>}</section>
         <section className="game-card problem"><span>RECURRING PROBLEMS</span>{problems.length ? problems.map((item) => <strong key={item}>{cleanAiDisplay(item)}</strong>) : <p>{unlocks.problems}</p>}</section>

@@ -236,6 +236,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .result-block p { color: #d6e4df; margin-bottom: 0; }
 .secondary-button { min-height: 50px; border-radius: 14px; border: 1px solid #2a394d; background: #111a26; color: var(--ink); width: 100%; font-weight: 650; cursor: pointer; }
 .error-message { color: #ff9d9d; font-size: 12px; margin: 6px 0; }
+.danger-button { min-height: 50px; border-radius: 14px; border: 1px solid rgba(255,157,157,.4); background: rgba(255,157,157,.08); color: #ff9d9d; width: 100%; font-weight: 650; cursor: pointer; }
+.danger-button:disabled { opacity: .4; cursor: not-allowed; }
+.danger-zone-intro { color: var(--muted); line-height: 1.55; font-size: 12px; margin: 0 0 14px; }
+.danger-zone-actions { display: grid; gap: 10px; }
 .debrief-loading { min-height: 62dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; max-width: 430px; margin: auto; }
 .debrief-loading h2 { font-size: 27px; letter-spacing: -.035em; line-height: 1.15; margin: 0 0 12px; }
 .debrief-loading > p:last-child { color: var(--muted); font-size: 13px; line-height: 1.55; max-width: 340px; }
@@ -426,6 +430,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .settings-body { border-top: 1px solid var(--line-soft); padding: 15px; }
 .settings-body > label { display: block; color: var(--muted-2); font-size: 8px; letter-spacing: .12em; font-weight: 800; margin-bottom: 6px; }
 .settings-body select { width: 100%; height: 43px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 0 10px; margin-bottom: 14px; }
+.settings-body input { width: 100%; height: 43px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 0 12px; margin-bottom: 14px; font-size: 13px; }
 .settings-body .secondary-button { display: flex; align-items: center; justify-content: center; gap: 7px; }
 .food-log-card, .estimate-card { border: 1px solid var(--line-soft); background: var(--surface); border-radius: 18px; padding: 19px; margin-bottom: 14px; }
 .food-log-card h2, .estimate-card h2 { margin: -4px 0 17px; font-size: 21px; letter-spacing: -.03em; }

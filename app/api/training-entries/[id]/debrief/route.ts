@@ -6,6 +6,8 @@ import {
 import { apiError, getOwnerId, getRuntime, persistDebriefResult } from "../../../../../lib/debrief-server";
 import { scanTrainingNote } from "../../../../../lib/safety-signals";
 import { getOpenHold } from "../../../../../lib/hold-db";
+import { countRecentSessions } from "../../../../../lib/usage-db";
+import { checkUsage } from "../../../../../lib/usage-limits";
 import { describeHold, trainingPermission } from "../../../../../lib/return-to-training";
 import { ensureProductSchema, getExperimentForEntry, getMemorySnapshot, updateExperimentForEntry } from "../../../../../lib/product-db";
 
@@ -51,6 +53,16 @@ export async function POST(_request: Request, context: Context) {
   const held = safety.holdTraining || !trainingPermission(openHold, new Date()).allowsSkillWork;
   const existing = await getDebriefState(db, id, ownerId);
   if (existing.status === "question" || existing.status === "complete") return Response.json({ ...existing, safety, hold: holdView });
+  // The note is already saved. This gates the reading of it, never the keeping
+  // of it, so an athlete at a limit has lost nothing but the wait.
+  const usage = checkUsage("session_debrief", await countRecentSessions(db, ownerId));
+  if (!usage.allowed) {
+    return Response.json(
+      { ...await getDebriefState(db, id, ownerId), safety, hold: holdView, entrySaved: true, error: { code: usage.code, message: usage.message } },
+      { status: 429, headers: { "retry-after": String(usage.retryAfterSeconds) } },
+    );
+  }
+
   const leaseId = await claimDebriefGeneration(db, id, ownerId);
   // The client can safely poll this state. We never launch a second model call
   // for the same saved entry while another worker owns the generation.

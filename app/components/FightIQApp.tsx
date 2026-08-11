@@ -466,6 +466,9 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId }:
         // Retrying this cannot work, and saying "try again" to someone whose
         // deployment is missing a key wastes their evening. Say what it is.
         ? <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>The reading half isn’t switched on yet.</h2><p>Every session you log is being kept, in full. What is missing is the connection FightIQ uses to read them back to you — that is a setting on this deployment, not something you did. Once it is added, open any past session and the debrief will run on it.</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
+        : errorCode === "HOURLY_LIMIT_REACHED" || errorCode === "DAILY_LIMIT_REACHED"
+        // A retry button that cannot succeed for ten minutes is worse than none.
+        ? <div className="debrief-error" role="status"><p className="eyebrow">YOUR NOTE IS SAVED</p><h2>FightIQ will read this one shortly.</h2><p>{error}</p><button className="quiet-button" onClick={() => respond("finish")}>Back to home</button></div>
         : <div className="debrief-error" role="alert"><p className="eyebrow">YOUR NOTE IS SAFE</p><h2>FightIQ needs another try.</h2><p>{error || "The debrief couldn’t be prepared right now."}</p><button className="primary-button" onClick={() => entryId && startDebrief(entryId)}><RefreshCw size={18} /> RETRY DEBRIEF</button><button className="quiet-button" onClick={() => respond("finish")}>Finish for now</button></div>}
     </main>
   );

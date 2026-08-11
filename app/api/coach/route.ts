@@ -3,6 +3,8 @@ import { scanTrainingNote } from "../../../lib/safety-signals";
 import type { D1 } from "../../../lib/debrief-db";
 import { ensureProductSchema, getActiveTrainingExperiment, getCoachSuggestions, getMemorySnapshot, getOrCreateProfile, getProductOwnerId, getProductRuntime, getTodayNutrition, productError } from "../../../lib/product-db";
 import { readJsonObject } from "../../../lib/request-body";
+import { countRecentCoachQuestions } from "../../../lib/usage-db";
+import { checkUsage } from "../../../lib/usage-limits";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +117,18 @@ export async function POST(request: Request) {
   const safety = scanTrainingNote(question);
   if (requestedMessageId && (requestedMessageId.length < 8 || requestedMessageId.length > 100)) return productError("INVALID_MESSAGE_ID", "Invalid message identifier.", 422);
   await ensureProductSchema(db);
+  // A retry of a question already saved is not a new question, so it is not
+  // counted against the ceiling — otherwise a flaky connection spends an
+  // athlete's allowance on the same answer twice.
+  if (!requestedMessageId) {
+    const usage = checkUsage("coach_question", await countRecentCoachQuestions(db, ownerId));
+    if (!usage.allowed) {
+      return Response.json(
+        { error: { code: usage.code, message: usage.message }, safety },
+        { status: 429, headers: { "retry-after": String(usage.retryAfterSeconds) } },
+      );
+    }
+  }
   const activeChat = await ensureCoachChat(db, ownerId, requestedChatId);
   if (requestedChatId && activeChat.id !== requestedChatId) return productError("CHAT_NOT_FOUND", "That Coach chat is unavailable.", 404);
   const existingMessage = requestedMessageId

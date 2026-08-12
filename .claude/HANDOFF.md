@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-12T06:49:32.830Z (run by hand).
+Written automatically at 2026-08-12T07:12:05.705Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,25 +8,29 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/deploy-pipeline`
-- HEAD: `c353208` "Make a deploy of main possible, and make it not need a laptop"
-- Tracking `origin/claude/deploy-pipeline`, pushed
+- Branch: `claude/optional-r2`
+- HEAD: `d24b8ab` "Merge pull request #35 from maxhlove19/claude/deploy-pipeline"
+- Tracking `origin/main`, pushed
 
-## Uncommitted work, 1 file(s)
+## Uncommitted work, 7 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M .claude/HANDOFF.md`
+- `M CLOUDFLARE-SETUP.md`
+- ` M app/api/nutrition/route.ts`
+- ` M app/components/ProductScreens.tsx`
+- ` M scripts/prepare-deploy-config.mjs`
+- ` M tests/worker-bindings.test.mjs`
+- ` M worker/index.ts`
+- ` M wrangler.jsonc`
 
 ## What this branch is probably against
 
-Inferred from the branch name, so treat it as a hint rather than a fact:
-
-> 1. **Never merge.** Never push to `main`. Never deploy.
+Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
 
 ## What was verified
 
-- Last test run seen in this session: **444/444 passing, 0 failing.**
+- Last test run seen in this session: **449/449 passing, 0 failing.**
 
 ## What was NOT verified
 
@@ -67,6 +71,9 @@ Re-read the list before relying on their state. A number appearing here means it
 - `scripts/prepare-deploy-config.mjs`
 - `tests/worker-bindings.test.mjs`
 - `CLOUDFLARE-SETUP.md`
+- `app/api/product/route.ts`
+- `app/components/ProductScreens.tsx`
+- `app/api/nutrition/route.ts`
 
 ## The next action
 

@@ -28,7 +28,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { applyDatabaseId, checkDeployConfig } from "../scripts/prepare-deploy-config.mjs";
+import { applyDatabaseId, applyR2Bucket, checkDeployConfig } from "../scripts/prepare-deploy-config.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const generated = `${root}dist/server/wrangler.json`;
@@ -85,7 +85,12 @@ test("all four bindings the worker reads are present exactly once", { skip }, ()
   assert.equal(config.assets?.binding, "ASSETS");
   assert.equal(config.images?.binding, "IMAGES");
   assert.deepEqual((config.d1_databases ?? []).map((entry) => entry.binding), ["DB"]);
-  assert.deepEqual((config.r2_buckets ?? []).map((entry) => entry.binding), ["UPLOADS"]);
+  // R2 is the exception, and it is absent on purpose. Declaring a bucket that
+  // does not exist stops the deploy, and R2 cannot be enabled at all without
+  // attaching a billing subscription to a payment method. An account that has
+  // not done that could otherwise not deploy the app at all, over one optional
+  // screen. It is added by R2_BUCKET_NAME, covered below.
+  assert.deepEqual(config.r2_buckets ?? [], []);
   // The worker is deployed by name. A wrong one creates a second worker beside
   // the live one and leaves the live one untouched, which reads as a deploy
   // that silently did nothing.
@@ -147,4 +152,51 @@ test("a missing ASSETS binding is refused, because the app would serve no pages"
     d1_databases: [{ binding: "DB", database_name: "fightiq", database_id: STAND_IN_ID }],
   });
   assert.ok(problems.some((problem) => /ASSETS/.test(problem)));
+});
+
+// Meal photos are optional, and the two ways of running are both supported.
+// The one that must never happen is a config declaring a bucket the account
+// does not have, because that does not degrade, it stops the deploy.
+
+test("a build with no bucket passes every check, because that is a supported deployment", { skip }, () => {
+  const config = applyDatabaseId(read(generated), STAND_IN_ID);
+  assert.deepEqual(config.r2_buckets ?? [], []);
+  assert.deepEqual(checkDeployConfig(config), []);
+});
+
+test("setting R2_BUCKET_NAME adds the binding under the name the code reads", { skip }, () => {
+  const config = applyR2Bucket(applyDatabaseId(read(generated), STAND_IN_ID), "fightiq-uploads");
+  assert.deepEqual(config.r2_buckets, [{ binding: "UPLOADS", bucket_name: "fightiq-uploads" }]);
+  assert.deepEqual(checkDeployConfig(config), []);
+  // getProductRuntime reads env.UPLOADS. A binding under any other name is a
+  // bucket that exists, costs money, and is never written to.
+  assert.equal(config.r2_buckets[0].binding, "UPLOADS");
+});
+
+test("an unset R2_BUCKET_NAME leaves the config alone rather than adding an empty bucket", () => {
+  const base = { name: "fightiq", compatibility_flags: ["nodejs_compat"], assets: { binding: "ASSETS" }, images: { binding: "IMAGES" }, d1_databases: [{ binding: "DB", database_name: "fightiq", database_id: STAND_IN_ID }] };
+  for (const value of ["", undefined]) {
+    const config = applyR2Bucket(base, value);
+    assert.deepEqual(config.r2_buckets ?? [], [], `${JSON.stringify(value)} must not produce a binding`);
+    assert.deepEqual(checkDeployConfig(config), []);
+  }
+});
+
+test("a malformed bucket name is refused rather than deployed", () => {
+  // This one is worth catching here rather than at upload: wrangler's message
+  // names the bucket and not the variable it came from.
+  const base = { name: "fightiq", compatibility_flags: ["nodejs_compat"], assets: { binding: "ASSETS" }, images: { binding: "IMAGES" }, d1_databases: [{ binding: "DB", database_name: "fightiq", database_id: STAND_IN_ID }] };
+  const problems = checkDeployConfig(applyR2Bucket(base, "Not A Valid Bucket"));
+  assert.ok(problems.some((problem) => /not a valid R2 bucket name/.test(problem)));
+  assert.ok(problems.some((problem) => /R2_BUCKET_NAME/.test(problem)), "the message must name the variable to fix");
+});
+
+test("an R2 binding under the wrong name is refused", () => {
+  const problems = checkDeployConfig({
+    name: "fightiq", compatibility_flags: ["nodejs_compat"],
+    assets: { binding: "ASSETS" }, images: { binding: "IMAGES" },
+    d1_databases: [{ binding: "DB", database_name: "fightiq", database_id: STAND_IN_ID }],
+    r2_buckets: [{ binding: "PHOTOS", bucket_name: "fightiq-uploads" }],
+  });
+  assert.ok(problems.some((problem) => /must be named UPLOADS/.test(problem)));
 });

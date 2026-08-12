@@ -5,7 +5,9 @@ import handler from "vinext/server/app-router-entry";
 interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
-  UPLOADS: R2Bucket;
+  // Optional: an account with no R2 subscription cannot create a bucket, and
+  // the app runs without one with meal photos switched off. See wrangler.jsonc.
+  UPLOADS?: R2Bucket;
   ANTHROPIC_API_KEY?: string;
   YOUTUBE_API_KEY?: string;
   IMAGES: {

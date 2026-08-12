@@ -6,11 +6,17 @@ const imageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/heic
 export async function GET() {
   const ownerId = await getProductOwnerId();
   if (!ownerId) return productError("AUTH_REQUIRED", "Authentication required.", 401);
-  const { db } = getProductRuntime();
+  const { db, uploads } = getProductRuntime();
   if (!db) return productError("STORAGE_UNAVAILABLE", "Nutrition logging is unavailable.", 503);
   await ensureProductSchema(db);
   const [profile, nutrition] = await Promise.all([getOrCreateProfile(db, ownerId), getTodayNutrition(db, ownerId)]);
-  return Response.json({ ...nutrition, goal: profile.primary_goal, targets: { calories: profile.calorie_target, protein: profile.protein_target, carbs: profile.carb_target, fat: profile.fat_target } });
+  // Whether a photo can be kept once the meal is saved, which is a different
+  // question from whether one can be read. /api/nutrition/analyze sends the
+  // image straight to the model and stores nothing, so estimating from a photo
+  // works on a deployment with no bucket. Only keeping it needs R2. The screen
+  // uses this to say which of the two it is doing, rather than offering a
+  // camera and failing on save.
+  return Response.json({ ...nutrition, goal: profile.primary_goal, photoStorage: Boolean(uploads), targets: { calories: profile.calorie_target, protein: profile.protein_target, carbs: profile.carb_target, fat: profile.fat_target } });
 }
 
 export async function POST(request: Request) {

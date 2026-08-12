@@ -24,10 +24,21 @@
   // build: it exists at this path and is about 211KB.
   "main": "dist/server/index.js",
 
-  // Both required by vinext. The date pins runtime behaviour; nodejs_compat is
-  // what lets the framework's server code run in workerd.
+  // The date pins runtime behaviour.
+  //
+  // compatibility_flags is deliberately EMPTY, and nodejs_compat must not be
+  // put back here. It is still required, and it still reaches Cloudflare: the
+  // Cloudflare plugin supplies it once, from localBindingConfig in
+  // vite.config.ts. Declaring it here as well made the build emit
+  // ["nodejs_compat", "nodejs_compat"], and wrangler rejects that upload with
+  // "Compatibility flag specified multiple times: nodejs_compat" [code: 10021].
+  // That is the same duplicate-supplier failure as the D1 binding and the R2
+  // bucket below, in a third disguise.
+  //
+  // tests/worker-bindings.test.mjs asserts the built config carries exactly one
+  // nodejs_compat, so removing it from the other side is caught too.
   "compatibility_date": "2026-02-12",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [],
 
   "observability": { "enabled": true },
 

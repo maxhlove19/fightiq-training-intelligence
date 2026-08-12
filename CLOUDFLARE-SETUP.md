@@ -148,16 +148,51 @@ and everything else are unaffected.
 
 ---
 
-## 7. Deploy
+## 7. Connect the repository so deploys happen on their own
 
-```
-npm run build
-npx @vinext/cloudflare deploy
-```
+This step used to be two commands typed on a Mac. That is exactly how this
+project ended up serving a build from before the sign-in fix for a full day
+while `main` had the fix in it the whole time: a hand-run deploy uploads
+whatever happens to be sitting in one person's folder, and nothing anywhere
+tells you it is stale. The dashboard cannot tell you either. It shows when the
+upload happened, never which commit was in it.
 
-The first command takes a couple of minutes and ends with `Build complete.`
+Cloudflare can build straight from GitHub instead. Once this is connected, every
+merge into `main` redeploys on its own and no laptop is in the path at all.
 
-**You should see:** the deploy print a URL ending in `.workers.dev`. Open it.
+1. In the dashboard, open **Workers and Pages**, click **fightiq**, then
+   **Settings**, then **Build**.
+2. **Connect a Git repository**, choose **GitHub**, authorize it, and pick
+   `maxhlove19/fightiq-training-intelligence`.
+3. Branch: **main**.
+4. **Build command:**
+   `npm run build && node scripts/prepare-deploy-config.mjs`
+5. **Deploy command:**
+   `npx wrangler deploy --config dist/server/wrangler.json`
+6. Add one **build variable**, not a Worker secret, because these are two
+   different lists in two different places and only this one is read while the
+   build runs:
+   `D1_DATABASE_ID` = the **Database ID** shown under **Storage and Databases**,
+   **D1**, **fightiq**.
+7. **Save**, then trigger the first build.
+
+**Why the deploy command names a file.** The build merges `wrangler.jsonc` with
+what the Cloudflare plugin contributes and writes the result to
+`dist/server/wrangler.json`. That merged file is the one holding the real
+bindings, so it is the one to deploy. Plain `npx wrangler deploy` reads
+`wrangler.jsonc`, which still has `REPLACE_ME_D1_DATABASE_ID` in it.
+
+**Why there is a second command in the build step.**
+`scripts/prepare-deploy-config.mjs` puts the database id into that merged file,
+because the id names one specific database and is not kept in the repository. It
+also refuses to continue if the config would upload the wrong bindings, which is
+worth more than it sounds: a deploy carrying a duplicated `DB` binding used to
+be rejected by Cloudflare, and the version of that failure where it is *not*
+rejected is an app that looks perfect and saves every session into a database
+belonging to nobody.
+
+**You should see:** a build log ending with the upload size and a `.workers.dev`
+URL. Open it.
 
 ---
 

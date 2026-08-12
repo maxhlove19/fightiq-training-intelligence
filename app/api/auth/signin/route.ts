@@ -1,4 +1,4 @@
-import { authNotConfigured, supabaseConfig, withSession } from "../../../../lib/auth-routes";
+import { authNotConfigured, sessionIsUsable, sessionNotUsable, supabaseConfig, withSession } from "../../../../lib/auth-routes";
 import { readJsonObject } from "../../../../lib/request-body";
 import { signIn, validateCredentials } from "../../../../lib/supabase-auth";
 
@@ -18,5 +18,12 @@ export async function POST(request: Request) {
   const outcome = await signIn(config, String(body.email).trim(), String(body.password));
   if (!outcome.ok) return Response.json({ error: { code: outcome.code, message: outcome.message } }, { status: outcome.status });
   if (!outcome.session) return Response.json({ error: { code: "EMAIL_UNCONFIRMED", message: outcome.message } }, { status: 401 });
+
+  // Signed in with Supabase is not the same as signed in with FightIQ. See
+  // sessionIsUsable(): a cookie this deployment cannot read back is worse than
+  // no cookie, because it fails on the next request instead of this one.
+  if (!(await sessionIsUsable(outcome.session))) {
+    return sessionNotUsable("Your password is right and the sign in went through. FightIQ could not finish it, which is ours to fix rather than yours. Try again in a few minutes.");
+  }
   return withSession({ ok: true }, outcome.session);
 }

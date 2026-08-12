@@ -66,19 +66,23 @@
     }
   ],
 
-  // UPLOADS. Read via getProductRuntime in lib/product-db.ts:106 and reported by
-  // /api/health as photoUploads. Optional in the real sense: without it meal
-  // photos cannot be stored and everything else works unchanged.
+  // UPLOADS is deliberately NOT declared here, and this is the one binding
+  // whose absence is a decision rather than an oversight.
   //
-  // Adding R2 to an account requires completing a checkout flow even to use the
-  // free allowance. If that is not wanted for a pilot, delete this whole
-  // r2_buckets block and the app runs with photoUploads reporting false.
-  "r2_buckets": [
-    {
-      "binding": "UPLOADS",
-      "bucket_name": "fightiq-uploads"
-    }
-  ],
+  // It is read via getProductRuntime in lib/product-db.ts and reported by
+  // /api/health as photoUploads. Without it meal photos cannot be stored and
+  // everything else works unchanged, which is the same shape as a missing
+  // ANTHROPIC_API_KEY or YOUTUBE_API_KEY.
+  //
+  // Declaring a bucket that does not exist does not degrade. It stops the
+  // deploy, and R2 cannot be switched on at all without attaching a billing
+  // subscription to a payment method, free allowance or not. So an account that
+  // has not taken that step could not deploy this app at all, and the feature it
+  // was being stopped for is one optional screen.
+  //
+  // To turn it on: create the bucket, then set R2_BUCKET_NAME in the deploy
+  // environment. scripts/prepare-deploy-config.mjs adds the binding when that
+  // variable is present, and tests/worker-bindings.test.mjs covers both ways.
 
   // IMAGES. Read only at worker/index.ts:40, and only on the /_vinext/image
   // route. It calls input().transform().output(), which is the transformations

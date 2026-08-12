@@ -6,8 +6,9 @@ A checklist for one person, in order. You do not need to write code.
 stop at that step rather than continuing, because the later steps will fail in
 ways that are harder to read.
 
-Steps marked **[PAID]** cannot be done on a free account. Steps marked
-**[SKIPPABLE]** can be left out and the app still runs, with one feature off.
+Steps marked **[SKIPPABLE]** can be left out and the app still runs, with one
+feature off. Nothing in the main path needs a paid plan. One optional step at
+the end needs a card on file without charging it, and it says so.
 
 ---
 
@@ -16,8 +17,8 @@ Steps marked **[PAID]** cannot be done on a free account. Steps marked
 You need: a Cloudflare account, and a terminal on the machine that has this
 repository.
 
-You do **not** need a card for the core of this. You need one for R2, which is
-optional. See step 6.
+You do **not** need a card for any of this. Meal photo storage needs one, and
+it is optional and last. See step 9.
 
 ---
 
@@ -57,8 +58,12 @@ npx wrangler d1 create fightiq
 **You should see:** a block of configuration printed back, containing a line like
 `database_id = "0f2c…"`. **Copy that id.**
 
-**Then:** open `wrangler.jsonc` in this repository and replace
-`REPLACE_ME_D1_DATABASE_ID` with the id you copied. Keep the quotes.
+**Keep that id somewhere.** It goes into a build variable in step 6, not into
+a file. `wrangler.jsonc` keeps saying `REPLACE_ME_D1_DATABASE_ID` on purpose:
+the id names one specific database and does not belong in the repository.
+
+You can also read it later from the dashboard, under **Storage and Databases**,
+**D1**, **fightiq**, as **Database ID**.
 
 **You should see:** in the dashboard, under Storage & Databases, D1 SQL Database,
 a database named `fightiq` with 0 tables. Zero is correct at this point. The app
@@ -122,33 +127,7 @@ never signed up. If you see that symptom, this is where to look.
 
 ---
 
-## 6. Create the file store for meal photos
-
-**[SKIPPABLE]** and the only step that asks for a card.
-
-R2 has a genuinely free allowance of 10GB-month, 1 million class A operations
-and 10 million class B operations. **But adding R2 to an account requires
-completing a checkout flow, which means putting a card on file even though the
-free allowance costs nothing.**
-
-If that is acceptable:
-
-```
-npx wrangler r2 bucket create fightiq-uploads
-```
-
-**You should see:** `Created bucket fightiq-uploads`.
-
-If it is not acceptable right now: open `wrangler.jsonc` and delete the whole
-`"r2_buckets"` block, from the line starting `"r2_buckets"` to its closing `],`.
-
-**What you lose by skipping:** meal photos cannot be stored. `/api/health` will
-report `photoUploads: false`. Sessions, the debrief, Coach, the weight record
-and everything else are unaffected.
-
----
-
-## 7. Connect the repository so deploys happen on their own
+## 6. Connect the repository so deploys happen on their own
 
 This step used to be two commands typed on a Mac. That is exactly how this
 project ended up serving a build from before the sign-in fix for a full day
@@ -196,7 +175,7 @@ URL. Open it.
 
 ---
 
-## 8. Check it actually worked
+## 7. Check it actually worked
 
 Do not judge this by the page looking right. A working old build looks exactly
 like a working new one.
@@ -209,8 +188,8 @@ Open `<your-url>/api/health`.
   false, the database is not connected and nothing will save. Go back to step 3.
 - `"sessionAnalysis": true` means the Anthropic key is set. False means step 4
   did not take.
-- `"photoUploads"` is `true` if you did step 6 and `false` if you skipped it.
-  Both are correct outcomes.
+- `"photoUploads": false` is expected and fine. It means meal photos are not
+  stored, which is step 9 and optional. `true` if you did it.
 - `"liveVideoSearch": false` is expected and fine. It means the optional YouTube
   key is not set, and Learn serves curated studies.
 
@@ -223,7 +202,7 @@ failed.** It is only a problem if `/api/health` also fails.
 
 ---
 
-## 9. Optional extras, any time later
+## 8. Optional extras, any time later
 
 **[SKIPPABLE]** Each of these adds one feature and none are needed to run.
 
@@ -233,6 +212,44 @@ npx wrangler secret put FIGHTIQ_OWNER_EMAILS # unlocks /admin for those emails
 ```
 
 `FIGHTIQ_OWNER_EMAILS` is a comma-separated list of email addresses.
+
+---
+
+## 9. Meal photos, the only step that needs a card
+
+**[SKIPPABLE], and skipping it is the default.** Everything above works without
+this, including the deploy. Do it only if you want meal photos kept.
+
+R2 has a genuinely free allowance of 10GB-month, 1 million class A operations
+and 10 million class B operations. **But R2 cannot be switched on at all without
+adding an R2 subscription to the account, which means agreeing to a billing
+subscription and attaching a payment method, even though the free allowance
+costs nothing.** On an account that has not done this the R2 page is a marketing
+page with one button, and there is no way to create a bucket from it.
+
+That is why the app does not declare the bucket by default. A binding pointing
+at a bucket that does not exist does not degrade gracefully: it stops the deploy
+outright. One optional screen is not worth an app that cannot ship.
+
+**What you lose by skipping:** nothing except keeping the photo. `/api/health`
+reports `photoUploads: false`, and the Food screen says so where it matters:
+a photo is still read to estimate the meal, because that goes straight to the
+model and stores nothing, and the meal still saves with its macros. The screen
+says the photo will not be kept rather than keeping it and losing it later.
+Sessions, the debrief, Coach, the weight record and everything else are
+unaffected.
+
+**To turn it on:**
+
+1. In the dashboard, open **R2** and add the R2 subscription.
+2. Create a bucket named exactly `fightiq-uploads`.
+3. In **Workers and Pages**, **fightiq**, **Settings**, **Build**, add a second
+   build variable: `R2_BUCKET_NAME` = `fightiq-uploads`.
+4. Re-run the build.
+
+**You should see:** the build log line change to
+`bindings ASSETS, IMAGES, DB, UPLOADS ("fightiq-uploads")`, and `/api/health`
+report `photoUploads: true`.
 
 ---
 

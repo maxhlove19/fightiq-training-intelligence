@@ -584,15 +584,19 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
   const [macros, setMacros] = useState<MacroValues>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [confidence, setConfidence] = useState("");
   const [note, setNote] = useState("");
-  const [nutrition, setNutrition] = useState<{ entries: NutritionEntry[]; totals: MacroValues; targets: MacroValues; goal: string } | null>(null);
+  const [nutrition, setNutrition] = useState<{ entries: NutritionEntry[]; totals: MacroValues; targets: MacroValues; goal: string; photoStorage: boolean } | null>(null);
   const [goal, setGoal] = useState("performance");
   const [targets, setTargets] = useState<MacroValues>({ calories: 2400, protein: 180, carbs: 260, fat: 70 });
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [analyzing, setAnalyzing] = useState(false); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [saved, setSaved] = useState(false);
   const voice = useVoiceField(description, setDescription);
-  async function applyNutritionResponse(response: Response) { if (response.ok) { const data = await response.json() as { entries: NutritionEntry[]; totals: MacroValues; targets: MacroValues; goal: string }; setNutrition(data); setGoal(data.goal); setTargets(data.targets); } }
+  async function applyNutritionResponse(response: Response) { if (response.ok) { const data = await response.json() as { entries: NutritionEntry[]; totals: MacroValues; targets: MacroValues; goal: string; photoStorage: boolean }; setNutrition(data); setGoal(data.goal); setTargets(data.targets); } }
   async function load() { await applyNutritionResponse(await fetch("/api/nutrition")); }
   useEffect(() => { void fetch("/api/nutrition").then(applyNutritionResponse); }, []);
+  // Assume storage until the server says otherwise, so the control does not
+  // flicker out from under a thumb on a slow connection. The save path below
+  // is what actually depends on the answer, and it waits for it.
+  const photoStorage = nutrition?.photoStorage !== false;
   const preview = useMemo(() => photo ? URL.createObjectURL(photo) : "", [photo]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   async function analyze() {
@@ -606,7 +610,11 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
   async function save() {
     if (!description.trim()) return;
     setSaving(true); setError("");
-    const form = new FormData(); form.set("description", description); form.set("foods", JSON.stringify(foods)); form.set("inputMethod", photo ? "photo" : "text"); for (const [key, value] of Object.entries(macros)) form.set(key, String(value)); if (photo) form.set("photo", photo);
+    const form = new FormData(); form.set("description", description); form.set("foods", JSON.stringify(foods)); form.set("inputMethod", photo ? "photo" : "text"); for (const [key, value] of Object.entries(macros)) form.set(key, String(value));
+    // Sending it would return UPLOADS_UNAVAILABLE and lose the macros with it.
+    // The photo has already done its job in the estimate, and the athlete was
+    // told it would not be kept, so the meal saves without it.
+    if (photo && photoStorage) form.set("photo", photo);
     try { const response = await fetch("/api/nutrition", { method: "POST", body: form }); const data = await response.json() as { error?: { message?: string } }; if (!response.ok) throw new Error(data.error?.message); setDescription(""); setPhoto(null); setFoods([]); setMacros({ calories: 0, protein: 0, carbs: 0, fat: 0 }); setNote(""); setConfidence(""); setSaved(true); await load(); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Your meal couldn’t be saved."); }
     finally { setSaving(false); }
@@ -621,7 +629,7 @@ export function FoodScreen({ onBack }: { onBack: () => void }) {
     <details className="macro-settings"><summary><span><Target size={15} /> Goal & macro targets</span><ChevronRight size={15} /></summary><div className="settings-body"><label htmlFor="nutrition-goal">GOAL</label><select id="nutrition-goal" value={goal} onChange={(event) => { setGoal(event.target.value); setSettingsSaved(false); }}><option value="cut">Cut</option><option value="maintain">Maintain</option><option value="gain muscle">Gain muscle</option><option value="performance">Performance</option></select><div className="macro-edit-grid">{(["calories", "protein", "carbs", "fat"] as const).map((key) => <label key={key}><span>{key === "calories" ? "KCAL" : key.toUpperCase()}</span><input type="number" min="0" value={targets[key]} onChange={(event) => { setTargets((current) => ({ ...current, [key]: Number(event.target.value) })); setSettingsSaved(false); }} /><small>{key === "calories" ? "" : "g"}</small></label>)}</div><button className="secondary-button" onClick={saveTargets}><Save size={15} /> SAVE TARGETS</button>{settingsSaved && <p className="saved-note"><Check size={13} /> Targets updated.</p>}</div></details>
     <section className="food-log-card"><p className="eyebrow">LOG A MEAL</p><h2>Talk, type, or add a photo.</h2><div className="answer-compose food-compose"><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Chicken, rice, avocado, and salsa…" aria-label="Describe your meal" /><button className={`answer-mic ${voice.listening ? "listening" : ""}`} onClick={voice.toggle} aria-label="Describe meal by voice">{voice.listening ? <X size={19} /> : <Mic size={19} />}</button></div>
       <label className="photo-picker"><input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} /><ImagePlus size={18} /><span>{photo ? "Change food photo" : "Add food photo"}</span></label>
-      {preview && <div className="food-preview"><img src={preview} alt="Your selected food" /><button onClick={() => setPhoto(null)} aria-label="Remove food photo"><X size={17} /></button><span><Camera size={13} /> Photo ready to estimate</span></div>}
+      {preview && <div className="food-preview"><img src={preview} alt="Your selected food" /><button onClick={() => setPhoto(null)} aria-label="Remove food photo"><X size={17} /></button><span><Camera size={13} /> {photoStorage ? "Photo ready to estimate" : "Photo will be read for the estimate, not kept"}</span></div>}
       {(voice.voiceError || error) && <p className="error-message" role="alert">{voice.voiceError || error}</p>}
       <button className="secondary-button estimate-button" onClick={analyze} disabled={analyzing || (!description.trim() && !photo)}>{analyzing ? "ESTIMATING…" : <><Sparkles size={17} /> ESTIMATE FOODS & MACROS</>}</button>
     </section>

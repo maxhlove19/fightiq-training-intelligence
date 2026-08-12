@@ -24,6 +24,10 @@ import { fileURLToPath } from "node:url";
 const PLACEHOLDER_DATABASE_ID = "REPLACE_ME_D1_DATABASE_ID";
 /** Set in the deploy environment. Not a secret, and still not ours to commit. */
 const ID_VARIABLES = ["D1_DATABASE_ID", "CLOUDFLARE_D1_DATABASE_ID"];
+/** Opt in to meal photo storage. Absent is a supported way to run. */
+const R2_VARIABLE = "R2_BUCKET_NAME";
+/** Bucket names are lowercase, digits and hyphens, 3 to 63 characters. */
+const BUCKET_NAME = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 /** A UUID, which is the only shape a D1 database id comes in. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -73,6 +77,19 @@ export function checkDeployConfig(config) {
   const d1Bindings = (config.d1_databases ?? []).map((entry) => entry.binding);
   if (d1Bindings.join() !== "DB") problems.push(`Expected exactly one D1 binding named DB, got ${JSON.stringify(d1Bindings)}. Every route reads it through getProductRuntime.`);
 
+  // R2 is optional, so the check is on shape rather than presence. An empty
+  // r2_buckets is a supported deployment: meal photos are off and /api/health
+  // says so. A malformed one is not, because it fails at deploy time with the
+  // bucket name in the message and nothing else to go on.
+  const r2Buckets = config.r2_buckets ?? [];
+  if (r2Buckets.length > 1) {
+    problems.push(`Expected at most one R2 binding, got ${r2Buckets.length}.`);
+  }
+  for (const entry of r2Buckets) {
+    if (entry.binding !== "UPLOADS") problems.push(`The R2 binding must be named UPLOADS, not ${JSON.stringify(entry.binding)}. getProductRuntime reads it under that name.`);
+    if (!BUCKET_NAME.test(String(entry.bucket_name ?? ""))) problems.push(`${JSON.stringify(entry.bucket_name)} is not a valid R2 bucket name. Check the value of ${R2_VARIABLE}.`);
+  }
+
   for (const entry of config.d1_databases ?? []) {
     if (entry.database_id === PLACEHOLDER_DATABASE_ID) {
       problems.push(`The D1 database id is still ${PLACEHOLDER_DATABASE_ID}. Set ${ID_VARIABLES[0]} in the deploy environment to the id shown in the Cloudflare dashboard under Storage and Databases, D1.`);
@@ -104,6 +121,20 @@ export function applyDatabaseId(config, databaseId) {
   };
 }
 
+/**
+ * Adds the meal photo bucket, when this deployment has one.
+ *
+ * Opt in rather than opt out, because the two failures are not comparable. A
+ * deployment with no bucket and no binding loses one optional screen and says
+ * so at /api/health. A deployment that declares a bucket it does not have
+ * cannot deploy at all, and on an account without an R2 subscription there is
+ * no way to create the bucket without attaching a payment method first.
+ */
+export function applyR2Bucket(config, bucketName) {
+  if (!bucketName) return config;
+  return { ...config, r2_buckets: [{ binding: "UPLOADS", bucket_name: bucketName }] };
+}
+
 function main() {
   const path = fileURLToPath(new URL("../dist/server/wrangler.json", import.meta.url));
 
@@ -115,7 +146,10 @@ function main() {
     process.exit(1);
   }
 
-  const prepared = applyDatabaseId(config, databaseIdFromEnvironment());
+  const prepared = applyR2Bucket(
+    applyDatabaseId(config, databaseIdFromEnvironment()),
+    (process.env[R2_VARIABLE] ?? "").trim(),
+  );
   const problems = checkDeployConfig(prepared);
 
   if (problems.length) {
@@ -128,7 +162,13 @@ function main() {
   const database = prepared.d1_databases[0];
   // The id is not printed. It is not a secret, and a build log is still not
   // the place to start putting identifiers that name one account's database.
-  console.log(`Deploy config ready: worker "${prepared.name}", D1 "${database.database_name}", bindings ASSETS, IMAGES, DB${(prepared.r2_buckets ?? []).length ? ", UPLOADS" : " (no R2)"}.`);
+  const bucket = (prepared.r2_buckets ?? [])[0];
+  console.log(`Deploy config ready: worker "${prepared.name}", D1 "${database.database_name}", bindings ASSETS, IMAGES, DB${bucket ? `, UPLOADS ("${bucket.bucket_name}")` : ""}.`);
+  if (!bucket) {
+    // Said plainly, because a silent absence here is the difference between a
+    // deployment somebody chose and one they did not notice.
+    console.log(`No R2 bucket, so meal photos are off and /api/health will report photoUploads: false. Everything else is unaffected. To turn it on, create the bucket and set ${R2_VARIABLE}.`);
+  }
 }
 
 // Importable by tests without running.

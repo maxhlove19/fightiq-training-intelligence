@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-11T21:13:30.859Z (run by hand).
+Written automatically at 2026-08-12T04:34:22.604Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,25 +8,15 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/supabase-asymmetric-jwt`
-- HEAD: `36a6f69` "Merge pull request #29 from maxhlove19/claude/magical-darwin-2gwd8c"
-- No upstream. Nothing has been pushed from this branch.
+- Branch: `claude/offline-compose`
+- HEAD: `43adaa4` "Let an athlete write the session in a basement, and send it later"
+- Tracking `origin/claude/offline-compose`, pushed
 
-## Uncommitted work, 11 file(s)
+## Uncommitted work, 1 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M CLOUDFLARE-SETUP.md`
-- ` M DEPLOY.md`
-- ` M README.md`
-- ` M app/api/auth/password/route.ts`
-- ` M lib/auth-routes.ts`
-- ` M lib/current-athlete.ts`
-- ` M lib/identity.ts`
-- ` M lib/jwt.ts`
-- ` M package.json`
-- `?? lib/jwks.ts`
-- `?? tests/jwks.test.mjs`
+- `M .claude/HANDOFF.md`
 
 ## What this branch is probably against
 
@@ -34,7 +24,7 @@ Could not infer a goals.md item from the branch name. Read goals.md and pick the
 
 ## What was verified
 
-- No test run was seen in this session. Assume nothing has been verified.
+- Last test run seen in this session: **424/424 passing, 0 failing.**
 
 ## What was NOT verified
 
@@ -48,11 +38,20 @@ State this honestly rather than leaving it blank.
 
 ## Pull requests seen in this session
 
-None seen. Do not assume a pull request exists for this branch; read the list.
+The most recent, in the order they appeared, numbers returned by the API rather than inferred: #4, #3, #2, #1, #32.
+
+Re-read the list before relying on their state. A number appearing here means it existed, not that it is still open.
 
 ## Files touched in this session
 
-- None recorded.
+- `lib/offline-queue.ts`
+- `public/offline.html`
+- `public/sw.js`
+- `app/components/FightIQApp.tsx`
+- `app/globals.css`
+- `tests/offline-queue.test.mjs`
+- `tests/copy-voice.test.mjs`
+- `.claude/HANDOFF.md`
 
 ## The next action
 

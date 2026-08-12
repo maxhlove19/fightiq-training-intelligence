@@ -1,4 +1,4 @@
-import { authNotConfigured, supabaseConfig, withSession } from "../../../../lib/auth-routes";
+import { authNotConfigured, sessionIsUsable, sessionNotUsable, supabaseConfig, withSession } from "../../../../lib/auth-routes";
 import { readJsonObject } from "../../../../lib/request-body";
 import { signUp, validateCredentials } from "../../../../lib/supabase-auth";
 
@@ -19,5 +19,12 @@ export async function POST(request: Request) {
   if (!outcome.ok) return Response.json({ error: { code: outcome.code, message: outcome.message } }, { status: outcome.status });
   // A project with email confirmation turned on returns no session yet.
   if (!outcome.session) return Response.json({ ok: true, pending: true, message: outcome.message }, { status: 200 });
+
+  // The account exists either way, so the wording has to say so. Somebody who
+  // has just handed over an email and a password needs to know it was not
+  // wasted, and that signing in again is the thing to try, not signing up again.
+  if (!(await sessionIsUsable(outcome.session))) {
+    return sessionNotUsable("Your account is created. FightIQ could not sign you straight in, which is ours to fix rather than yours. Try signing in with those details in a few minutes.");
+  }
   return withSession({ ok: true, pending: false }, outcome.session, 201);
 }

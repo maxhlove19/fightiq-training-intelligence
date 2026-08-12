@@ -1687,3 +1687,27 @@ body { letter-spacing: .003em; }
 .weight-entry { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); margin-top: var(--space-1); }
 .weight-entry input { min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font-size: var(--text-base); }
 .weight-entry button { min-height: 40px; padding: 0 var(--space-4); border: 0; border-radius: 8px; background: #1384ff; color: white; font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 800; letter-spacing: .1em; cursor: pointer; }
+
+/* THE PERSONAL MAP
+ *
+ * The entry point from My Game, and the map screen itself. Nodes are
+ * positions this one athlete has actually logged; the edges, not the nodes,
+ * are the product, so the co-occurrence list gets the same weight as the
+ * graph rather than reading as a caption underneath it. */
+.personal-map-entry { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; margin: 0 0 var(--space-3); padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: 16px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; }
+.personal-map-entry > div { display: grid; gap: 4px; min-width: 0; }
+.personal-map-entry span { color: var(--muted-2); font-family: var(--font-geist-mono), monospace; font-size: var(--text-2xs); font-weight: 800; letter-spacing: .12em; }
+.personal-map-entry strong { font-size: var(--text-base); font-weight: 600; line-height: 1.35; }
+.personal-map-entry svg { flex: 0 0 auto; color: var(--muted); }
+
+.personal-map-page .personal-map-empty { padding: var(--space-5) 0; color: var(--muted); font-size: var(--text-base); line-height: 1.55; }
+.personal-map-graph { display: block; width: 100%; height: auto; margin: 0 0 var(--space-4); }
+.personal-map-node-label { fill: var(--ink); font-size: 9px; font-weight: 600; }
+.personal-map-positions, .personal-map-edges { margin: 0 0 var(--space-3); }
+.personal-map-positions ul, .personal-map-edges ul { display: grid; gap: var(--space-1); margin: var(--space-2) 0 0; padding: 0; list-style: none; }
+.personal-map-positions li, .personal-map-edges li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; border-top: 1px solid var(--line-soft); }
+.personal-map-positions li:first-child, .personal-map-edges li:first-child { border-top: 0; }
+.personal-map-positions li strong, .personal-map-edges li strong { color: var(--ink); font-size: var(--text-sm); font-weight: 600; }
+.personal-map-positions li span, .personal-map-edges li span { color: var(--muted); font-size: var(--text-xs); white-space: nowrap; }
+.personal-map-caption { margin: 0 0 var(--space-4); color: var(--muted); font-family: var(--font-geist-mono), monospace; font-size: var(--text-xs); letter-spacing: .04em; }
+.personal-map-share { width: 100%; }

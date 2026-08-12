@@ -6,6 +6,7 @@ import {
   Dumbbell, Home, Mic, RefreshCw, Send, Sparkles, Utensils, X,
 } from "lucide-react";
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, productStore, WorkoutScreen } from "./ProductScreens";
+import { PersonalMapScreen, personalMapStore } from "./PersonalMapScreen";
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
 import { enqueueNote, flushQueue, readQueue, waitingMessage } from "../../lib/offline-queue";
@@ -19,7 +20,7 @@ import { ReturnToTraining, type HoldView } from "./ReturnToTraining";
 /** Which door the athlete signed in through. Only sign out cares. */
 type AuthProvider = "email" | "chatgpt";
 
-type Screen = "home" | "learn" | "coach" | "game" | "log" | "workout" | "food" | "onboarding";
+type Screen = "home" | "learn" | "coach" | "game" | "map" | "log" | "workout" | "food" | "onboarding";
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
@@ -159,6 +160,7 @@ function SignOutButton({ name, provider }: { name: string; provider: AuthProvide
     // would otherwise still be sitting there for whoever signs in next on a
     // shared gym phone.
     productStore.clear();
+    personalMapStore.clear();
     window.location.href = "/";
   }}>{initial}</button>;
 }
@@ -734,10 +736,11 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
     {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} defaults={logDefaults} onQueued={() => setWaiting(readQueue(window.localStorage).length)} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}
-    {screen === "game" && <GameScreen provider={provider} />}
+    {screen === "game" && <GameScreen provider={provider} onOpenMap={() => setScreen("map")} />}
+    {screen === "map" && <PersonalMapScreen onBack={() => setScreen("game")} />}
     {screen === "workout" && <WorkoutScreen onBack={goHome} />}
     {screen === "food" && <FoodScreen onBack={goHome} />}
-    {screen !== "log" && screen !== "workout" && screen !== "food" && <nav className="bottom-nav" aria-label="Primary navigation">
+    {screen !== "log" && screen !== "workout" && screen !== "food" && screen !== "map" && <nav className="bottom-nav" aria-label="Primary navigation">
       <button className={`nav-button ${screen === "home" ? "active" : ""}`} onClick={() => setScreen("home")}><Home size={21} /><span>HOME</span></button>
       <button className={`nav-button ${screen === "learn" ? "active" : ""}`} onClick={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }}><BookOpen size={21} /><span>LEARN</span></button>
       <button className="nav-button center" onClick={() => setSheetOpen(true)} aria-label="Open FightIQ actions"><span className="nav-center-icon"><Mic size={20} /></span><span>FIGHTIQ</span></button>

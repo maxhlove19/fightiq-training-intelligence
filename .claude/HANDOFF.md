@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-12T04:34:22.604Z (run by hand).
+Written automatically at 2026-08-12T05:14:46.953Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,15 +8,22 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/offline-compose`
-- HEAD: `43adaa4` "Let an athlete write the session in a basement, and send it later"
-- Tracking `origin/claude/offline-compose`, pushed
+- Branch: `claude/magical-darwin-hgx6l4`
+- HEAD: `868720a` "Merge pull request #32 from maxhlove19/claude/offline-compose"
+- Tracking `origin/main`, pushed
 
-## Uncommitted work, 1 file(s)
+## Uncommitted work, 8 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M .claude/HANDOFF.md`
+- `M app/components/FightIQApp.tsx`
+- ` M app/components/ProductScreens.tsx`
+- ` M app/globals.css`
+- ` M package.json`
+- `?? app/api/personal-map/`
+- `?? app/components/PersonalMapScreen.tsx`
+- `?? lib/personal-map.ts`
+- `?? tests/personal-map.test.mjs`
 
 ## What this branch is probably against
 
@@ -24,7 +31,7 @@ Could not infer a goals.md item from the branch name. Read goals.md and pick the
 
 ## What was verified
 
-- Last test run seen in this session: **424/424 passing, 0 failing.**
+- No test run was seen in this session. Assume nothing has been verified.
 
 ## What was NOT verified
 
@@ -38,20 +45,11 @@ State this honestly rather than leaving it blank.
 
 ## Pull requests seen in this session
 
-The most recent, in the order they appeared, numbers returned by the API rather than inferred: #4, #3, #2, #1, #32.
-
-Re-read the list before relying on their state. A number appearing here means it existed, not that it is still open.
+None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## Files touched in this session
 
-- `lib/offline-queue.ts`
-- `public/offline.html`
-- `public/sw.js`
-- `app/components/FightIQApp.tsx`
-- `app/globals.css`
-- `tests/offline-queue.test.mjs`
-- `tests/copy-voice.test.mjs`
-- `.claude/HANDOFF.md`
+- None recorded.
 
 ## The next action
 

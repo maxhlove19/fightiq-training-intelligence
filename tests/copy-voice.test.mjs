@@ -20,10 +20,17 @@ function sourceFiles(dir) {
   return out;
 }
 
+// public/offline.html is the screen an athlete reads with no signal, and it is
+// hand written HTML rather than a component, so it sat outside this scan while
+// being one of the few screens somebody reads slowly.
+function staticPages() {
+  return readdirSync("public").filter((entry) => entry.endsWith(".html")).map((entry) => join("public", entry));
+}
+
 /** Lines that a reader could end up seeing, so comments are excluded. */
 function readerFacingLines() {
   const found = [];
-  for (const file of [...sourceFiles("app"), ...sourceFiles("lib")]) {
+  for (const file of [...sourceFiles("app"), ...sourceFiles("lib"), ...staticPages()]) {
     readFileSync(file, "utf8").split("\n").forEach((line, index) => {
       const trimmed = line.trim();
       if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) return;

@@ -8,8 +8,17 @@
 // Deliberately conservative. Nothing personal is ever cached: no /api response,
 // no page HTML. Only the shell, which is the same bytes for everybody, plus a
 // static page to land on when the network is gone.
-
-const SHELL = "fightiq-shell-v1";
+//
+// That static page is now where a note gets written, not just where the athlete
+// is told bad news. It is plain HTML with no build output behind it precisely
+// so that this cache entry is the only thing standing between a basement and a
+// saved session. Caching the real log screen instead would mean caching a
+// server rendered page belonging to one athlete, on a phone people share, which
+// is the trade this file has always refused to make.
+//
+// Bump the version whenever offline.html changes. The byte change in this file
+// is what tells a phone to install the new one.
+const SHELL = "fightiq-shell-v2";
 // Everything the app needs to boot, cached as it is fetched rather than listed
 // up front, because the build hashes these names and a hand written list would
 // go stale on the next deploy.

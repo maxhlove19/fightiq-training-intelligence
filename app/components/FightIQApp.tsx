@@ -8,6 +8,7 @@ import {
 import { CoachScreen, FoodScreen, GameScreen, LearnScreen, productStore, WorkoutScreen } from "./ProductScreens";
 import { AthleteOnboarding } from "./AthleteOnboarding";
 import { clearDraft, draftAge, newClientKey, readDraft, writeDraft } from "../../lib/training-draft";
+import { enqueueNote, flushQueue, readQueue, waitingMessage } from "../../lib/offline-queue";
 import { openingGreeting } from "../../lib/first-session";
 import { sessionDay } from "../../lib/when";
 import { clearOfflineCache } from "./OfflineReady";
@@ -339,7 +340,7 @@ function sessionTypeForPlan(plan: string | null | undefined, fallback: string) {
 
 type LogDefaults = { discipline: string; sessionType: string; firstSession: boolean; watchFor: string };
 
-function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, defaults }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null; activeExperimentId?: string | null; defaults: LogDefaults }) {
+function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, defaults, onQueued }: { onBack: () => void; initialEntryId: string | null; activePlan?: string | null; activeExperimentId?: string | null; defaults: LogDefaults; onQueued?: () => void }) {
   // The unsaved note is read back before the first render, so an athlete who
   // lost signal, backgrounded the app or ran the battery flat opens the log
   // screen and finds their own words already there.
@@ -351,7 +352,9 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
   // One id for this note for as long as it exists unsaved. A retry after a lost
   // reply sends the same one, so the server can tell a retry from a new session.
   const clientKeyRef = useRef(restored?.clientKey ?? newClientKey());
-  const [offlineHold, setOfflineHold] = useState(false);
+  // A session that is written down and waiting to send. Deliberately separate
+  // from error, because it is not one.
+  const [queuedNotice, setQueuedNotice] = useState("");
   const [listening, setListening] = useState(false);
   const [answerListening, setAnswerListening] = useState(false);
   const [speechAvailable, setSpeechAvailable] = useState(true);
@@ -436,26 +439,43 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
 
   async function saveEntry() {
     if (!transcript.trim() || saving) return;
-    setSaving(true); setError(""); setDraftNotice("");
+    setSaving(true); setError(""); setDraftNotice(""); setQueuedNotice("");
     try {
       const response = await fetch("/api/training-entries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ discipline, sessionType, rawEntry: transcript.trim(), clientKey: clientKeyRef.current, ...(activeExperimentId ? { experimentId: activeExperimentId } : {}) }) });
       if (!response.ok) throw new Error("save failed");
       const data = await response.json() as { id: string };
       setEntryId(data.id);
-      setOfflineHold(false);
       // The note is on the server. The next one starts a new identity.
       clientKeyRef.current = newClientKey();
       clearDraft(window.localStorage);
       window.history.replaceState({}, "", `/?debrief=${encodeURIComponent(data.id)}`);
       await startDebrief(data.id);
     } catch {
-      // Nothing is lost here: the note is already on the device, and it stays
-      // there until the server has it.
+      // The note moves out of the draft slot and into the outbox, which is what
+      // makes the sentence below true. It used to promise FightIQ would send it
+      // when the signal came back, while nothing anywhere did the sending.
+      //
+      // Moving it also frees the draft slot, so a second session written in the
+      // same signal free evening no longer overwrites the first.
+      enqueueNote(window.localStorage, {
+        clientKey: clientKeyRef.current,
+        text: transcript.trim(),
+        discipline,
+        sessionType,
+        queuedAt: new Date().toISOString(),
+        ...(activeExperimentId ? { experimentId: activeExperimentId } : {}),
+      });
+      clearDraft(window.localStorage);
+      clientKeyRef.current = newClientKey();
+      setTranscript("");
+      // Not an error, and it must not be dressed as one. The session is written
+      // down and it is going to be sent. Red text under a cleared box reads as
+      // "that did not work", which is the opposite of what happened.
       const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-      setOfflineHold(true);
-      setError(offline
-        ? "No connection. Your note is safe on this phone, and FightIQ will send it the moment you are back online."
-        : "FightIQ couldn’t reach the server. Your note is safe on this phone. Try again, or come back to it later.");
+      setQueuedNotice(offline
+        ? "No connection. This session is saved on this phone and FightIQ sends it the moment you are back online."
+        : "FightIQ couldn’t reach the server. This session is saved on this phone and goes up as soon as it can.");
+      onQueued?.();
     } finally { setSaving(false); }
   }
 
@@ -534,13 +554,10 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
     finally { setSubmitting(false); setAnswerListening(false); }
   }
 
-  // Signal comes back in the car park. The note goes without being asked twice.
-  useEffect(() => {
-    if (!offlineHold) return;
-    const retry = () => { void saveEntry(); };
-    window.addEventListener("online", retry);
-    return () => window.removeEventListener("online", retry);
-  });
+  // Sending when the signal returns is owned by the outbox flush in FightIQApp,
+  // which runs whichever screen is open. Retrying from here as well would call
+  // saveEntry with an empty box, because the session has already moved out of
+  // the draft slot and into the queue by the time this could fire.
 
   if (debriefPhase === "loading") return (
     <main className="page analysis-page">
@@ -610,6 +627,7 @@ function TrainingLog({ onBack, initialEntryId, activePlan, activeExperimentId, d
       <label className="field-label" htmlFor="transcript">WHAT HAPPENED?</label>
       <textarea id="transcript" className="transcript" value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder={notePlaceholder(discipline)} />
       {error && <p className="error-message" role="alert">{error}</p>}
+      {queuedNotice && <p className="queued-notice" role="status">{queuedNotice}</p>}
       <div className="save-row"><button className="primary-button" disabled={!transcript.trim() || saving} onClick={saveEntry}>{saving ? "SAVING…" : <><Send size={18} /> SAVE TRAINING</>}</button></div>
     </main>
   );
@@ -635,6 +653,10 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
   const [learnOrigin, setLearnOrigin] = useState<"coach" | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState("");
+  // How many finished sessions are still only on this phone. Shown rather than
+  // hidden, because "saved" and "sent" are different promises and an athlete
+  // who cannot tell them apart has no reason to trust either.
+  const [waiting, setWaiting] = useState(0);
   const [onboardingStatus, setOnboardingStatus] = useState<"loading" | "required" | "legacy" | "complete">("loading");
   // What the log screen should assume before it is touched. The discipline here
   // is stored on the session and read back by every model call, so a wrong
@@ -660,6 +682,31 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
     });
   }).catch(() => setOnboardingStatus("complete")); }, []);
   useEffect(() => { if (!toast) return; const id = setTimeout(() => setToast(""), 2600); return () => clearTimeout(id); }, [toast]);
+  // Sessions written with no signal go up from here rather than from the log
+  // screen, so it happens whichever screen the app opens on and whether or not
+  // the athlete goes back to logging. The note API has deduped on the client
+  // key since it was written, so a flush racing a manual retry, or two tabs
+  // opening at once, cannot turn one session into two.
+  useEffect(() => {
+    let cancelled = false;
+    const send = async () => {
+      if (readQueue(window.localStorage).length === 0) { if (!cancelled) setWaiting(0); return; }
+      // Bound to window on purpose: a bare reference to fetch throws in some
+      // browsers once it is called with a different receiver.
+      const result = await flushQueue(window.localStorage, (input, init) => fetch(input, init));
+      if (cancelled) return;
+      setWaiting(result.waiting);
+      if (result.sent > 0) {
+        setToast(result.sent === 1 ? "Your saved session has been sent." : `${result.sent} saved sessions have been sent.`);
+        // Home, My Game and the weekly review all read from this, and they were
+        // calculated before these sessions existed.
+        void productStore.load();
+      }
+    };
+    void send();
+    window.addEventListener("online", send);
+    return () => { cancelled = true; window.removeEventListener("online", send); };
+  }, []);
   function goHome() { window.history.replaceState({}, "", "/"); setActiveEntryId(null); setScreen("home"); }
   function act(name: string) {
     setSheetOpen(false);
@@ -684,7 +731,7 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
   if (onboardingStatus === "required" || screen === "onboarding") return <AthleteOnboarding displayName={displayName} onComplete={() => { setOnboardingStatus("complete"); setScreen("home"); }} />;
   return <div className={`app-frame ${screen === "home" ? "home-frame" : ""}`}>
     {screen === "home" && <HomeScreen name={displayName} provider={provider} onLog={(plan, experimentId) => { setActivePlan(plan ?? null); setActiveExperimentId(experimentId ?? null); setScreen("log"); }} onLearn={() => { setLearnTopic(null); setLearnOrigin(null); setScreen("learn"); }} onGame={() => setScreen("game")} onStartTraining={startTraining} onFinishProfile={() => setScreen("onboarding")} />}
-    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} defaults={logDefaults} />}
+    {screen === "log" && <TrainingLog onBack={goHome} initialEntryId={activeEntryId} activePlan={activePlan} activeExperimentId={activeExperimentId} defaults={logDefaults} onQueued={() => setWaiting(readQueue(window.localStorage).length)} />}
     {screen === "learn" && <LearnScreen studyTopic={learnTopic} onReturnToFeed={() => { setLearnTopic(null); setLearnOrigin(null); }} onReturnToCoach={learnOrigin === "coach" ? () => { setScreen("coach"); setLearnOrigin(null); } : undefined} />}
     {screen === "coach" && <CoachScreen onStudyVideo={(topic) => { setLearnTopic(topic); setLearnOrigin("coach"); setScreen("learn"); }} />}
     {screen === "game" && <GameScreen provider={provider} />}
@@ -698,6 +745,11 @@ export function FightIQApp({ displayName, provider = "chatgpt", initialEntryId =
       <button className={`nav-button ${screen === "game" ? "active" : ""}`} onClick={() => setScreen("game")}><CircleUserRound size={21} /><span>MY GAME</span></button>
     </nav>}
     {sheetOpen && <ActionSheet onClose={() => setSheetOpen(false)} onAction={act} />}
+    {/* Not on the log screen. The athlete has just been told, in a line under
+        the box they typed into, that this session is saved and waiting. A
+        floating counter repeating it over the save button is the app saying
+        the same thing twice and covering its own primary action to do it. */}
+    {waiting > 0 && screen !== "log" && <div className="outbox-note" role="status">{waitingMessage(waiting)}</div>}
     {toast && <div className="toast" role="status">{toast}</div>}
   </div>;
 }

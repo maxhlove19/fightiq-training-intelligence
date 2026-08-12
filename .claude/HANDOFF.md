@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-12T04:34:22.604Z (run by hand).
+Written automatically at 2026-08-12T06:49:32.830Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,9 +8,9 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/offline-compose`
-- HEAD: `43adaa4` "Let an athlete write the session in a basement, and send it later"
-- Tracking `origin/claude/offline-compose`, pushed
+- Branch: `claude/deploy-pipeline`
+- HEAD: `c353208` "Make a deploy of main possible, and make it not need a laptop"
+- Tracking `origin/claude/deploy-pipeline`, pushed
 
 ## Uncommitted work, 1 file(s)
 
@@ -20,11 +20,13 @@ This is the part that disappears if the container is reclaimed.
 
 ## What this branch is probably against
 
-Could not infer a goals.md item from the branch name. Read goals.md and pick the top unblocked item.
+Inferred from the branch name, so treat it as a hint rather than a fact:
+
+> 1. **Never merge.** Never push to `main`. Never deploy.
 
 ## What was verified
 
-- Last test run seen in this session: **424/424 passing, 0 failing.**
+- Last test run seen in this session: **444/444 passing, 0 failing.**
 
 ## What was NOT verified
 
@@ -38,20 +40,33 @@ State this honestly rather than leaving it blank.
 
 ## Pull requests seen in this session
 
-The most recent, in the order they appeared, numbers returned by the API rather than inferred: #4, #3, #2, #1, #32.
+The most recent, in the order they appeared, numbers returned by the API rather than inferred: #34, #27, #31, #35.
 
 Re-read the list before relying on their state. A number appearing here means it existed, not that it is still open.
 
 ## Files touched in this session
 
-- `lib/offline-queue.ts`
-- `public/offline.html`
+- `app/api/auth/signin/route.ts`
+- `lib/auth-routes.ts`
+- `app/api/auth/signup/route.ts`
+- `lib/identity.ts`
+- `lib/current-athlete.ts`
+- `lib/jwks.ts`
+- `lib/supabase-auth.ts`
+- `worker/index.ts`
+- `app/components/SignInPanel.tsx`
+- `node_modules/vinext/dist/server/app-route-handler-response.js`
+- `lib/jwt.ts`
 - `public/sw.js`
-- `app/components/FightIQApp.tsx`
-- `app/globals.css`
-- `tests/offline-queue.test.mjs`
-- `tests/copy-voice.test.mjs`
-- `.claude/HANDOFF.md`
+- `app/api/auth/password/route.ts`
+- `tests/auth-session-cookies.test.mjs`
+- `tests/auth-rotated-keys.test.mjs`
+- `build/wrangler-log-path.ts`
+- `vite.config.ts`
+- `wrangler.jsonc`
+- `scripts/prepare-deploy-config.mjs`
+- `tests/worker-bindings.test.mjs`
+- `CLOUDFLARE-SETUP.md`
 
 ## The next action
 

@@ -1,6 +1,6 @@
 # HANDOFF
 
-Written automatically at 2026-08-12T06:49:32.830Z (run by hand).
+Written automatically at 2026-08-12T11:18:30.239Z (run by hand).
 
 Read this before doing anything else. It is generated from git state and
 structured signals, never from conversation text, so it can be thin but it
@@ -8,25 +8,25 @@ cannot be wrong about what it does say.
 
 ## Where the work is
 
-- Branch: `claude/deploy-pipeline`
-- HEAD: `c353208` "Make a deploy of main possible, and make it not need a laptop"
-- Tracking `origin/claude/deploy-pipeline`, pushed
+- Branch: `claude/goals-recheck-12aug`
+- HEAD: `d24b8ab` "Merge pull request #35 from maxhlove19/claude/deploy-pipeline"
+- No upstream. Nothing has been pushed from this branch.
 
 ## Uncommitted work, 1 file(s)
 
 This is the part that disappears if the container is reclaimed.
 
-- `M .claude/HANDOFF.md`
+- `M goals.md`
 
 ## What this branch is probably against
 
 Inferred from the branch name, so treat it as a hint rather than a fact:
 
-> 1. **Never merge.** Never push to `main`. Never deploy.
+> 3. **One branch per run, named for the goals.md item.** Do not start a second
 
 ## What was verified
 
-- Last test run seen in this session: **444/444 passing, 0 failing.**
+- No test run was seen in this session. Assume nothing has been verified.
 
 ## What was NOT verified
 
@@ -40,33 +40,11 @@ State this honestly rather than leaving it blank.
 
 ## Pull requests seen in this session
 
-The most recent, in the order they appeared, numbers returned by the API rather than inferred: #34, #27, #31, #35.
-
-Re-read the list before relying on their state. A number appearing here means it existed, not that it is still open.
+None seen. Do not assume a pull request exists for this branch; read the list.
 
 ## Files touched in this session
 
-- `app/api/auth/signin/route.ts`
-- `lib/auth-routes.ts`
-- `app/api/auth/signup/route.ts`
-- `lib/identity.ts`
-- `lib/current-athlete.ts`
-- `lib/jwks.ts`
-- `lib/supabase-auth.ts`
-- `worker/index.ts`
-- `app/components/SignInPanel.tsx`
-- `node_modules/vinext/dist/server/app-route-handler-response.js`
-- `lib/jwt.ts`
-- `public/sw.js`
-- `app/api/auth/password/route.ts`
-- `tests/auth-session-cookies.test.mjs`
-- `tests/auth-rotated-keys.test.mjs`
-- `build/wrangler-log-path.ts`
-- `vite.config.ts`
-- `wrangler.jsonc`
-- `scripts/prepare-deploy-config.mjs`
-- `tests/worker-bindings.test.mjs`
-- `CLOUDFLARE-SETUP.md`
+- None recorded.
 
 ## The next action
 

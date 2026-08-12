@@ -478,7 +478,7 @@ function DeleteAccountSection({ provider }: { provider: AuthProvider }) {
   </details>;
 }
 
-export function GameScreen({ provider }: { provider: AuthProvider }) {
+export function GameScreen({ provider, onOpenMap }: { provider: AuthProvider; onOpenMap: () => void }) {
   const { data, error, reload } = useProductData();
   const [editing, setEditing] = useState(false);
   const [focus, setFocus] = useState("");
@@ -517,6 +517,7 @@ export function GameScreen({ provider }: { provider: AuthProvider }) {
         <section className="game-card wide"><span>STYLE / FIGHTER INFLUENCES</span>{editing ? <input value={influences} onChange={(event) => setInfluences(event.target.value)} placeholder="e.g. Volkanovski, pressure boxing" aria-label="Style and fighter influences" /> : <p>{data.memory.styleInfluences.length ? data.memory.styleInfluences.join(" · ") : "Add fighters or styles that influence the game you want to build."}</p>}</section>
       </div>
       <section className="build-next"><Sparkles size={20} /><div><span>NEXT EVOLUTION</span><h3>{data.memory.nextEvolution}</h3></div></section>
+      <button className="personal-map-entry" onClick={onOpenMap}><div><span>YOUR MAP</span><strong>The positions you have logged, and what keeps showing up together.</strong></div><ChevronRight size={17} /></button>
       <FocusHistory periods={data.focusHistory} lifetime={data.lifetime} />
       <WeightRecord key={data.weight.latest?.id ?? "empty"} weight={data.weight} onLogged={(next) => productStore.set({ ...data, weight: next })} />
       {editing && <button className="primary-button" onClick={save} disabled={saving || !focus.trim()}>{saving ? "SAVING…" : <><Save size={17} /> SAVE MY GAME</>}</button>}

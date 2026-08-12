@@ -219,6 +219,10 @@ cheap without being able to name why.
 consumers.** Unlike colour this is load-bearing geometry, and every layout fix
 made against it was computed against whichever declaration won in that context.
 
+*Fixed, both of the above. Verified 12 August: `node scripts/token-check.mjs`
+reports one `:root` block and no property defined more than once;
+`--nav-height` appears once in `app/globals.css`, at 70px. PR #29.*
+
 **Three different day counts on one screen.** My Game says "11 sessions logged
 across 1 day", "11 sessions over 2 days" and "11 sessions across 1 day since
 9 Aug". Both units are defensible; stating both without labels is not.
@@ -234,10 +238,17 @@ is doing two jobs: it needs a query for the lookup and a short label for display
 the third person case this cannot be repaired at display time. A stored brief
 carrying a truncated mission should be treated as stale and regenerated.
 
+*Fixed, all four above (the four faults, backlog item 3). Verified 12 August by
+reading the code: `lib/focus-history.ts` derives both day counts from the same
+distinct-days-trained figure, every discipline count renders `×`,
+`getOrCreatePreTrainingBrief` regenerates a brief carrying the old truncation.
+`learn.studyTopic` was checked and is not rendered anywhere in the current UI;
+it only builds a YouTube search URL, so there was nothing to split. PR #25.*
+
 **Repeated suggestion chips.** The chip "What pattern should I watch for in my
 next live round" was sent four times in one thread and answered differently each
 time, so the history reads as a man asking the same question because he was not
-getting an answer.
+getting an answer. *Not re-checked this run; status unknown.*
 
 **The live build is behind main, and the instrumentation is not running.**
 Measured on 11 August: `/api/admin/cost?days=30` returns 404 on the live site
@@ -257,6 +268,16 @@ manual step.**
 The consequence for planning: every session logged between now and a successful
 deploy records no cost data, so the twenty-session milestone cannot produce the
 number the pricing decision rests on until shipping is restored.
+
+*The two config faults that blocked every deploy attempt (duplicate D1 and R2
+bindings, doubled `nodejs_compat`) are fixed on main as of PR #35, and
+`wrangler deploy --dry-run` against a real build now succeeds. PR #36, open and
+unmerged as of 12 August, fixes a third: `wrangler.jsonc` declared an R2 bucket
+unconditionally, and R2 cannot be enabled on an account that has not attached
+billing, so that bucket blocked the deploy outright on this account. Nobody has
+run an actual deploy since these fixes went in. This defect is not resolved
+until one has, and its resolution can only be verified live, by a human, not
+from this repository.*
 
 **This product currently has no users.** Site analytics for the thirty days to
 11 August: 5 unique visitors and 826 page views, all of it on 9, 10 and 11
@@ -311,6 +332,13 @@ participating member over months with the product incidental. **Not a launch.**
    Until a deploy succeeds, treat every merged change as invisible to real
    users, and do not describe merged work as live.
 
+   *Update, 12 August: the project moved off the Sites platform onto Cloudflare
+   Workers Builds instead of working around the sandbox bug. Every config fault
+   found in `wrangler deploy --dry-run` against a real build is fixed on main
+   (PR #35) or fixed on an open, unmerged PR (#36, the R2-without-billing
+   bucket). A dry run now succeeds. No deploy has actually been run. This item
+   is not done until one has, and only a human can run and verify it.*
+
 1. **Model cost, and then the tiering question it answers.** Promoted above
    everything else, including the design work, because a design pass on a
    product with unknown unit economics is decorating a room in a house nobody
@@ -337,18 +365,29 @@ participating member over months with the product incidental. **Not a launch.**
 
 2. **The slop pass.** Fix the copy defects above and add a test for each rule,
    including the British spelling rule and a check on Coach answer shape.
+   **Done, PR #24, merged.**
 3. **The four faults**: one day-count unit used consistently, one glyph,
    `learn.studyTopic` split into query and label, stale briefs regenerated.
+   **Done, PR #25, merged. See the known defects section above for what was
+   found on each of the four.**
 4. **The recommendations record.** `fighter_focus_recommendations` is keyed on
    `owner_id` and upserted, so what FightIQ suggested and when is overwritten.
-   Same class as the focus and the bodyweight.
+   Same class as the focus and the bodyweight. **Done, PR #26, merged, verified
+   12 August by reading `lib/schema.ts`: the table now keys on its own `id` and
+   appends. Note for whoever triages open pull requests: PR #28 is an earlier,
+   now-redundant attempt at the same fix, opened before #26 landed.**
 5. **The design reconciliation.** Collapse four `:root` blocks into one, decide
    the accent colour, make `--nav-height` one number, then set a per-screen
    ceiling in `scripts/layout-sweep.mjs` at the honest number and let it fail on
-   drift.
+   drift. **Done, PR #29, merged, verified 12 August (see known defects
+   above). `scripts/layout-sweep.mjs` exists and skips cleanly when Playwright
+   is not installed, which it is not in this environment, so its per-screen
+   ceiling has not actually been exercised.**
 6. **The product sequence.** Agreed and ordered. See "The sequence, with
    checkable milestones" below, and follow it in order rather than picking from
-   it.
+   it. **This is the top unblocked item as of 12 August**, since 0 through 5
+   are each either merged, or blocked on a human deploy (0), or blocked on real
+   training data (1, part two).
 
 ---
 
@@ -359,13 +398,40 @@ above it is unmet.
 
 1. **The four fixes.** Onboarding cut, desktop treatment, the three day counts,
    the two glyphs. **Milestone: all four merged and verified on the live site.**
+   All four are merged. None are verified on the live site, because nothing has
+   ever been deployed since this project moved to Cloudflare (see item 0 above).
+   **This milestone is not met**, and record this plainly rather than treat the
+   merges as enough.
 2. **Voice capture.** Speak after training, get a structured log. It is the only
    capture method that survives the friction test, and it was requested verbatim
    by a user in the research. **Milestone: a session logged end to end by voice
-   with no typing.**
+   with no typing.** Already built and merged: `TrainingLog` in
+   `app/components/FightIQApp.tsx` wires the browser's `SpeechRecognition` API
+   straight to the session field, the two remaining fields (discipline, session
+   type) are tap chips pre-filled from the athlete's own defaults, and the
+   post-save follow-up question also takes a spoken answer. **Verified 12 August
+   by reading the code, not by speaking into a browser**, so the milestone's own
+   spirit, a real session logged by a real voice, is still unconfirmed.
 3. **The personal map, with a share export.** The product and the distribution at
    the same time. **Milestone: an image a person would actually post, legible at
-   phone screenshot size rather than on a desktop canvas.**
+   phone screenshot size rather than on a desktop canvas.** Built on PR #33,
+   open and unmerged as of 12 August: `lib/personal-map.ts` builds nodes and
+   edges only from positions actually named in an athlete's own logs, and
+   `PersonalMapScreen.tsx` renders both an on-screen graph and a canvas-drawn
+   1080x1920 share image with no model-written text in it. The branch is stale,
+   built from before PRs #34 and #35 landed, so it needs a rebase before it can
+   merge cleanly. **Neither the on-screen graph nor the share image has been
+   seen rendered in a browser by anyone**, so whether the export is actually
+   legible at phone screenshot size, the entire point of the milestone, is
+   unconfirmed.
+
+   *Note on sequence order: items 2 and 3 were both built before item 1's
+   milestone was ever met, because the deploy path was broken the whole time
+   and nobody could have verified a live site. That is the rule in this file
+   being violated in practice, caught here rather than pretended away. Nothing
+   in item 2 or item 3 depended on item 1 being live, so the work itself is not
+   wasted, but the order was not followed and a person should decide whether to
+   backfill the verification or just retire the ordering rule for this case.*
 4. **Twenty or more real sessions logged**, plus at least one weekly review
    generated against a month of history. A waiting milestone, not a build task.
    Nothing below it can be decided honestly before it is met.

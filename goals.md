@@ -311,6 +311,18 @@ participating member over months with the product incidental. **Not a launch.**
    Until a deploy succeeds, treat every merged change as invisible to real
    users, and do not describe merged work as live.
 
+   **Verified done in code, 13 August 2026.** PR #35 replaced the Sites
+   platform deploy with a Cloudflare Workers deploy connected straight to
+   GitHub, so no laptop and no `python3` sandbox tooling are in the path any
+   more: see `CLOUDFLARE-SETUP.md`, `wrangler.jsonc`, and
+   `scripts/prepare-deploy-config.mjs`, which refuses to write a deployable
+   config carrying duplicate bindings, the wrong `nodejs_compat` count, or a
+   placeholder database id. `tests/worker-bindings.test.mjs` covers this.
+   Nothing left here is a coding task. What remains is the human checklist in
+   `CLOUDFLARE-SETUP.md`: connect the repository, set the secrets, click
+   deploy, and compare asset hashes. Do not describe merged work as live until
+   that checklist has actually been run.
+
 1. **Model cost, and then the tiering question it answers.** Promoted above
    everything else, including the design work, because a design pass on a
    product with unknown unit economics is decorating a room in a house nobody
@@ -337,15 +349,50 @@ participating member over months with the product incidental. **Not a launch.**
 
 2. **The slop pass.** Fix the copy defects above and add a test for each rule,
    including the British spelling rule and a check on Coach answer shape.
+
+   **Verified done, 13 August 2026.** `lib/house-style.ts` rewrites American
+   spellings at generation time; `tests/copy-voice.test.mjs` and
+   `tests/house-style.test.mjs` enforce the banned list, the em/en dash rule
+   and the glyph rule across every reader-facing line in `app/` and `lib/`;
+   `tests/coach-prompt.test.mjs` asserts Coach and the debrief each give one
+   correction rather than the fixed "restate, four bullets, Next step:"
+   skeleton. Grepped the banned phrases in this section directly against
+   `app/` and `lib/`: none remain.
+
 3. **The four faults**: one day-count unit used consistently, one glyph,
    `learn.studyTopic` split into query and label, stale briefs regenerated.
+
+   **Verified done, 13 August 2026.** Day count is one phrasing everywhere,
+   "N sessions across N days, since <date>" (`ProductScreens.tsx:365`). The
+   glyph is `×` everywhere and `tests/copy-voice.test.mjs` fails the build if
+   a bare `x` reappears. `LearnScreen` no longer renders `studyTopic` as
+   visible text at all, it only builds the API query and the YouTube search
+   URL, so the leak cannot reproduce even though the type itself still
+   carries one field. `lib/clip.ts` exports `looksHardTruncated`, and
+   `product-db.ts` refuses to reuse a cached brief that trips it, forcing
+   regeneration, covered by `tests/clip.test.mjs`.
+
 4. **The recommendations record.** `fighter_focus_recommendations` is keyed on
    `owner_id` and upserted, so what FightIQ suggested and when is overwritten.
    Same class as the focus and the bodyweight.
+
+   **Verified done, 13 August 2026.** `fighter_focus_recommendations` is
+   keyed on `id`, not `owner_id`, inserted and never upserted
+   (`lib/debrief-server.ts`), with a one-time migration in `lib/debrief-db.ts`
+   for any legacy single-row-per-owner table, covered by
+   `tests/focus-recommendation-history.test.mjs`.
+
 5. **The design reconciliation.** Collapse four `:root` blocks into one, decide
    the accent colour, make `--nav-height` one number, then set a per-screen
    ceiling in `scripts/layout-sweep.mjs` at the honest number and let it fail on
    drift.
+
+   **Verified done, 13 August 2026.** `node scripts/token-check.mjs` reports
+   one `:root` block with no property declared twice. `--nav-height` is
+   declared once, at `app/globals.css:28`, with ten consumers.
+   `scripts/layout-sweep.mjs` runs a real per-screen colour ceiling in a
+   headless browser and fails on drift.
+
 6. **The product sequence.** Agreed and ordered. See "The sequence, with
    checkable milestones" below, and follow it in order rather than picking from
    it.
@@ -363,6 +410,18 @@ above it is unmet.
    capture method that survives the friction test, and it was requested verbatim
    by a user in the research. **Milestone: a session logged end to end by voice
    with no typing.**
+
+   **Status, 13 August 2026.** Both steps above are built in code. The four
+   fixes are the same defects verified fixed under backlog item 3. Voice
+   capture exists end to end in `app/components/FightIQApp.tsx`: the Web
+   Speech API, a mic button, a live transcript, and a save path that needs no
+   typing. Neither milestone is met, because both are stated as live-site
+   verification and this kind of session cannot deploy or drive a browser
+   against the live site. **Do not start step 3 until a human confirms both
+   milestones on the live site.** That confirmation is a human action, not a
+   coding task, and starting the map first would be skipping ahead against
+   this section's own rule.
+
 3. **The personal map, with a share export.** The product and the distribution at
    the same time. **Milestone: an image a person would actually post, legible at
    phone screenshot size rather than on a desktop canvas.**
